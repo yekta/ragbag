@@ -82,13 +82,6 @@ export class BlobQueue {
   #flushing = false;
   #flushTimer: ReturnType<typeof setTimeout> | undefined;
 
-  /**
-   * Called when the server dedupes an upload onto an existing blob row
-   * (same bytes dumped before): the item must be repointed at the canonical
-   * id. The app wires this to the item.relinkBlob mutator.
-   */
-  onRelink: ((itemId: string, canonicalBlobId: string) => void) | undefined;
-
   constructor(opts: BlobQueueOptions) {
     this.#apiBase = opts.apiBase ?? "";
     this.#authHeaders = opts.authHeaders;
@@ -287,10 +280,7 @@ export class BlobQueue {
     if (!presign.ok) return fail(`presign failed: ${presign.status}`);
     this.#setState({ blocked: null });
 
-    const { blobId: canonicalId, uploadUrl } = (await presign.json()) as {
-      blobId: string;
-      uploadUrl: string | null;
-    };
+    const { uploadUrl } = (await presign.json()) as { uploadUrl: string | null };
 
     if (uploadUrl) {
       try {
@@ -305,20 +295,16 @@ export class BlobQueue {
       }
     }
 
-    // Uploaded (or already in the store): move bytes to the cache under the
-    // canonical id and repoint the item if the server deduped onto an
-    // existing blob row.
+    // Uploaded (or already in the store): keep the bytes in the read cache
+    // under the id the item references, and retire the upload record.
     await idbPut(db, CACHE, {
-      blobId: canonicalId,
+      blobId: record.blobId,
       mime: record.mime,
       size: record.size,
       bytes: record.bytes,
       lastUsedAt: Date.now(),
     } satisfies CacheRecord);
     await idbDelete(db, UPLOADS, record.blobId);
-    if (canonicalId !== record.blobId && record.itemId) {
-      this.onRelink?.(record.itemId, canonicalId);
-    }
     await this.#evict(db);
     await this.#refreshPending();
     return "done";

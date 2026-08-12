@@ -62,11 +62,6 @@ export const retryIngestArgs = z.object({
   id: itemId,
 });
 
-export const relinkBlobArgs = z.object({
-  id: itemId,
-  blobId: z.string(),
-});
-
 export const setTagsArgs = z.object({
   itemId,
   // Full replacement set of the user's own topic tags for this item.
@@ -142,20 +137,6 @@ export const mutators = defineMutators({
       await tx.mutate.item.update({
         id: args.id,
         pinned: args.pinned,
-        updatedAt: Date.now(),
-      });
-    }),
-
-    // Blob upload dedupe fix-up: an offline capture mints its own blobId; if
-    // the flush later learns the bytes were already uploaded (same sha256),
-    // the item is repointed at the canonical blob row.
-    relinkBlob: defineMutator(relinkBlobArgs, async ({ tx, ctx, args }) => {
-      const { userID } = mustBeLoggedIn(ctx);
-      const item = await mustOwnItem(tx, userID, args.id);
-      if (!item.blobId) throw new Error("Item has no blob");
-      await tx.mutate.item.update({
-        id: args.id,
-        blobId: args.blobId,
         updatedAt: Date.now(),
       });
     }),

@@ -29,29 +29,22 @@ export const blobRoutes = new Hono()
     if (!parsed.success) return c.json({ error: parsed.error.message }, 400);
     const { blobId, sha256, mime, size, originalName } = parsed.data;
 
+    // The client's blob id always wins: its items already reference it, very
+    // possibly created offline before this request. Re-dumping identical bytes
+    // therefore adds a cheap extra row pointing at the same content-addressed
+    // object — the bytes are still stored exactly once, and no client ever has
+    // to be told its id was reassigned.
     const key = blobKey(authData.userID, sha256);
-    let existing = await db.query.blob.findFirst({
-      where: and(eq(blob.userId, authData.userID), eq(blob.sha256, sha256)),
-    });
-    if (!existing) {
-      // Use the client-minted id so items created offline already point at the
-      // right row. Unique (user_id, sha256) makes concurrent presigns collapse
-      // onto one row; the loser re-reads.
-      await db
-        .insert(blob)
-        .values({ id: blobId, userId: authData.userID, sha256, mime, size, originalName })
-        .onConflictDoNothing();
-      existing = await db.query.blob.findFirst({
-        where: and(eq(blob.userId, authData.userID), eq(blob.sha256, sha256)),
-      });
-      if (!existing) return c.json({ error: "blob row vanished" }, 500);
-    }
+    await db
+      .insert(blob)
+      .values({ id: blobId, userId: authData.userID, sha256, mime, size, originalName })
+      .onConflictDoNothing(); // same id retried — the row is already right
 
-    // Only skip the upload when the bytes are actually in the store — a row
+    // Only skip the upload when the bytes are actually in the store: a row
     // alone can be a leftover from an interrupted upload, and this presign is
     // exactly that client retrying.
     const uploadUrl = (await storage.exists(key)) ? null : await storage.presignUpload(key, mime);
-    return c.json({ blobId: existing.id, uploadUrl });
+    return c.json({ blobId, uploadUrl });
   })
   .get("/:id/download-url", async (c) => {
     const authData = await getAuthData(c.req.raw);

@@ -100,8 +100,11 @@ export const blob = pgTable(
     originalName: text("original_name"),
     ...timestamps,
   },
-  // Content-addressed per user: re-dumping the same bytes reuses the blob.
-  (t) => [uniqueIndex("blob_user_sha256_idx").on(t.userId, t.sha256)],
+  // NOT unique on (user_id, sha256): bytes are deduplicated by the storage
+  // key (<user_id>/<sha256>), so several rows may point at one object. That
+  // lets every client keep the blob id it minted offline — a row whose id the
+  // server reassigned would orphan the item that already referenced it.
+  (t) => [index("blob_user_sha256_idx").on(t.userId, t.sha256)],
 );
 
 export const item = pgTable(

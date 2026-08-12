@@ -1,6 +1,6 @@
 import { ragbagZeroOptions } from "@ragbag/client-runtime";
-import { mutators, queries } from "@ragbag/contracts";
-import { useConnectionState, useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
+import { queries } from "@ragbag/contracts";
+import { useConnectionState, useQuery, ZeroProvider } from "@rocicorp/zero/react";
 import { Outlet } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Composer } from "./components/Composer.js";
@@ -118,17 +118,9 @@ function Workspace({ identity, status }: { identity: Identity; status: SessionSt
   );
 }
 
-/** Connects the blob queue's callbacks to Zero + the session lifecycle. */
+/** Wakes the blob queue whenever a session becomes available again. */
 function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
-  const zero = useZero();
   const queue = useBlobQueue();
-  useEffect(() => {
-    queue.onRelink = (itemId, blobId) =>
-      void zero.mutate(mutators.item.relinkBlob({ id: itemId, blobId }));
-    return () => {
-      queue.onRelink = undefined;
-    };
-  }, [zero, queue]);
   useEffect(() => {
     // A fresh session unparks uploads that 401'd while signed out.
     if (sessionOk) queue.notifyAuthChanged();
