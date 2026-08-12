@@ -1,11 +1,10 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { dayKey, dayLabel } from "../lib/format.js";
 import { useViewStore } from "../lib/store.js";
 import type { Timeline as TimelineRows, TimelineItem } from "../lib/types.js";
 import { Icon } from "./Icon.js";
-import { ItemCard, KindDot } from "./ItemCard.js";
+import { ItemCard } from "./ItemCard.js";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
 // bottom like a messenger. Virtualized (plan §10) — the full personal archive
@@ -14,13 +13,13 @@ import { ItemCard, KindDot } from "./ItemCard.js";
 type Row = { type: "day"; key: string; label: string } | { type: "item"; item: TimelineItem };
 
 function useRows(items: TimelineRows): Row[] {
-  const { kindFilter, tagFilter } = useViewStore();
+  const { viewFilter, tagFilter } = useViewStore();
   return useMemo(() => {
     // Items arrive newest-first from the shared query; the chat renders
     // oldest-first.
     let filtered = items.toReversed();
-    if (kindFilter === "pinned") filtered = filtered.filter((i) => i.pinned);
-    else if (kindFilter) filtered = filtered.filter((i) => i.kind === kindFilter);
+    if (viewFilter === "favorites") filtered = filtered.filter((i) => i.favorite);
+    else if (viewFilter) filtered = filtered.filter((i) => i.kind === viewFilter);
     if (tagFilter) filtered = filtered.filter((i) => i.itemTags.some((t) => t.tagId === tagFilter));
 
     const rows: Row[] = [];
@@ -34,38 +33,15 @@ function useRows(items: TimelineRows): Row[] {
       rows.push({ type: "item", item });
     }
     return rows;
-  }, [items, kindFilter, tagFilter]);
+  }, [items, viewFilter, tagFilter]);
 }
 
-function PinnedStrip({ items }: { items: TimelineRows }) {
-  const pinned = useMemo(() => items.filter((i) => i.pinned).slice(0, 20), [items]);
-  if (pinned.length === 0) return null;
-  return (
-    // max-md padding clears the floating menu/search buttons in the corners.
-    <div className="border-b border-neutral-200 bg-white/70 px-4 py-2 backdrop-blur max-md:px-14">
-      <div className="mx-auto flex max-w-3xl items-center gap-2 overflow-x-auto">
-        <Icon name="star" className="size-3.5 shrink-0 text-amber-500" filled />
-        {pinned.map((item) => (
-          <Link
-            key={item.id}
-            to="/item/$id"
-            params={{ id: item.id }}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-700 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50"
-          >
-            <KindDot kind={item.kind} />
-            <span className="max-w-48 truncate">
-              {item.content?.title ?? item.text ?? item.url ?? item.kind}
-            </span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
+// Favorites are reachable from the rail as their own view — deliberately not
+// hoisted above the timeline: the archive stays one chronological stream.
 
 function FilterBar() {
-  const { kindFilter, tagFilter, clearFilters } = useViewStore();
-  if (!kindFilter && !tagFilter) return null;
+  const { viewFilter, tagFilter, clearFilters } = useViewStore();
+  if (!viewFilter && !tagFilter) return null;
   return (
     <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
       <button
@@ -111,7 +87,6 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <PinnedStrip items={items} />
       <FilterBar />
       <div
         ref={scrollRef}

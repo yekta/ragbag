@@ -6,17 +6,19 @@ import { create } from "zustand";
 // except `sidebarCollapsed`, a device preference (like the remembered
 // identity), which persists to localStorage.
 
-export type KindFilter = ItemKind | "pinned" | null;
+// The rail's single-select view: one kind, the favorites collection, or
+// everything. Favorites are a *view*, not a badge that hoists items to the top.
+export type ViewFilter = ItemKind | "favorites" | null;
 
 const COLLAPSE_KEY = "ragbag:sidebar-collapsed";
 
 type ViewState = {
-  kindFilter: KindFilter;
+  viewFilter: ViewFilter;
   tagFilter: string | null; // tag id
   searchOpen: boolean;
   sidebarCollapsed: boolean; // desktop rail hidden (persisted)
   sidebarOpen: boolean; // mobile drawer
-  setKindFilter: (kind: KindFilter) => void;
+  setViewFilter: (view: ViewFilter) => void;
   setTagFilter: (tagId: string | null) => void;
   setSearchOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -25,15 +27,15 @@ type ViewState = {
 };
 
 export const useViewStore = create<ViewState>((set) => ({
-  kindFilter: null,
+  viewFilter: null,
   tagFilter: null,
   searchOpen: false,
   sidebarCollapsed: localStorage.getItem(COLLAPSE_KEY) === "1",
   sidebarOpen: false,
   // Picking a filter (or opening search) also closes the mobile drawer — on a
   // phone the drawer exists to pick one thing and get back to the timeline.
-  setKindFilter: (kind) =>
-    set((s) => ({ kindFilter: s.kindFilter === kind ? null : kind, sidebarOpen: false })),
+  setViewFilter: (view) =>
+    set((s) => ({ viewFilter: s.viewFilter === view ? null : view, sidebarOpen: false })),
   setTagFilter: (tagId) =>
     set((s) => ({ tagFilter: s.tagFilter === tagId ? null : tagId, sidebarOpen: false })),
   setSearchOpen: (open) => set({ searchOpen: open, sidebarOpen: false }),
@@ -44,5 +46,5 @@ export const useViewStore = create<ViewState>((set) => ({
       return { sidebarCollapsed: collapsed };
     }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  clearFilters: () => set({ kindFilter: null, tagFilter: null, sidebarOpen: false }),
+  clearFilters: () => set({ viewFilter: null, tagFilter: null, sidebarOpen: false }),
 }));

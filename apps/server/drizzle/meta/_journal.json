@@ -29,6 +29,13 @@
       "when": 1786548362463,
       "tag": "0003_blob-id-is-client-minted",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786557625633,
+      "tag": "0004_favorites-and-todo-state",
+      "breakpoints": true
     }
   ]
 }

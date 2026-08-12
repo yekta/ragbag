@@ -1,6 +1,7 @@
 import type { CapturedBlob } from "@ragbag/client-runtime";
 import { mutators } from "@ragbag/contracts";
-import { isBareUrl, newId, normalizeUrl } from "@ragbag/shared";
+import { newId, normalizeUrl, parseTextCapture } from "@ragbag/shared";
+import type { TextItemKind } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlobQueue } from "../lib/blobs.js";
@@ -8,14 +9,32 @@ import { useDictation } from "../lib/dictation.js";
 import { isTouch } from "../lib/touch.js";
 import { formatBytes } from "../lib/format.js";
 import { Icon } from "./Icon.js";
+import type { IconName } from "./Icon.js";
 
 // The dump box (plan §1: zero friction). Text → note; a bare URL → link;
-// attached files → one item per file through the persistent blob queue —
-// capture is local-only, so dumping works offline and uploads follow later.
+// a "todo:"/"[ ]" marker → todo; attached files → one item per file through
+// the persistent blob queue — capture is local-only, so dumping works offline
+// and uploads follow later.
 //
-// Floats over the timeline: "+" bottom-left opens the file picker, and the
+// Floats over the timeline: "+" bottom-left opens the file picker, the type
+// button next to it forces a kind when the guess would be wrong, and the
 // bottom-right control is a mic while the box is empty, becoming send as soon
 // as there is something to dump.
+
+type CaptureType = "auto" | TextItemKind;
+
+const CAPTURE_TYPES: { value: CaptureType; label: string; icon: IconName; placeholder: string }[] =
+  [
+    {
+      value: "auto",
+      label: "Auto",
+      icon: "sparkles",
+      placeholder: "Dump anything — a thought, a link, a file…",
+    },
+    { value: "note", label: "Note", icon: "note", placeholder: "Write a note…" },
+    { value: "todo", label: "Todo", icon: "todo", placeholder: "What needs doing?" },
+    { value: "address", label: "Address", icon: "address", placeholder: "Street, city…" },
+  ];
 
 type Attachment = {
   captured: CapturedBlob;
@@ -29,6 +48,10 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [capturing, setCapturing] = useState(0);
   const [rejected, setRejected] = useState<string | null>(null);
+  // Sticky within the session: someone adding five todos shouldn't re-pick the
+  // type five times. "auto" is the default and the common case.
+  const [captureType, setCaptureType] = useState<CaptureType>("auto");
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   // Where the dragged files currently hover: over the composer (it highlights
   // itself, as before) or anywhere else (the whole viewport reports it).
   const [dragZone, setDragZone] = useState<"composer" | "window" | null>(null);
@@ -172,12 +195,22 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         );
         void queue.linkItem(captured.blobId, id);
       });
-    } else if (isBareUrl(text)) {
-      watchServer(
-        zero.mutate(mutators.item.create({ id: newId(), kind: "link", url: normalizeUrl(text)! })),
-      );
+    } else if (captureType !== "auto") {
+      // An explicit pick wins over every guess — including "this looks like a
+      // URL": someone typing an address into the Address box means it.
+      watchServer(zero.mutate(mutators.item.create({ id: newId(), kind: captureType, text })));
     } else {
-      watchServer(zero.mutate(mutators.item.create({ id: newId(), kind: "note", text })));
+      const parsed = parseTextCapture(text);
+      watchServer(
+        zero.mutate(
+          mutators.item.create({
+            id: newId(),
+            kind: parsed.kind,
+            text: parsed.text,
+            url: parsed.url ? normalizeUrl(parsed.url)! : undefined,
+          }),
+        ),
+      );
     }
 
     for (const a of attachments) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
@@ -188,6 +221,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   };
 
   const showSend = hasContent || !dictation.supported;
+  const selected = CAPTURE_TYPES.find((t) => t.value === captureType)!;
 
   return (
     <>
@@ -261,9 +295,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               // opens.
               autoFocus={!isTouch}
               className="max-h-52 w-full resize-none bg-transparent px-5 pb-1 pt-4 leading-relaxed text-neutral-900 placeholder-neutral-400 outline-none"
-              placeholder={
-                dictation.listening ? "Listening…" : "Dump anything — a thought, a link, a file…"
-              }
+              placeholder={dictation.listening ? "Listening…" : selected.placeholder}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -275,14 +307,70 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
             />
 
             <div className="flex items-center justify-between px-2.5 pb-2.5">
-              <button
-                className="flex size-9 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                title={canAttach ? "Attach files" : "Blob storage is not configured on the server"}
-                disabled={!canAttach}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Icon name="plus" className="size-5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="flex size-9 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  title={
+                    canAttach ? "Attach files" : "Blob storage is not configured on the server"
+                  }
+                  disabled={!canAttach}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Icon name="plus" className="size-5" />
+                </button>
+
+                {/* Type override. Auto is the default — this is for the dumps
+                    the guess would get wrong (an address, a task without a
+                    marker), not the everyday path. */}
+                <div className="relative">
+                  <button
+                    className={`flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 ${
+                      captureType === "auto"
+                        ? "border-neutral-200"
+                        : "border-neutral-900 text-neutral-900"
+                    }`}
+                    title={`Dump as: ${selected.label}`}
+                    aria-haspopup="menu"
+                    aria-expanded={typeMenuOpen}
+                    onClick={() => setTypeMenuOpen((open) => !open)}
+                  >
+                    <Icon name={selected.icon} className="size-4" />
+                    {captureType !== "auto" && (
+                      <span className="text-xs font-medium">{selected.label}</span>
+                    )}
+                  </button>
+                  {typeMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setTypeMenuOpen(false)} />
+                      <div
+                        role="menu"
+                        className="absolute bottom-full left-0 z-20 mb-2 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-[0_8px_30px_rgb(0_0_0/0.12)]"
+                      >
+                        {CAPTURE_TYPES.map((type) => (
+                          <button
+                            key={type.value}
+                            role="menuitem"
+                            className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-sm transition hover:bg-neutral-100 ${
+                              captureType === type.value ? "text-neutral-900" : "text-neutral-600"
+                            }`}
+                            onClick={() => {
+                              setCaptureType(type.value);
+                              setTypeMenuOpen(false);
+                              textareaRef.current?.focus();
+                            }}
+                          >
+                            <Icon name={type.icon} className="size-4" />
+                            {type.label}
+                            {captureType === type.value && (
+                              <Icon name="check" className="ml-auto size-3.5" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"

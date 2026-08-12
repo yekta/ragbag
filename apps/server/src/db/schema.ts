@@ -118,7 +118,9 @@ export const item = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
-    pinned: boolean("pinned").notNull().default(false),
+    favorite: boolean("favorite").notNull().default(false),
+    // Todos only: null = open, set = done (keeps the "when", unlike a bool).
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
     text: text("text"),
     url: text("url"),
     // Deliberately NOT a foreign key: with the offline upload queue (M3), an

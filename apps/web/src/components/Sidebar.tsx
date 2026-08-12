@@ -12,6 +12,8 @@ import { Icon, KIND_ICON } from "./Icon.js";
 
 const KIND_LABEL: Record<ItemKind, string> = {
   note: "Notes",
+  todo: "Todos",
+  address: "Addresses",
   link: "Links",
   image: "Images",
   pdf: "PDFs",
@@ -50,7 +52,7 @@ export function Sidebar({
   name: string;
   onSignOut: () => void;
 }) {
-  const { kindFilter, tagFilter, setKindFilter, setTagFilter, setSearchOpen } = useViewStore();
+  const { viewFilter, tagFilter, setViewFilter, setTagFilter, setSearchOpen } = useViewStore();
   const { toggleSidebar, setSidebarOpen } = useViewStore();
   const queue = useBlobQueue();
   const queueState = useBlobQueueState();
@@ -61,7 +63,14 @@ export function Sidebar({
     return counts;
   }, [items]);
 
-  const pinnedCount = useMemo(() => items.filter((i) => i.pinned).length, [items]);
+  const favoriteCount = useMemo(() => items.filter((i) => i.favorite).length, [items]);
+
+  // Todos count what's left to do — a list that says "42" when 40 are ticked
+  // off is noise. Every other kind counts everything it holds.
+  const openTodoCount = useMemo(
+    () => items.filter((i) => i.kind === "todo" && !i.completedAt).length,
+    [items],
+  );
 
   // The rail lists the user's own tags only — AI tags are deliberately
   // numerous (§7) and would bury them. They still drive search and the
@@ -128,7 +137,7 @@ export function Sidebar({
 
       <nav className="space-y-0.5 px-3">
         <button
-          className={navButton(kindFilter === null && tagFilter === null)}
+          className={navButton(viewFilter === null && tagFilter === null)}
           onClick={() => useViewStore.getState().clearFilters()}
         >
           <Icon name="inbox" className="size-4" />
@@ -136,22 +145,25 @@ export function Sidebar({
           <span className="ml-auto text-xs opacity-60">{items.length}</span>
         </button>
         <button
-          className={navButton(kindFilter === "pinned")}
-          onClick={() => setKindFilter("pinned")}
+          className={navButton(viewFilter === "favorites")}
+          onClick={() => setViewFilter("favorites")}
         >
           <Icon name="star" className="size-4" />
-          Pinned
-          <span className="ml-auto text-xs opacity-60">{pinnedCount}</span>
+          Favorites
+          <span className="ml-auto text-xs opacity-60">{favoriteCount}</span>
         </button>
         {ITEM_KINDS.map((kind) => (
           <button
             key={kind}
-            className={navButton(kindFilter === kind)}
-            onClick={() => setKindFilter(kind)}
+            className={navButton(viewFilter === kind)}
+            onClick={() => setViewFilter(kind)}
+            title={kind === "todo" ? "Todos (open)" : KIND_LABEL[kind]}
           >
             <Icon name={KIND_ICON[kind]} className="size-4" />
             {KIND_LABEL[kind]}
-            <span className="ml-auto text-xs opacity-60">{kindCounts.get(kind) ?? 0}</span>
+            <span className="ml-auto text-xs opacity-60">
+              {kind === "todo" ? openTodoCount : (kindCounts.get(kind) ?? 0)}
+            </span>
           </button>
         ))}
       </nav>

@@ -1,6 +1,8 @@
 import { mutators } from "@ragbag/contracts";
+import { addressQuery, mapsSearchUrl } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useBlobUrl } from "../lib/blobs.js";
 import { hostOf, timeLabel } from "../lib/format.js";
 import { isTouch } from "../lib/touch.js";
@@ -87,6 +89,111 @@ export function TagChips({ item, limit = 8 }: { item: TimelineItem; limit?: numb
         <span className="text-[11px] text-neutral-400">+{userTags.length - shown.length}</span>
       )}
     </span>
+  );
+}
+
+/**
+ * A todo is a note you can tick off: the checkbox writes `completedAt`, which
+ * syncs like everything else, so checking it here checks it on every device.
+ */
+export function TodoBody({ item, size = "sm" }: { item: TimelineItem; size?: "sm" | "lg" }) {
+  const zero = useZero();
+  const done = Boolean(item.completedAt);
+  return (
+    <div className="flex items-start gap-2.5">
+      <button
+        role="checkbox"
+        aria-checked={done}
+        aria-label={done ? "Mark as not done" : "Mark as done"}
+        title={done ? "Mark as not done" : "Mark as done"}
+        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition ${
+          done
+            ? "border-emerald-600 bg-emerald-600 text-white"
+            : "border-neutral-300 text-transparent hover:border-emerald-500 hover:text-emerald-500"
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          void zero.mutate(mutators.item.setDone({ id: item.id, done: !done }));
+        }}
+      >
+        <Icon name="check" className="size-3.5" />
+      </button>
+      <p
+        className={`whitespace-pre-wrap break-words leading-relaxed ${
+          size === "lg" ? "text-[17px]" : ""
+        } ${done ? "text-neutral-400 line-through" : "text-neutral-900"}`}
+      >
+        <Linkified text={item.text ?? ""} />
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Addresses stay as typed (plan §4) — the actions are what make them useful:
+ * open in maps, or copy for the taxi app. `content.title` is the place name
+ * ingestion recognised, when it did.
+ */
+export function AddressActions({ address }: { address: string }) {
+  const mapsUrl = mapsSearchUrl(address);
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    void navigator.clipboard.writeText(addressQuery(address)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1_500);
+    });
+  };
+
+  const button =
+    "inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50";
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {mapsUrl && (
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className={button}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Icon name="external" className="size-3" /> Open in Maps
+        </a>
+      )}
+      <button
+        className={button}
+        onClick={(e) => {
+          e.stopPropagation();
+          copy();
+        }}
+      >
+        <Icon name={copied ? "check" : "copy"} className="size-3" />
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
+export function AddressBody({ item }: { item: TimelineItem }) {
+  const address = item.text ?? "";
+  return (
+    <div className="mt-0.5 flex gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+        <Icon name="address" className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        {item.content?.title && (
+          <p className="truncate font-medium text-neutral-900">{item.content.title}</p>
+        )}
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-snug text-neutral-600">
+          {address}
+        </p>
+        <div className="mt-2">
+          <AddressActions address={address} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -181,9 +288,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
 
   return (
     <article
-      className={`group relative rounded-2xl border bg-white p-3.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition hover:shadow-[0_2px_8px_rgb(0_0_0/0.06)] ${
-        item.pinned ? "border-amber-200" : "border-neutral-200"
-      }`}
+      className="group relative rounded-2xl border border-neutral-200 bg-white p-3.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition hover:shadow-[0_2px_8px_rgb(0_0_0/0.06)]"
       // Touch has no hover actions, so tapping the card body opens the detail
       // view instead; links and buttons inside keep their own behavior.
       onClick={(e) => {
@@ -195,13 +300,13 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       {/* hover actions */}
       <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border border-neutral-200 bg-white px-1 py-0.5 shadow-sm group-hover:flex">
         <button
-          className={`rounded-full p-1.5 hover:bg-neutral-100 ${item.pinned ? "text-amber-500" : "text-neutral-400 hover:text-neutral-700"}`}
-          title={item.pinned ? "Unpin" : "Pin"}
+          className={`rounded-full p-1.5 hover:bg-neutral-100 ${item.favorite ? "text-amber-500" : "text-neutral-400 hover:text-neutral-700"}`}
+          title={item.favorite ? "Remove from favorites" : "Add to favorites"}
           onClick={() =>
-            void zero.mutate(mutators.item.setPinned({ id: item.id, pinned: !item.pinned }))
+            void zero.mutate(mutators.item.setFavorite({ id: item.id, favorite: !item.favorite }))
           }
         >
-          <Icon name="star" className="size-4" filled={item.pinned} />
+          <Icon name="star" className="size-4" filled={item.favorite} />
         </button>
         <button
           className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
@@ -219,25 +324,25 @@ export function ItemCard({ item }: { item: TimelineItem }) {
         </button>
       </div>
 
-      {item.pinned && (
-        <span className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
-          <Icon name="star" className="size-3" filled /> pinned
-        </span>
-      )}
-
-      {/* the user's message text: note body, or comment on a dump */}
-      {item.text && (
+      {/* the user's message text: note body, or comment on a dump. Todos and
+          addresses own their text, so their bodies render it instead. */}
+      {item.text && item.kind !== "todo" && item.kind !== "address" && (
         <p className="whitespace-pre-wrap break-words leading-relaxed text-neutral-900">
           <Linkified text={item.text} />
         </p>
       )}
 
+      {item.kind === "todo" && <TodoBody item={item} />}
+      {item.kind === "address" && <AddressBody item={item} />}
       {item.kind === "link" && <LinkBody item={item} />}
       {item.kind === "image" && <ImageBody item={item} />}
       {(item.kind === "pdf" || item.kind === "file") && <FileBody item={item} />}
 
       <div className="mt-2 flex items-end justify-between gap-2">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {/* hover actions are unreachable on touch, so favorites need a mark
+              that is always visible */}
+          {item.favorite && <Icon name="star" className="size-3.5 text-amber-500" filled />}
           <StatusChip item={item} />
           <TagChips item={item} />
         </span>
@@ -255,6 +360,8 @@ export function ItemCard({ item }: { item: TimelineItem }) {
 export function KindDot({ kind }: { kind: TimelineItem["kind"] }) {
   const tone = {
     note: "text-amber-600 bg-amber-50",
+    todo: "text-emerald-600 bg-emerald-50",
+    address: "text-rose-600 bg-rose-50",
     link: "text-sky-600 bg-sky-50",
     image: "text-violet-600 bg-violet-50",
     pdf: "text-red-600 bg-red-50",

@@ -198,6 +198,24 @@ const noteId = await dump({
 });
 const linkId = await dump({ id: newId(), kind: "link", url: "https://example.com" });
 const blockedId = await dump({ id: newId(), kind: "link", url: "http://192.168.0.1/admin" });
+// Text kinds the owner chose explicitly: no extraction to do, and ingestion
+// must leave the chosen kind alone.
+const todoId = await dump({
+  id: newId(),
+  kind: "todo",
+  text: "call the vet about the booster shot",
+});
+const addressId = await dump({
+  id: newId(),
+  kind: "address",
+  text: "Karl-Marx-Allee 90, 10243 Berlin",
+});
+// A plain note that is really a task — enrichment may promote it to a todo.
+const promotableId = await dump({
+  id: newId(),
+  kind: "note",
+  text: "pick up the parcel from the depot before Friday and pay the customs fee",
+});
 
 let fileId: string | null = null;
 let pdfId: string | null = null;
@@ -245,12 +263,15 @@ if (serverMeta.blobs) {
   unuploadedId = await dump({ id: newId(), kind: "image", blobId: newId() });
 }
 console.log(
-  "OK   dumped note + link + private-address link" +
+  "OK   dumped note + todo + address + link + private-address link" +
     (serverMeta.blobs ? " + text file + pdf + image + corrupt image" : ""),
 );
 
 // --- wait for the worker ---
-type Snapshot = Map<string, { status: string; title?: string; text?: string; error?: string }>;
+type Snapshot = Map<
+  string,
+  { kind: string; status: string; title?: string; text?: string; error?: string }
+>;
 async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promise<Snapshot> {
   const deadline = Date.now() + timeoutMs;
   let snapshot: Snapshot = new Map();
@@ -260,6 +281,7 @@ async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promis
       timeline.map((i) => [
         i.id,
         {
+          kind: i.kind,
           status: i.content?.status ?? "missing",
           title: i.content?.title ?? undefined,
           text: i.content?.extractedText ?? undefined,
@@ -274,9 +296,18 @@ async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promis
 }
 
 // The un-uploaded item never settles by design — it is asserted separately.
-const watched = [noteId, linkId, blockedId, fileId, pdfId, imageId, badImageId].filter(
-  (x): x is string => Boolean(x),
-);
+const watched = [
+  noteId,
+  linkId,
+  blockedId,
+  todoId,
+  addressId,
+  promotableId,
+  fileId,
+  pdfId,
+  imageId,
+  badImageId,
+].filter((x): x is string => Boolean(x));
 const settled = await poll((s) =>
   watched.every((id) => ["done", "failed"].includes(s.get(id)?.status ?? "")),
 );
@@ -288,6 +319,37 @@ for (const id of watched) {
 const note = settled.get(noteId)!;
 if (note.status !== "done") fail(`note not done: ${JSON.stringify(note)}`);
 console.log("OK   note ingested (no-op extraction)");
+
+// Todos and addresses ride the note path (no extraction) — and the kind the
+// owner picked survives ingestion. That fence is what makes AI promotion safe:
+// promoteNoteKind only ever matches kind = 'note'.
+const todo = settled.get(todoId)!;
+const address = settled.get(addressId)!;
+for (const [label, row, kind] of [
+  ["todo", todo, "todo"],
+  ["address", address, "address"],
+] as const) {
+  if (row.status !== "done") fail(`${label} not done: ${JSON.stringify(row)}`);
+  if (row.kind !== kind) fail(`ingestion overwrote an explicit ${label} kind: ${row.kind}`);
+}
+console.log("OK   todo + address ingested; explicitly chosen kinds untouched by ingestion");
+
+// Promotion is a model judgement, so it is treated like the OCR assertion
+// below: the MECHANISM is asserted (a note may only move to a text kind), the
+// model's verdict is logged for a human rather than pinned to a threshold.
+const promotable = settled.get(promotableId)!;
+const [promotableContent] = await sql<{ ai_summary: string | null }[]>`
+  select ai_summary from item_content where item_id = ${promotableId}`;
+if (!promotableContent?.ai_summary) {
+  console.log("SKIP note→todo promotion (server has no OpenAI key, or no budget left)");
+} else if (!["note", "todo", "address"].includes(promotable.kind)) {
+  fail(`a note was promoted out of the text kinds: ${promotable.kind}`);
+} else {
+  console.log(
+    `OK   enriched task-shaped note settled as kind ${JSON.stringify(promotable.kind)} ` +
+      `(advisory; "todo" is what the prompt asks for here)`,
+  );
+}
 
 const link = settled.get(linkId)!;
 if (link.status !== "done") fail(`link not done: ${JSON.stringify(link)}`);

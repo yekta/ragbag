@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newId } from "@ragbag/shared";
-import { createItemArgs, setTagsArgs } from "./mutators.js";
+import { createItemArgs, setDoneArgs, setKindArgs, setTagsArgs } from "./mutators.js";
 import { presignUploadRequest } from "./payloads.js";
 
 describe("createItemArgs", () => {
@@ -18,6 +18,34 @@ describe("createItemArgs", () => {
     expect(createItemArgs.safeParse({ id: "not-a-ulid", kind: "note", text: "x" }).success).toBe(
       false,
     );
+  });
+
+  it("treats todos and addresses as text kinds", () => {
+    expect(
+      createItemArgs.safeParse({ id: newId(), kind: "todo", text: "call the vet" }).success,
+    ).toBe(true);
+    expect(
+      createItemArgs.safeParse({ id: newId(), kind: "address", text: "Karl-Marx-Allee 90" })
+        .success,
+    ).toBe(true);
+    expect(createItemArgs.safeParse({ id: newId(), kind: "todo" }).success).toBe(false);
+    expect(createItemArgs.safeParse({ id: newId(), kind: "address", text: "  " }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("setDoneArgs / setKindArgs", () => {
+  it("takes a done flag for a todo", () => {
+    expect(setDoneArgs.safeParse({ id: newId(), done: true }).success).toBe(true);
+    expect(setDoneArgs.safeParse({ id: newId(), done: "yes" }).success).toBe(false);
+  });
+
+  it("only reclassifies between the text kinds", () => {
+    expect(setKindArgs.safeParse({ id: newId(), kind: "todo" }).success).toBe(true);
+    expect(setKindArgs.safeParse({ id: newId(), kind: "address" }).success).toBe(true);
+    expect(setKindArgs.safeParse({ id: newId(), kind: "link" }).success).toBe(false);
+    expect(setKindArgs.safeParse({ id: newId(), kind: "image" }).success).toBe(false);
   });
 });
 

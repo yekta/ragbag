@@ -1,6 +1,13 @@
 import { defineMutator, defineMutators } from "@rocicorp/zero";
 import type { Transaction } from "@rocicorp/zero";
-import { ITEM_KINDS, isUlid, newId, normalizeUrl } from "@ragbag/shared";
+import {
+  ITEM_KINDS,
+  TEXT_ITEM_KINDS,
+  isTextKind,
+  isUlid,
+  newId,
+  normalizeUrl,
+} from "@ragbag/shared";
 import type { ItemKind } from "@ragbag/shared";
 import { z } from "zod";
 import { mustBeLoggedIn } from "./context.js";
@@ -33,8 +40,13 @@ export const createItemArgs = z
     blobId: z.string().optional(),
   })
   .superRefine((args, ctx) => {
-    if (args.kind === "note" && !args.text?.trim()) {
-      ctx.addIssue({ code: "custom", message: "a note needs text" });
+    // note/todo/address are all "the user's own words" kinds — they differ in
+    // how they render and what you can do with them, not in what they carry.
+    if (
+      (args.kind === "note" || args.kind === "todo" || args.kind === "address") &&
+      !args.text?.trim()
+    ) {
+      ctx.addIssue({ code: "custom", message: `a ${args.kind} needs text` });
     }
     if (args.kind === "link" && !args.url) {
       ctx.addIssue({ code: "custom", message: "a link needs a url" });
@@ -49,9 +61,21 @@ export const editItemArgs = z.object({
   text: z.string().max(100_000),
 });
 
-export const setPinnedArgs = z.object({
+export const setFavoriteArgs = z.object({
   id: itemId,
-  pinned: z.boolean(),
+  favorite: z.boolean(),
+});
+
+export const setDoneArgs = z.object({
+  id: itemId,
+  done: z.boolean(),
+});
+
+export const setKindArgs = z.object({
+  id: itemId,
+  // Only the text kinds convert into each other: a note the user meant as a
+  // todo, an address they dumped as a note. A link can't become an image.
+  kind: z.enum(TEXT_ITEM_KINDS),
 });
 
 export const deleteItemArgs = z.object({
@@ -96,7 +120,7 @@ export const mutators = defineMutators({
         kind: args.kind,
         createdAt: now,
         updatedAt: now,
-        pinned: false,
+        favorite: false,
         text: args.text,
         url,
         blobId: args.blobId,
@@ -131,12 +155,39 @@ export const mutators = defineMutators({
       });
     }),
 
-    setPinned: defineMutator(setPinnedArgs, async ({ tx, ctx, args }) => {
+    setFavorite: defineMutator(setFavoriteArgs, async ({ tx, ctx, args }) => {
       const { userID } = mustBeLoggedIn(ctx);
       await mustOwnItem(tx, userID, args.id);
       await tx.mutate.item.update({
         id: args.id,
-        pinned: args.pinned,
+        favorite: args.favorite,
+        updatedAt: Date.now(),
+      });
+    }),
+
+    setDone: defineMutator(setDoneArgs, async ({ tx, ctx, args }) => {
+      const { userID } = mustBeLoggedIn(ctx);
+      const item = await mustOwnItem(tx, userID, args.id);
+      if (item.kind !== "todo") throw new Error("Only todos can be completed");
+      await tx.mutate.item.update({
+        id: args.id,
+        completedAt: args.done ? Date.now() : null,
+        updatedAt: Date.now(),
+      });
+    }),
+
+    // Reclassify a text item the user (or ingestion) typed wrong.
+    setKind: defineMutator(setKindArgs, async ({ tx, ctx, args }) => {
+      const { userID } = mustBeLoggedIn(ctx);
+      const item = await mustOwnItem(tx, userID, args.id);
+      if (!isTextKind(item.kind)) {
+        throw new Error(`A ${item.kind} cannot be reclassified`);
+      }
+      await tx.mutate.item.update({
+        id: args.id,
+        kind: args.kind,
+        // Leaving todo drops the done state; it means nothing elsewhere.
+        completedAt: args.kind === "todo" ? item.completedAt : null,
         updatedAt: Date.now(),
       });
     }),

@@ -6,7 +6,7 @@ import { blob, item, itemContent } from "../db/schema.js";
 import { describeImage } from "./extract-image.js";
 import { extractFromHtml } from "./extract-link.js";
 import { extractPdfText } from "./extract-pdf.js";
-import { applyAiTags, enrichItem, existingTopicNames } from "./enrich.js";
+import { applyAiTags, enrichItem, existingTopicNames, promoteNoteKind } from "./enrich.js";
 import { PermanentError, WaitingError } from "./errors.js";
 import { NotHtmlError, fetchPage } from "./fetch-page.js";
 import { indexItemText } from "./indexing.js";
@@ -61,7 +61,9 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
 
   switch (row.kind) {
     case "note":
-      break; // nothing to extract (plan §7)
+    case "todo":
+    case "address":
+      break; // the user's own words — nothing to extract (plan §7)
 
     case "link": {
       try {
@@ -167,6 +169,11 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
         await applyAiTags(enrichment, { userId: job.userId, itemId: job.itemId });
         patch.aiSummary = enrichment.summary;
         patch.lang = enrichment.lang || patch.lang || null;
+        // A dumped thought the model recognises as a task or a place becomes
+        // one — notes only, so an explicit choice is never overwritten.
+        if (await promoteNoteKind(enrichment.suggestedKind, { itemId: job.itemId })) {
+          log.info("note promoted", { itemId: job.itemId, kind: enrichment.suggestedKind });
+        }
       }
     } else {
       patch.error = "AI enrichment skipped: daily budget reached";

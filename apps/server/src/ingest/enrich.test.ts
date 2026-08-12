@@ -9,12 +9,31 @@ describe("Enrichment schema", () => {
       topics: ["rust", "ownership", "memory-safety"],
       entities: ["Rust"],
       lang: "en",
+      suggestedKind: "note",
     };
     expect(Enrichment.safeParse(good).success).toBe(true);
     // At least one type, 3–15 topics (plan §7).
     expect(Enrichment.safeParse({ ...good, types: [] }).success).toBe(false);
     expect(Enrichment.safeParse({ ...good, topics: ["one", "two"] }).success).toBe(false);
     expect(Enrichment.safeParse({ ...good, types: ["not-a-real-type"] }).success).toBe(false);
+  });
+
+  it("classifies a dump as a todo or an address, and requires an answer", () => {
+    const good = {
+      summary: "Pick up the parcel from the depot before Friday.",
+      types: ["todo"],
+      topics: ["errands", "parcel", "logistics"],
+      entities: [],
+      lang: "en",
+      suggestedKind: "todo",
+    };
+    expect(Enrichment.safeParse(good).success).toBe(true);
+    expect(Enrichment.safeParse({ ...good, suggestedKind: "address" }).success).toBe(true);
+    // Structured outputs are strict: the field must be present, and only the
+    // three text kinds are promotable.
+    expect(Enrichment.safeParse({ ...good, suggestedKind: "link" }).success).toBe(false);
+    const { suggestedKind: _omitted, ...missing } = good;
+    expect(Enrichment.safeParse(missing).success).toBe(false);
   });
 });
 
@@ -36,6 +55,12 @@ describe("buildEnrichmentPrompt", () => {
     expect(prompt).toContain("Why local-first software matters");
     expect(prompt).toContain("read before the offsite");
     expect(prompt).toContain("primary copy of data");
+  });
+
+  it("asks for a kind, biased against promoting", () => {
+    const prompt = buildEnrichmentPrompt(base);
+    expect(prompt).toContain("suggestedKind");
+    expect(prompt).toContain("When in doubt, answer 'note'");
   });
 
   it("feeds the existing topic vocabulary for convergence (plan §7)", () => {

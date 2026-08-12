@@ -26,7 +26,9 @@ const item = table("item")
     createdAt: number().from("created_at"),
     updatedAt: number().from("updated_at"),
     deletedAt: number().from("deleted_at").optional(),
-    pinned: boolean(),
+    favorite: boolean(),
+    // Todos only: absent while open, set when done.
+    completedAt: number().from("completed_at").optional(),
     // User's message text: note body, or comment attached to a dump.
     text: string().optional(),
     url: string().optional(),

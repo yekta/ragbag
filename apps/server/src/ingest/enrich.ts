@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { itemTag, tag } from "../db/schema.js";
+import { item, itemTag, tag } from "../db/schema.js";
 import { env } from "../env.js";
 import { openai } from "./openai.js";
 import { recordUsage } from "./usage.js";
@@ -53,6 +53,11 @@ export const Enrichment = z.object({
   topics: z.array(z.string()).min(3).max(15), // lowercase topical tags
   entities: z.array(z.string()), // people, orgs, products, places
   lang: z.string(),
+  // What the dump actually *is*, for notes captured without a marker. Only
+  // ever promotes a note (see promoteNoteKind); required (not optional) so
+  // OpenAI's strict structured outputs accept the schema — "note" means
+  // "leave it alone".
+  suggestedKind: z.enum(["note", "todo", "address"]),
 });
 export type EnrichmentResult = z.infer<typeof Enrichment>;
 
@@ -83,6 +88,9 @@ export function buildEnrichmentPrompt(input: EnrichmentInput): string {
     "- entities: specific people, organizations, products, places mentioned (original casing, may be empty).",
     "- summary: 1-3 plain sentences a future search should match. No 'this article...' meta-phrasing.",
     "- lang: BCP-47 tag of the item's content language (e.g. en, de, pt-BR).",
+    "- suggestedKind: 'todo' when the owner wrote something they intend to DO (a task, an errand, a reminder); " +
+      "'address' when the item is essentially a postal address or a place to go; otherwise 'note'. " +
+      "When in doubt, answer 'note' — a wrong promotion is more annoying than a missed one.",
   ];
   if (input.isVideo) {
     lines.push(
@@ -182,6 +190,27 @@ export async function applyAiTags(
       .values(wantedIds.map((tagId) => ({ itemId: meta.itemId, tagId, source: "ai" as const })))
       .onConflictDoNothing(); // a user tag on the same tag id wins
   }
+}
+
+/**
+ * Promote a plain note that the model recognised as a todo or an address.
+ *
+ * This is ingestion's one write to a user-authored row, and it is fenced: the
+ * UPDATE only matches `kind = 'note'`, so an explicit choice by the owner (the
+ * composer's type picker, or `item.setKind`) always wins — including on a
+ * re-run of ingestion over an item they reclassified by hand.
+ */
+export async function promoteNoteKind(
+  suggested: EnrichmentResult["suggestedKind"],
+  meta: { itemId: string },
+): Promise<boolean> {
+  if (suggested === "note") return false;
+  const promoted = await db
+    .update(item)
+    .set({ kind: suggested, updatedAt: new Date() })
+    .where(and(eq(item.id, meta.itemId), eq(item.kind, "note")))
+    .returning({ id: item.id });
+  return promoted.length > 0;
 }
 
 /** The owner's topic vocabulary, for convergence in the prompt. */

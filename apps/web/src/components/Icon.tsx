@@ -1,13 +1,17 @@
 import {
   ArrowUpIcon,
+  CheckIcon,
+  CopyIcon,
   ExternalLinkIcon,
   FileIcon,
   FileTextIcon,
   ImageIcon,
   InboxIcon,
   LinkIcon,
+  ListTodoIcon,
   LoaderIcon,
   LogOutIcon,
+  MapPinIcon,
   MenuIcon,
   MicIcon,
   PanelLeftIcon,
@@ -27,11 +31,15 @@ import {
 
 const ICONS = {
   note: StickyNoteIcon,
+  todo: ListTodoIcon,
+  address: MapPinIcon,
   link: LinkIcon,
   image: ImageIcon,
   pdf: FileTextIcon,
   file: FileIcon,
   star: StarIcon,
+  check: CheckIcon,
+  copy: CopyIcon,
   trash: Trash2Icon,
   tag: TagIcon,
   search: SearchIcon,
@@ -73,6 +81,8 @@ export function Icon({
 
 export const KIND_ICON = {
   note: "note",
+  todo: "todo",
+  address: "address",
   link: "link",
   image: "image",
   pdf: "pdf",
