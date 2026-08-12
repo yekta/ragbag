@@ -51,8 +51,13 @@ out of the box.
 Postgres job queue (`FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`) feeds the
 classify → extract → enrich → index pipeline. Without `OPENAI_API_KEY` it still
 extracts and indexes content; AI summaries, tags, and embeddings are skipped.
-Embeddings additionally need pgvector (the compose image has it; a bare local
-Postgres may not — migration `0002` adapts either way).
+
+Embeddings additionally need **pgvector**. The compose image ships it; on a
+distro Postgres install the extension package (e.g.
+`apt install postgresql-18-pgvector`) and restart the server — it creates the
+extension, adds `item_chunk.embedding vector(1536)`, and builds the HNSW index
+on boot. Without pgvector everything else keeps working; chunks are still
+written with a generated `tsvector`, so embeddings can be backfilled later.
 
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 

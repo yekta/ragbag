@@ -25,14 +25,21 @@ export async function hasVectorColumn(): Promise<boolean> {
 }
 
 /**
- * Idempotent self-heal for installs that add pgvector after migrating: the
- * same conditional DDL migration 0002 runs, so the column appears on the
- * next boot. No-op (with a NOTICE) when the extension is still missing.
+ * Idempotent self-heal for installs that gain pgvector after migrating (the
+ * conditional DDL in migration 0002 already ran and skipped): create the
+ * extension if we're allowed to, then add the column + HNSW index. Every step
+ * tolerates failure — a non-superuser role can't CREATE EXTENSION, and a
+ * server without pgvector at all simply keeps running without embeddings.
  */
 export async function ensureVectorColumn(): Promise<void> {
   await sql.unsafe(`
     DO $$
     BEGIN
+      BEGIN
+        CREATE EXTENSION IF NOT EXISTS vector;
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'pgvector unavailable (%); embeddings disabled', SQLERRM;
+      END;
       IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
         ALTER TABLE "item_chunk" ADD COLUMN IF NOT EXISTS "embedding" vector(1536);
         CREATE INDEX IF NOT EXISTS "item_chunk_embedding_idx" ON "item_chunk"
