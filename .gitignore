@@ -108,6 +108,3 @@ Thumbs.db
 .yarn/cache
 .yarn/unplugged
 .yarn/install-state.gz
-
-# planning doc (local only)
-PLAN.md
