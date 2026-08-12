@@ -21,19 +21,29 @@ const STALE_RUNNING_MINUTES = 10;
 /** Real processing attempts before a job is marked failed. */
 const MAX_ATTEMPTS = 4;
 /** How long to keep waiting for an offline device to upload its blob. */
-const BLOB_WAIT_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+const BLOB_WAIT_MAX_SECONDS = 7 * 24 * 60 * 60;
 
 type ClaimedJob = {
   id: string;
   itemId: string;
   userId: string;
   attempts: number;
-  createdAt: Date;
+  /** True once this job has waited longer than a blob upload is worth. */
+  waitExpired: boolean;
 };
 
 async function claimJob(): Promise<ClaimedJob | null> {
+  // The wait deadline is evaluated in SQL on purpose: raw queries through
+  // this client return timestamps as strings (drizzle/zero replace
+  // postgres.js's date parsers), so JS-side date math on them is a trap.
   const rows = await sql<
-    { id: string; item_id: string; user_id: string; attempts: number; created_at: Date }[]
+    {
+      id: string;
+      item_id: string;
+      user_id: string;
+      attempts: number;
+      wait_expired: boolean;
+    }[]
   >`
     update ingest_job set status = 'running', attempts = attempts + 1, updated_at = now()
     where id = (
@@ -44,7 +54,8 @@ async function claimJob(): Promise<ClaimedJob | null> {
       limit 1
       for update skip locked
     )
-    returning id, item_id, user_id, attempts, created_at`;
+    returning id, item_id, user_id, attempts,
+      (created_at < now() - make_interval(secs => ${BLOB_WAIT_MAX_SECONDS})) as wait_expired`;
   const row = rows[0];
   return row
     ? {
@@ -52,7 +63,7 @@ async function claimJob(): Promise<ClaimedJob | null> {
         itemId: row.item_id,
         userId: row.user_id,
         attempts: row.attempts,
-        createdAt: row.created_at,
+        waitExpired: row.wait_expired,
       }
     : null;
 }
@@ -73,7 +84,7 @@ async function runJob(job: ClaimedJob): Promise<void> {
     const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
 
     if (err instanceof WaitingError) {
-      if (Date.now() - job.createdAt.getTime() > BLOB_WAIT_MAX_MS) {
+      if (job.waitExpired) {
         await failJob(job, "the file upload never arrived");
         return;
       }
@@ -148,7 +159,20 @@ export function startIngestWorker(): () => Promise<void> {
         log.error("ingest claim failed", { err: String(err) });
       }
       if (job) {
-        await runJob(job);
+        try {
+          await runJob(job);
+        } catch (err) {
+          // runJob handles its own failures; reaching here means the failure
+          // HANDLING itself threw. Never let that take down the API server —
+          // release the job so it isn't stranded in 'running' and carry on.
+          const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+          log.error("ingest handler crashed; releasing job", { itemId: job.itemId, err: message });
+          await sql`
+            update ingest_job
+            set status = 'queued', run_after = now() + interval '1 minute',
+                last_error = ${`handler crashed: ${message}`}, updated_at = now()
+            where id = ${job.id}`.catch(() => {});
+        }
       } else {
         await new Promise<void>((resolve) => {
           wake = resolve;
