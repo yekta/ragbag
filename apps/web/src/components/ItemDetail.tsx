@@ -313,7 +313,7 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
   return (
     <div className="fixed inset-0 z-40">
       <div className="absolute inset-0 bg-neutral-900/30" onClick={onClose} />
-      <div className="absolute inset-y-0 right-0 w-full max-w-2xl overflow-y-auto bg-white shadow-2xl">
+      <div className="absolute inset-y-0 right-0 w-full max-w-2xl overflow-y-auto bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl">
         {children}
       </div>
     </div>

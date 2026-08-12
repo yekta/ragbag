@@ -51,6 +51,7 @@ export function Sidebar({
   onSignOut: () => void;
 }) {
   const { kindFilter, tagFilter, setKindFilter, setTagFilter, setSearchOpen } = useViewStore();
+  const { toggleSidebar, setSidebarOpen } = useViewStore();
   const queue = useBlobQueue();
   const queueState = useBlobQueueState();
 
@@ -88,12 +89,30 @@ export function Sidebar({
   );
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
+    // The shell decides where this card lives (in-flow rail on desktop,
+    // overlay drawer on mobile); the card itself matches the composer's
+    // floating look. overflow-hidden keeps the scrolling tag list inside the
+    // rounded corners.
+    <aside className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-[0_8px_30px_rgb(0_0_0/0.10)]">
       <div className="flex items-center gap-2 px-4 pb-2 pt-4">
         <span className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white">
           <Icon name="inbox" className="size-4" />
         </span>
         <span className="text-lg font-bold tracking-tight">ragbag</span>
+        <button
+          className="ml-auto hidden rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 md:flex"
+          title="Hide sidebar (⌘\)"
+          onClick={toggleSidebar}
+        >
+          <Icon name="sidebar" className="size-4" />
+        </button>
+        <button
+          className="ml-auto flex rounded-lg p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 md:hidden"
+          title="Close"
+          onClick={() => setSidebarOpen(false)}
+        >
+          <Icon name="x" className="size-4" />
+        </button>
       </div>
 
       <button
@@ -102,7 +121,7 @@ export function Sidebar({
       >
         <Icon name="search" className="size-4" />
         Search…
-        <kbd className="ml-auto rounded border border-neutral-200 bg-neutral-50 px-1.5 text-[10px] text-neutral-400">
+        <kbd className="ml-auto rounded border border-neutral-200 bg-neutral-50 px-1.5 text-[10px] text-neutral-400 max-md:hidden">
           ⌘K
         </kbd>
       </button>

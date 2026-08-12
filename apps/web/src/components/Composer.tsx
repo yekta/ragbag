@@ -5,6 +5,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlobQueue } from "../lib/blobs.js";
 import { useDictation } from "../lib/dictation.js";
+import { isTouch } from "../lib/touch.js";
 import { formatBytes } from "../lib/format.js";
 import { Icon } from "./Icon.js";
 
@@ -191,7 +192,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   return (
     <>
       {dragZone === "window" && <DropOverlay />}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pb-5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-4">
         <div className="pointer-events-auto mx-auto w-full max-w-3xl">
           {rejected && (
             <p className="mb-2 flex items-center justify-center gap-2 text-xs text-red-600">
@@ -233,7 +234,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                       </span>
                     </span>
                     <button
-                      className="absolute -right-1.5 -top-1.5 hidden rounded-full border border-neutral-200 bg-white p-0.5 text-neutral-500 shadow-sm hover:text-red-600 group-hover/att:block"
+                      className="absolute -right-1.5 -top-1.5 hidden rounded-full border border-neutral-200 bg-white p-0.5 text-neutral-500 shadow-sm hover:text-red-600 group-hover/att:block max-md:block"
                       title="Remove"
                       onClick={() => removeAttachment(captured.blobId)}
                     >
@@ -256,7 +257,9 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
             <textarea
               ref={textareaRef}
               rows={1}
-              autoFocus
+              // Autofocus on touch would pop the keyboard the moment the app
+              // opens.
+              autoFocus={!isTouch}
               className="max-h-52 w-full resize-none bg-transparent px-5 pb-1 pt-4 leading-relaxed text-neutral-900 placeholder-neutral-400 outline-none"
               placeholder={
                 dictation.listening ? "Listening…" : "Dump anything — a thought, a link, a file…"
@@ -328,9 +331,9 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
  */
 function DropOverlay() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 bg-neutral-900/75 backdrop-blur-sm">
+    <div className="pointer-events-none fixed inset-0 z-50 bg-neutral-900/90 backdrop-blur-sm">
       <div className="flex h-full w-full items-center justify-center p-4">
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-white/70 text-white">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white">
           <Icon name="plus" className="size-10" />
           <p className="text-xl font-semibold drop-shadow">Drop to add to your ragbag</p>
           <p className="text-sm text-white/85">

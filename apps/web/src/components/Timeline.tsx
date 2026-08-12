@@ -41,7 +41,8 @@ function PinnedStrip({ items }: { items: TimelineRows }) {
   const pinned = useMemo(() => items.filter((i) => i.pinned).slice(0, 20), [items]);
   if (pinned.length === 0) return null;
   return (
-    <div className="border-b border-neutral-200 bg-white/70 px-4 py-2 backdrop-blur">
+    // max-md padding clears the floating menu/search buttons in the corners.
+    <div className="border-b border-neutral-200 bg-white/70 px-4 py-2 backdrop-blur max-md:px-14">
       <div className="mx-auto flex max-w-3xl items-center gap-2 overflow-x-auto">
         <Icon name="star" className="size-3.5 shrink-0 text-amber-500" filled />
         {pinned.map((item) => (
@@ -124,7 +125,7 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
         }}
       >
         {empty ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-neutral-400">
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-neutral-400">
             {synced ? (
               <>
                 <Icon name="inbox" className="size-10" />

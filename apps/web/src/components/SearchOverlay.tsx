@@ -91,7 +91,7 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-neutral-900/30 pt-[12vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-neutral-900/30 px-3 pt-[8vh] md:pt-[12vh]">
       <div className="absolute inset-0" onClick={close} />
       <div className="relative flex max-h-[65vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
         <div className="flex items-center gap-3 border-b border-neutral-200 px-4">
@@ -115,7 +115,7 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
               }
             }}
           />
-          <kbd className="rounded border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-[10px] text-neutral-400">
+          <kbd className="rounded border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-[10px] text-neutral-400 max-md:hidden">
             esc
           </kbd>
         </div>

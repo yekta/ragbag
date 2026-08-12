@@ -3,6 +3,7 @@ import { useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useBlobUrl } from "../lib/blobs.js";
 import { hostOf, timeLabel } from "../lib/format.js";
+import { isTouch } from "../lib/touch.js";
 import type { TimelineItem } from "../lib/types.js";
 import { Icon, KIND_ICON } from "./Icon.js";
 
@@ -183,6 +184,13 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       className={`group relative rounded-2xl border bg-white p-3.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition hover:shadow-[0_2px_8px_rgb(0_0_0/0.06)] ${
         item.pinned ? "border-amber-200" : "border-neutral-200"
       }`}
+      // Touch has no hover actions, so tapping the card body opens the detail
+      // view instead; links and buttons inside keep their own behavior.
+      onClick={(e) => {
+        if (!isTouch) return;
+        if (e.target instanceof Element && e.target.closest("a,button")) return;
+        void navigate({ to: "/item/$id", params: { id: item.id } });
+      }}
     >
       {/* hover actions */}
       <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border border-neutral-200 bg-white px-1 py-0.5 shadow-sm group-hover:flex">

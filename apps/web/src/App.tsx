@@ -13,6 +13,7 @@ import { authClient } from "./lib/auth-client.js";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue } from "./lib/blobs.js";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "./lib/identity.js";
 import { useTimelineSearch } from "./lib/search.js";
+import { useViewStore } from "./lib/store.js";
 import { useMeta } from "./lib/use-meta.js";
 import type { MetaResponse } from "@ragbag/contracts";
 
@@ -181,6 +182,10 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
   return null;
 }
 
+/** Floating round button for the controls that sit over the timeline. */
+const floatingButton =
+  "pointer-events-auto flex size-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 shadow-md transition hover:bg-neutral-50 hover:text-neutral-800";
+
 function Shell({
   name,
   meta,
@@ -195,13 +200,86 @@ function Shell({
   const [items, itemsResult] = useQuery(queries.timeline());
   const [tags] = useQuery(queries.tags());
   const searchIndex = useTimelineSearch(items);
+  const { sidebarCollapsed, sidebarOpen, toggleSidebar, setSidebarOpen, setSearchOpen } =
+    useViewStore();
+
+  // ⌘\ toggles the desktop rail; Esc closes the mobile drawer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "\\" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        useViewStore.getState().toggleSidebar();
+      } else if (e.key === "Escape" && useViewStore.getState().sidebarOpen) {
+        useViewStore.getState().setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const sidebar = <Sidebar items={items} tags={tags} name={name} onSignOut={onSignOut} />;
 
   return (
     <div className="flex h-dvh bg-neutral-50 text-neutral-900">
-      <Sidebar items={items} tags={tags} name={name} onSignOut={onSignOut} />
+      {/* Desktop rail: a floating card that slides off-canvas when collapsed.
+          The inner box keeps its width so the content doesn't reflow mid-slide. */}
+      <div
+        className={`hidden w-72 shrink-0 py-3 pl-3 transition-[margin,opacity] duration-300 md:block ${
+          sidebarCollapsed ? "pointer-events-none -ml-72 opacity-0" : ""
+        }`}
+      >
+        {sidebar}
+      </div>
+
+      {/* Mobile: the same card as an overlay drawer over a scrim. */}
+      <div className={`fixed inset-0 z-40 md:hidden ${sidebarOpen ? "" : "pointer-events-none"}`}>
+        <div
+          className={`absolute inset-0 bg-neutral-900/30 transition-opacity duration-300 ${
+            sidebarOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setSidebarOpen(false)}
+        />
+        <div
+          className={`absolute inset-y-0 left-0 w-72 max-w-[85vw] py-[max(0.75rem,env(safe-area-inset-top))] pl-[max(0.75rem,env(safe-area-inset-left))] transition-transform duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {sidebar}
+        </div>
+      </div>
+
       {/* relative: the composer floats over the timeline inside this column */}
       <main className="relative flex min-w-0 flex-1 flex-col">
         <SyncBanner status={status} meta={meta} />
+        {/* Zero-height anchors: the floating controls land below the sync
+            banner without covering it. */}
+        {sidebarCollapsed && (
+          <div className="relative z-10 hidden md:block">
+            <button
+              className={`${floatingButton} absolute left-3 top-3`}
+              title="Show sidebar (⌘\)"
+              onClick={toggleSidebar}
+            >
+              <Icon name="sidebar" className="size-4" />
+            </button>
+          </div>
+        )}
+        <div className="relative z-10 md:hidden">
+          <button
+            className={`${floatingButton} absolute left-3 top-3`}
+            title="Menu"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Icon name="menu" className="size-5" />
+          </button>
+          <button
+            className={`${floatingButton} absolute right-3 top-3`}
+            title="Search"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Icon name="search" className="size-4" />
+          </button>
+        </div>
         <Timeline items={items} synced={itemsResult.type === "complete"} />
         <Composer canAttach={meta?.blobs ?? true} />
       </main>
