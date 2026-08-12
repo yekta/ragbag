@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:zero-cache": "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; cd apps/server && exec pnpm exec zero-cache-dev'",
+    "dev:stop": "sh scripts/dev-stop.sh",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

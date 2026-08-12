@@ -34,7 +34,14 @@ cp .env.example .env          # defaults work for local dev; DEV_LOGIN=true
 docker compose up -d postgres # Postgres 17 + pgvector, wal_level=logical
 pnpm dev                      # turbo: API server (:3001) + web (:5173)
 pnpm dev:zero-cache           # zero-cache (:4848), in a second terminal
+pnpm dev:stop                 # stop everything and free the ports
 ```
+
+Use `pnpm dev:stop` rather than killing things by port. zero-cache listens on
+:4848 _and_ forks a change-streamer on :4849, and `pnpm dev` supervises the API
+through a `tsx watch` parent — so killing one process usually leaves either an
+orphan holding :4849 (the next start dies with `EADDRINUSE :::4849`) or a
+watcher that quietly respawns the server.
 
 The server runs drizzle migrations on boot (creates tables + the `zero_data`
 publication zero-cache replicates). The web dev server proxies `/api` to the API
