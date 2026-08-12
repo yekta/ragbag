@@ -114,7 +114,9 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
       <FilterBar />
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        // pb-36 clears the floating composer so the newest card isn't hidden
+        // behind it when scrolled to the bottom.
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-36"
         onScroll={() => {
           const el = scrollRef.current;
           if (!el) return;

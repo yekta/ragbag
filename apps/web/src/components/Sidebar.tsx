@@ -34,6 +34,11 @@ function SyncDot() {
   );
 }
 
+const navButton = (active: boolean) =>
+  `flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition ${
+    active ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"
+  }`;
+
 export function Sidebar({
   items,
   tags,
@@ -57,10 +62,16 @@ export function Sidebar({
 
   const pinnedCount = useMemo(() => items.filter((i) => i.pinned).length, [items]);
 
+  // The rail lists the user's own tags only — AI tags are deliberately
+  // numerous (§7) and would bury them. They still drive search and the
+  // filters below, they just aren't browsable here.
   const tagCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const item of items)
-      for (const it of item.itemTags) counts.set(it.tagId, (counts.get(it.tagId) ?? 0) + 1);
+    for (const item of items) {
+      for (const it of item.itemTags) {
+        if (it.source === "user") counts.set(it.tagId, (counts.get(it.tagId) ?? 0) + 1);
+      }
+    }
     return counts;
   }, [items]);
 
@@ -75,11 +86,6 @@ export function Sidebar({
         .slice(0, 40),
     [tags, tagCounts],
   );
-
-  const navButton = (active: boolean) =>
-    `flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition ${
-      active ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"
-    }`;
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-neutral-200 bg-white">
@@ -137,7 +143,8 @@ export function Sidebar({
         </h3>
         {rankedTags.length === 0 ? (
           <p className="px-2.5 text-xs text-neutral-400">
-            Tags show up here as you add them — and as ragbag auto-tags your dumps.
+            Your tags show up here as you add them. Auto-tags stay out of the way — they still power
+            search.
           </p>
         ) : (
           <div className="space-y-px">

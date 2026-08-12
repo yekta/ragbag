@@ -65,28 +65,25 @@ export function StatusChip({ item }: { item: TimelineItem }) {
   );
 }
 
+// Only the user's own tags appear in the timeline. AI tags are generous by
+// design (§7) — a dozen per item would drown the cards — so they stay behind
+// the item detail view while still powering search and filtering.
 export function TagChips({ item, limit = 8 }: { item: TimelineItem; limit?: number }) {
-  const withTag = item.itemTags.filter((it) => it.tag);
-  if (withTag.length === 0) return null;
-  const shown = withTag.slice(0, limit);
+  const userTags = item.itemTags.filter((it) => it.tag && it.source === "user");
+  if (userTags.length === 0) return null;
+  const shown = userTags.slice(0, limit);
   return (
     <span className="flex flex-wrap items-center gap-1">
       {shown.map((it) => (
         <span
           key={it.tagId}
-          className={
-            it.source === "ai"
-              ? "inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700"
-              : "inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600"
-          }
-          title={it.source === "ai" ? `AI ${it.tag!.kind} tag` : "your tag"}
+          className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600"
         >
-          {it.source === "ai" && <Icon name="sparkles" className="size-2.5" />}
           {it.tag!.name}
         </span>
       ))}
-      {withTag.length > shown.length && (
-        <span className="text-[11px] text-neutral-400">+{withTag.length - shown.length}</span>
+      {userTags.length > shown.length && (
+        <span className="text-[11px] text-neutral-400">+{userTags.length - shown.length}</span>
       )}
     </span>
   );

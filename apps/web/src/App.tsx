@@ -207,7 +207,8 @@ function Shell({
   return (
     <div className="flex h-dvh bg-neutral-50 text-neutral-900">
       <Sidebar items={items} tags={tags} name={name} onSignOut={onSignOut} />
-      <main className="flex min-w-0 flex-1 flex-col">
+      {/* relative: the composer floats over the timeline inside this column */}
+      <main className="relative flex min-w-0 flex-1 flex-col">
         <SyncBanner status={status} meta={meta} />
         <Timeline items={items} synced={itemsResult.type === "complete"} />
         <Composer canAttach={meta?.blobs ?? true} />
