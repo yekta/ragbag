@@ -8,6 +8,7 @@
 // Run with the dev stack up (postgres, server :3001, zero-cache :4848):
 //   pnpm --filter server exec tsx scripts/ingest-proof.mts
 import { createHash } from "node:crypto";
+import { crc32, deflateSync } from "node:zlib";
 import { mutators, queries, schema } from "@ragbag/contracts";
 import { newId } from "@ragbag/shared";
 import { Zero } from "@rocicorp/zero";
@@ -48,6 +49,90 @@ function buildTinyPdf(text: string): Uint8Array {
   for (const offset of offsets) xref += `${String(offset).padStart(10, "0")} 00000 n \n`;
   body += `${xref}trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
   return new TextEncoder().encode(body);
+}
+
+// 5x7 bitmap glyphs for the word rendered into the test image.
+const FONT: Record<string, string[]> = {
+  R: ["####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"],
+  A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+  G: [".###.", "#...#", "#....", "#..##", "#...#", "#...#", ".###."],
+  B: ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
+};
+const OCR_WORD = "RAGBAG";
+
+/** Levenshtein distance — the OCR assertion allows a little model slop. */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(
+        prev[j]! + 1,
+        row[j - 1]! + 1,
+        prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = row;
+  }
+  return prev[b.length]!;
+}
+
+/**
+ * A real greyscale PNG (encoded here so the repo carries no binary fixture):
+ * big black block letters on white, which the vision model must both describe
+ * and transcribe. Deliberately high-contrast and generously padded so the OCR
+ * assertion tests our pipeline, not the model's eyesight.
+ */
+function buildTestPng(word: string, scale = 14): Uint8Array {
+  const glyphW = 5;
+  const glyphH = 7;
+  const gap = 1;
+  const pad = 3;
+  const width = (word.length * (glyphW + gap) - gap + pad * 2) * scale;
+  const height = (glyphH + pad * 2) * scale;
+
+  const px = new Uint8Array(width * height).fill(0xff); // white background
+  [...word].forEach((ch, i) => {
+    const glyph = FONT[ch];
+    if (!glyph) fail(`no glyph for ${ch}`);
+    const originX = (pad + i * (glyphW + gap)) * scale;
+    const originY = pad * scale;
+    for (let gy = 0; gy < glyphH; gy++) {
+      for (let gx = 0; gx < glyphW; gx++) {
+        if (glyph[gy]![gx] !== "#") continue;
+        for (let dy = 0; dy < scale; dy++) {
+          const rowStart = (originY + gy * scale + dy) * width + originX + gx * scale;
+          px.fill(0x00, rowStart, rowStart + scale); // black ink
+        }
+      }
+    }
+  });
+
+  // Scanlines with filter byte 0, then the usual IHDR/IDAT/IEND chunks.
+  const raw = Buffer.alloc(height * (width + 1));
+  for (let y = 0; y < height; y++) {
+    Buffer.from(px.subarray(y * width, (y + 1) * width)).copy(raw, y * (width + 1) + 1);
+  }
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const out = Buffer.alloc(data.length + 12);
+    out.writeUInt32BE(data.length, 0);
+    out.write(type, 4, "ascii");
+    data.copy(out, 8);
+    const crc = crc32(Buffer.concat([Buffer.from(type, "ascii"), data])) >>> 0;
+    out.writeUInt32BE(crc, data.length + 8);
+    return out;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 0; // greyscale
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 }
 
 // --- session + clients ---
@@ -116,6 +201,8 @@ const blockedId = await dump({ id: newId(), kind: "link", url: "http://192.168.0
 
 let fileId: string | null = null;
 let pdfId: string | null = null;
+let imageId: string | null = null;
+let badImageId: string | null = null;
 if (serverMeta.blobs) {
   const textBytes = new TextEncoder().encode(
     "meeting notes\n\nragbag ingestion pipeline review: queue claims with skip locked, " +
@@ -135,9 +222,26 @@ if (serverMeta.blobs) {
       "proof.pdf",
     ),
   });
+  imageId = await dump({
+    id: newId(),
+    kind: "image",
+    blobId: await uploadBlob(buildTestPng(OCR_WORD), "image/png", "sign.png"),
+  });
+  // Bytes that are not an image at all: the vision API rejects these with a
+  // 4xx, which must fail the item immediately rather than retry.
+  badImageId = await dump({
+    id: newId(),
+    kind: "image",
+    blobId: await uploadBlob(
+      new TextEncoder().encode("this is definitely not a png"),
+      "image/png",
+      "corrupt.png",
+    ),
+  });
 }
 console.log(
-  "OK   dumped note + link + private-address link" + (serverMeta.blobs ? " + text file + pdf" : ""),
+  "OK   dumped note + link + private-address link" +
+    (serverMeta.blobs ? " + text file + pdf + image + corrupt image" : ""),
 );
 
 // --- wait for the worker ---
@@ -164,7 +268,9 @@ async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promis
   return snapshot;
 }
 
-const watched = [noteId, linkId, blockedId, fileId, pdfId].filter((x): x is string => Boolean(x));
+const watched = [noteId, linkId, blockedId, fileId, pdfId, imageId, badImageId].filter(
+  (x): x is string => Boolean(x),
+);
 const settled = await poll((s) =>
   watched.every((id) => ["done", "failed"].includes(s.get(id)?.status ?? "")),
 );
@@ -203,6 +309,59 @@ if (pdfId) {
   if (pdf.status !== "done") fail(`pdf not done: ${JSON.stringify(pdf)}`);
   if (!pdf.text?.includes("real text layer")) fail(`pdf text layer missing: ${pdf.text}`);
   console.log("OK   pdf text layer extracted via pdfjs");
+}
+
+// Images: the vision call is the only thing that makes an image searchable.
+// A recorded `vision` usage row on the good image proves the server has a
+// working key and had budget — the corrupt one can't prove it itself, since
+// its call fails before any usage is metered.
+const [visionMetered] = imageId
+  ? await sql<{ n: string }[]>`
+      select count(*) as n from ai_usage where item_id = ${imageId} and kind = 'vision'`
+  : [];
+const visionExercised = Number(visionMetered?.n ?? 0) > 0;
+
+if (imageId && !visionExercised) {
+  console.log("SKIP image vision (server has no OpenAI key, or no budget left)");
+} else if (imageId) {
+  const image = settled.get(imageId)!;
+  if (image.status !== "done") fail(`image not done: ${JSON.stringify(image)}`);
+  if (!image.title || image.title === "sign.png") {
+    fail(`vision did not title the image (still ${JSON.stringify(image.title)})`);
+  }
+  // Description + OCR text land in extracted_text and feed both search tiers.
+  if (!image.text || image.text.length < 20) {
+    fail(`vision produced no usable description: ${JSON.stringify(image.text)}`);
+  }
+  // The OCR check proves our pipeline round-trips a transcription; it does
+  // NOT grade the model's eyesight. A 5x7 bitmap font is genuinely hard to
+  // read (observed: "RASBEG" for RAGBAG — two glyphs off, consistently), and
+  // demanding an exact match would make this test fail on model updates
+  // rather than on our bugs.
+  const best = Math.min(
+    ...(image.text.toUpperCase().match(/[A-Z]{4,8}/g) ?? [""]).map((w) =>
+      editDistance(w, OCR_WORD),
+    ),
+  );
+  if (best > 2) {
+    fail(`vision transcribed nothing close to "${OCR_WORD}": ${JSON.stringify(image.text)}`);
+  }
+  console.log(
+    `OK   image described + OCR'd by vision (title: ${JSON.stringify(image.title)}, ` +
+      `OCR within ${best} char${best === 1 ? "" : "s"} of "${OCR_WORD}")`,
+  );
+}
+
+if (badImageId && visionExercised) {
+  const bad = settled.get(badImageId)!;
+  if (bad.status !== "failed") fail(`corrupt image should fail fast: ${JSON.stringify(bad)}`);
+  if (!bad.error?.includes("could not be read")) fail(`unexpected error: ${bad.error}`);
+  const [job] = await sql<{ attempts: number }[]>`
+    select attempts from ingest_job where item_id = ${badImageId}`;
+  if (job?.attempts !== 1) {
+    fail(`corrupt image burned ${job?.attempts} attempts; a 4xx must not be retried`);
+  }
+  console.log("OK   corrupt image failed permanently on attempt 1 (no wasted retries)");
 }
 
 // --- chunks (server-side, so straight SQL) ---
@@ -316,8 +475,15 @@ const jobs = await sql<{ status: string; n: string }[]>`
   select status, count(*) as n from ingest_job
   where item_id = any(${watched}) group by status`;
 const jobSummary = Object.fromEntries(jobs.map((j) => [j.status, Number(j.n)]));
-if ((jobSummary.done ?? 0) < watched.length - 1)
-  fail(`unexpected job states: ${JSON.stringify(jobSummary)}`);
+// Expected failures: the private-address link always, plus the corrupt image
+// once vision is actually reachable. Everything else must have completed.
+const expectedFailures = 1 + (badImageId && visionExercised ? 1 : 0);
+if ((jobSummary.failed ?? 0) !== expectedFailures) {
+  fail(`expected ${expectedFailures} failed job(s), got ${JSON.stringify(jobSummary)}`);
+}
+if ((jobSummary.done ?? 0) !== watched.length - (jobSummary.failed ?? 0)) {
+  fail(`unfinished jobs remain: ${JSON.stringify(jobSummary)}`);
+}
 console.log(`OK   ingest_job states: ${JSON.stringify(jobSummary)}`);
 
 console.log("\nPASS ingest proof: dump → queue → worker → extract → index → sync back");
