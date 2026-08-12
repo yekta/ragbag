@@ -301,7 +301,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                   disabled={capturing > 0 || !hasContent}
                   onClick={send}
                 >
-                  <Icon name="send" className="size-4" />
+                  <Icon name="send" className="size-5" />
                 </button>
               ) : (
                 <button
