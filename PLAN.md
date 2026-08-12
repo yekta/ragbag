@@ -1,6 +1,6 @@
 # ragbag — Plan
 
-> **How to read this document.** This is the complete, standalone plan for ragbag — assume no other context exists. All technology choices in here are **decided** unless they appear in the "Open decisions" table (§12). Current repo state: empty (initial commit + this plan, which is gitignored). Nothing has been built yet; the next step is milestone M0 (§13).
+> **How to read this document.** This is the complete, standalone plan for ragbag — assume no other context exists. All technology choices in here are **decided** unless they appear in the "Open decisions" table (§12). Current repo state: **M0 and M1 are done** (2026-08-12, checkmarks in §13 with deviation notes); the next step is milestone M2.
 
 **What it is:** an info-dump app with a message-like interface. You "dump" anything into it — links, photos, notes, PDFs, screenshots — and it indexes the content intelligently so everything becomes searchable later. A smart bookmark/second-brain hybrid.
 
@@ -314,11 +314,13 @@ Everything not listed here is decided.
 
 ## 13. Milestones
 
-**M0 — Scaffolding (small)**
+**M0 — Scaffolding (small)** ✅ *done 2026-08-12*
 Workspace, catalogs, turbo, tsconfig bases, lint/format/test wiring, CI + Docker image builds, docker-compose skeleton (server + zero-cache + Postgres running locally), empty apps/packages that typecheck and build.
+*As built: web + server + the three packages scaffolded; desktop/mobile/marketing deferred to their own milestones per the sequencing rationale.*
 
-**M1 — Schema, mutators, server core**
+**M1 — Schema, mutators, server core** ✅ *done 2026-08-12*
 Zero schema + permissions and the first custom mutators in `contracts`; API server with drizzle migrations, better-auth (Google), `/query` + `/mutate` endpoints, presigned R2 blob flow; zero-cache running against Railway Postgres. A scratch page proving end-to-end sync between two browsers. *De-risks the whole architecture in the first real milestone.*
+*As built — two deviations forced by Zero 1.x (it removed the permission system and zero-cache JWT validation): authorization is `ctx.userID` scoping inside the shared queries/mutators, enforced by the `/query`+`/mutate` endpoints (401 without a session); sync auth forwards the better-auth session cookie (web) or bearer token (native shells) instead of JWT+JWKS — same guarantees as §9, less machinery. Additions: dev-only anonymous sign-in behind `DEV_LOGIN` (refused in production) so sync is testable without Google creds; a `zero_data` publication limits replication to the synced tables; automated sync proof in `apps/server/scripts/sync-proof.mts` (two headless Zero clients) instead of the two-browser manual check. Verified locally, not yet against Railway.*
 
 **M2 — Web MVP (local-first from day one)**
 Timeline (virtualized), composer (text + URL + file upload through the blob queue), item detail, delete/pin/tag — all on Zero queries + mutators, so offline/optimistic behavior comes free rather than being retrofitted. *First usable dogfooding build.*
