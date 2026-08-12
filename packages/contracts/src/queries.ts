@@ -16,6 +16,9 @@ export const queries = defineQueries({
       .where("deletedAt", "IS", null)
       .related("content")
       .related("tags")
+      // The junction rows too: `source` tells the UI which tags are the
+      // user's own (editable) vs. AI-applied (ingestion owns them).
+      .related("itemTags", (q) => q.related("tag"))
       .orderBy("createdAt", "desc"),
   ),
 

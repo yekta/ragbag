@@ -34,13 +34,15 @@ describe("setTagsArgs", () => {
 });
 
 describe("presignUploadRequest", () => {
-  it("requires a lowercase hex sha256", () => {
+  it("requires a client-minted ULID blobId and a lowercase hex sha256", () => {
     const ok = {
+      blobId: newId(),
       sha256: "a".repeat(64),
       mime: "image/png",
       size: 123,
     };
     expect(presignUploadRequest.safeParse(ok).success).toBe(true);
     expect(presignUploadRequest.safeParse({ ...ok, sha256: "XYZ" }).success).toBe(false);
+    expect(presignUploadRequest.safeParse({ ...ok, blobId: "not-a-ulid" }).success).toBe(false);
   });
 });

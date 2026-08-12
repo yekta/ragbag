@@ -12,7 +12,8 @@
   "dependencies": {
     "@ragbag/contracts": "workspace:*",
     "@ragbag/shared": "workspace:*",
-    "@rocicorp/zero": "catalog:"
+    "@rocicorp/zero": "catalog:",
+    "minisearch": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:"

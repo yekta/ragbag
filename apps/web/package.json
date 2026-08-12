@@ -15,6 +15,7 @@
     "@ragbag/shared": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
     "better-auth": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

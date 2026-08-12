@@ -35,11 +35,14 @@ export const EnvSchema = z
     DEV_LOGIN: z.stringbool().default(false),
 
     // Blob storage: Cloudflare R2 via the S3 API, or any S3-compatible bucket
-    // for self-hosters. Optional in dev — blob routes 503 until configured.
+    // for self-hosters. When unset, LOCAL_BLOB_DIR (plain files served by this
+    // server through HMAC-presigned URLs) takes over — defaulted in dev so
+    // file dumps work with zero setup, opt-in in production.
     R2_ENDPOINT: z.string().optional(),
     R2_ACCESS_KEY_ID: z.string().optional(),
     R2_SECRET_ACCESS_KEY: z.string().optional(),
     R2_BUCKET: z.string().optional(),
+    LOCAL_BLOB_DIR: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
     if (cfg.NODE_ENV !== "production") return;
@@ -58,3 +61,10 @@ export const env: Env = EnvSchema.parse(process.env);
 export const r2Configured = Boolean(
   env.R2_ENDPOINT && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET,
 );
+
+/** Local-disk blob root; active only when R2 is not configured. */
+export const localBlobDir = r2Configured
+  ? undefined
+  : (env.LOCAL_BLOB_DIR ?? (env.NODE_ENV === "production" ? undefined : ".data/blobs"));
+
+export const storageConfigured = r2Configured || Boolean(localBlobDir);

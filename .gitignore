@@ -92,6 +92,8 @@ coverage/
 *.sqlite3
 *.db
 uploads/
+# Local-disk blob storage (dev fallback for R2)
+.data/
 
 # Editor & OS
 .DS_Store

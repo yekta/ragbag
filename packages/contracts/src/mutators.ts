@@ -54,6 +54,15 @@ export const deleteItemArgs = z.object({
   id: itemId,
 });
 
+export const retryIngestArgs = z.object({
+  id: itemId,
+});
+
+export const relinkBlobArgs = z.object({
+  id: itemId,
+  blobId: z.string(),
+});
+
 export const setTagsArgs = z.object({
   itemId,
   // Full replacement set of the user's own topic tags for this item.
@@ -108,6 +117,8 @@ export const mutators = defineMutators({
            on conflict (id) do nothing`,
           [`ij_${args.id}`, args.id, userID],
         );
+        // Wake the worker without waiting for its poll tick.
+        await tx.dbTransaction.query(`select pg_notify('ingest_wake', $1)`, [args.id]);
       }
     }),
 
@@ -131,6 +142,20 @@ export const mutators = defineMutators({
       });
     }),
 
+    // Blob upload dedupe fix-up: an offline capture mints its own blobId; if
+    // the flush later learns the bytes were already uploaded (same sha256),
+    // the item is repointed at the canonical blob row.
+    relinkBlob: defineMutator(relinkBlobArgs, async ({ tx, ctx, args }) => {
+      const { userID } = mustBeLoggedIn(ctx);
+      const item = await mustOwnItem(tx, userID, args.id);
+      if (!item.blobId) throw new Error("Item has no blob");
+      await tx.mutate.item.update({
+        id: args.id,
+        blobId: args.blobId,
+        updatedAt: Date.now(),
+      });
+    }),
+
     delete: defineMutator(deleteItemArgs, async ({ tx, ctx, args }) => {
       const { userID } = mustBeLoggedIn(ctx);
       await mustOwnItem(tx, userID, args.id);
@@ -140,6 +165,28 @@ export const mutators = defineMutators({
         deletedAt: Date.now(),
         updatedAt: Date.now(),
       });
+    }),
+
+    // Manual re-run of failed (or stuck) ingestion — plan §7: failures are
+    // non-fatal and retryable from the UI.
+    retryIngest: defineMutator(retryIngestArgs, async ({ tx, ctx, args }) => {
+      const { userID } = mustBeLoggedIn(ctx);
+      await mustOwnItem(tx, userID, args.id);
+      await tx.mutate.itemContent.update({
+        itemId: args.id,
+        status: "pending",
+        error: null,
+      });
+      if (tx.location === "server") {
+        await tx.dbTransaction.query(
+          `insert into ingest_job (id, item_id, user_id, status, attempts, run_after, created_at, updated_at)
+           values ($1, $2, $3, 'queued', 0, now(), now(), now())
+           on conflict (id) do update
+             set status = 'queued', attempts = 0, run_after = now(), last_error = null, updated_at = now()`,
+          [`ij_${args.id}`, args.id, userID],
+        );
+        await tx.dbTransaction.query(`select pg_notify('ingest_wake', $1)`, [args.id]);
+      }
     }),
   },
 

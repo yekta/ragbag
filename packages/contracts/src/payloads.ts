@@ -7,6 +7,11 @@ import { z } from "zod";
 export const MAX_BLOB_BYTES = 100 * 1024 * 1024;
 
 export const presignUploadRequest = z.object({
+  // Client-minted ULID (offline capture creates the item before the server
+  // ever hears about the blob). The server uses it for the new blob row; on a
+  // content-address hit it returns the existing row's id instead — see
+  // presignUploadResponse.blobId.
+  blobId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, "blobId must be a ULID"),
   sha256: z
     .string()
     .regex(/^[0-9a-f]{64}$/, "sha256 must be 64 lowercase hex chars (content address)"),
