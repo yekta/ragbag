@@ -328,12 +328,12 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
  */
 function DropOverlay() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-[2px]">
+    <div className="pointer-events-none fixed inset-0 z-50 bg-neutral-900/75 backdrop-blur-sm">
       <div className="flex h-full w-full items-center justify-center p-4">
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-white/60 text-white">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-white/70 text-white">
           <Icon name="plus" className="size-10" />
-          <p className="text-xl font-semibold">Drop to add to your ragbag</p>
-          <p className="text-sm text-white/70">
+          <p className="text-xl font-semibold drop-shadow">Drop to add to your ragbag</p>
+          <p className="text-sm text-white/85">
             Images, PDFs, anything — release anywhere on this page
           </p>
         </div>
