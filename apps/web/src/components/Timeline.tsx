@@ -38,24 +38,8 @@ function useRows(items: TimelineRows): Row[] {
 
 // Favorites are reachable from the rail as their own view — deliberately not
 // hoisted above the timeline: the archive stays one chronological stream.
-
-function FilterBar() {
-  const { viewFilter, tagFilter, clearFilters } = useViewStore();
-  if (!viewFilter && !tagFilter) return null;
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-      <button
-        className="pointer-events-auto flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-md hover:bg-neutral-50"
-        onClick={clearFilters}
-      >
-        filtered view
-        <span className="flex items-center gap-1 text-neutral-400">
-          <Icon name="x" className="size-3.5" /> clear
-        </span>
-      </button>
-    </div>
-  );
-}
+// No "filtered view" banner: the sidebar already highlights the active
+// view/tag, so a floating chip over the stream is pure redundancy.
 
 export function Timeline({ items, synced }: { items: TimelineRows; synced: boolean }) {
   const rows = useRows(items);
@@ -87,7 +71,6 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <FilterBar />
       <div
         ref={scrollRef}
         // pb-36 clears the floating composer so the newest card isn't hidden
