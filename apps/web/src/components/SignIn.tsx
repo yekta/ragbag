@@ -1,9 +1,19 @@
+import { useEffect } from "react";
 import { authClient } from "../lib/auth-client.js";
+import { dropLocalData } from "../lib/identity.js";
 import { useMeta } from "../lib/use-meta.js";
 import { Icon } from "./Icon.js";
 
 export function SignIn() {
   const meta = useMeta();
+
+  // This screen only shows when no device identity exists — first visit, or
+  // right after an explicit sign-out. Clearing local stores here (not during
+  // sign-out) lets Zero close first; on a fresh browser it's a no-op.
+  useEffect(() => {
+    void dropLocalData();
+  }, []);
+
   return (
     <main className="flex h-dvh items-center justify-center bg-neutral-50">
       <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">

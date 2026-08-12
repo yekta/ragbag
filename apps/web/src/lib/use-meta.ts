@@ -1,7 +1,11 @@
 import { metaResponse, type MetaResponse } from "@ragbag/contracts";
 import { useEffect, useState } from "react";
 
-/** Server capabilities from /api/meta (google configured? dev login? blobs?). */
+/**
+ * Server capabilities from /api/meta (google configured? dev login? blobs?).
+ * Stays undefined while loading AND when the server is unreachable — callers
+ * must not treat "unknown" as "off" (offline capture still works).
+ */
 export function useMeta(): MetaResponse | undefined {
   const [meta, setMeta] = useState<MetaResponse>();
   useEffect(() => {
@@ -12,7 +16,7 @@ export function useMeta(): MetaResponse | undefined {
         if (!cancelled) setMeta(metaResponse.parse(data));
       })
       .catch(() => {
-        if (!cancelled) setMeta({ googleAuth: false, devLogin: false, blobs: false });
+        // Unreachable — leave undefined; the app runs local-first regardless.
       });
     return () => {
       cancelled = true;
