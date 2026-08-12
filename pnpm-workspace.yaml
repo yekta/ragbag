@@ -1,0 +1,72 @@
+# Workspace layout (§3 of the plan): apps consume packages; packages export raw .ts
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  "@rocicorp/zero-sqlite3": true
+  "@tailwindcss/oxide": true
+  esbuild: true
+  protobufjs: true
+
+# Single place to pin versions shared across packages (`"dep": "catalog:"`).
+catalog:
+  # runtime — clients
+  react: ^19.2.8
+  react-dom: ^19.2.8
+  "@tanstack/react-router": ^1.170.25
+  zustand: ^5.0.14
+  # runtime — sync (client + server + cache must stay in lockstep → exact pin)
+  "@rocicorp/zero": 1.8.0
+  # runtime — server
+  hono: ^4.13.1
+  "@hono/node-server": ^2.1.0
+  better-auth: ^1.6.27
+  drizzle-orm: ^0.45.2
+  postgres: ^3.4.9
+  "@aws-sdk/client-s3": ^3.1108.0
+  "@aws-sdk/s3-request-presigner": ^3.1108.0
+  # runtime — shared
+  zod: ^4.4.3
+  ulid: ^3.0.2
+  # tooling
+  typescript: ^5.9.3
+  tsx: ^4.23.12
+  esbuild: ^0.28.2
+  vite: ^8.2.1
+  "@vitejs/plugin-react": ^6.0.5
+  tailwindcss: ^4.3.3
+  "@tailwindcss/vite": ^4.3.3
+  vitest: ^4.1.10
+  drizzle-kit: ^0.31.10
+  "@types/node": ^26.2.0
+  "@types/react": ^19.2.18
+  "@types/react-dom": ^19.2.4
+
+minimumReleaseAgeExclude:
+  - "@aws-sdk/checksums@3.1000.27"
+  - "@aws-sdk/client-s3@3.1108.0"
+  - "@aws-sdk/core@3.977.7"
+  - "@aws-sdk/credential-provider-env@3.972.68"
+  - "@aws-sdk/credential-provider-http@3.972.70"
+  - "@aws-sdk/credential-provider-ini@3.973.13"
+  - "@aws-sdk/credential-provider-login@3.972.75"
+  - "@aws-sdk/credential-provider-node@3.972.79"
+  - "@aws-sdk/credential-provider-process@3.972.68"
+  - "@aws-sdk/credential-provider-sso@3.973.12"
+  - "@aws-sdk/credential-provider-web-identity@3.972.74"
+  - "@aws-sdk/middleware-sdk-s3@3.972.73"
+  - "@aws-sdk/nested-clients@3.997.42"
+  - "@aws-sdk/s3-request-presigner@3.1108.0"
+  - "@aws-sdk/signature-v4-multi-region@3.996.44"
+  - "@aws-sdk/token-providers@3.1108.0"
+  - "@aws-sdk/types@3.974.3"
+  - "@aws-sdk/xml-builder@3.972.38"
+  - "@better-auth/core@1.6.27"
+  - "@better-auth/drizzle-adapter@1.6.27"
+  - "@better-auth/kysely-adapter@1.6.27"
+  - "@better-auth/memory-adapter@1.6.27"
+  - "@better-auth/mongo-adapter@1.6.27"
+  - "@better-auth/prisma-adapter@1.6.27"
+  - "@better-auth/telemetry@1.6.27"
+  - better-auth@1.6.27

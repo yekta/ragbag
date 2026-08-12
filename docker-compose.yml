@@ -1,0 +1,82 @@
+# Self-host / local backend stack (plan §11): API server + zero-cache + Postgres.
+# Copy .env.example → .env first. Web/desktop/mobile clients connect from outside.
+# Dev tip: `docker compose up -d postgres` and run server + zero-cache via pnpm.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    command: postgres -c wal_level=logical # required by Zero's logical replication
+    environment:
+      POSTGRES_DB: ragbag
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U postgres -d ragbag
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/ragbag
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://localhost:3001/health'').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  zero-cache:
+    image: rocicorp/zero:1.8.0
+    environment:
+      ZERO_UPSTREAM_DB: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/ragbag
+      ZERO_REPLICA_FILE: /data/replica.db
+      ZERO_APP_PUBLICATIONS: zero_data
+      ZERO_ADMIN_PASSWORD: ${ZERO_ADMIN_PASSWORD:-change-me}
+      ZERO_MUTATE_URL: http://server:3001/api/zero/mutate
+      ZERO_QUERY_URL: http://server:3001/api/zero/query
+      ZERO_MUTATE_FORWARD_COOKIES: "true"
+      ZERO_QUERY_FORWARD_COOKIES: "true"
+      ZERO_ENABLE_CRUD_MUTATIONS: "false"
+    ports:
+      - "4848:4848"
+    volumes:
+      - zero-replica:/data
+    depends_on:
+      server:
+        # Migrations (tables + zero_data publication) must exist first.
+        condition: service_healthy
+    stop_grace_period: 10m
+    healthcheck:
+      test: curl -f http://localhost:4848/keepalive
+      interval: 5s
+      start_period: 10m
+
+volumes:
+  postgres-data:
+  zero-replica:

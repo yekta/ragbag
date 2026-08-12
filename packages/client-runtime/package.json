@@ -1,0 +1,20 @@
+{
+  "name": "@ragbag/client-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@ragbag/contracts": "workspace:*",
+    "@ragbag/shared": "workspace:*",
+    "@rocicorp/zero": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}
