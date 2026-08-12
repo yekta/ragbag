@@ -2,7 +2,7 @@ import { ITEM_KINDS } from "@ragbag/shared";
 import type { ItemKind } from "@ragbag/shared";
 import { useConnectionState } from "@rocicorp/zero/react";
 import { useMemo } from "react";
-import { useBlobQueueState } from "../lib/blobs.js";
+import { useBlobQueue, useBlobQueueState } from "../lib/blobs.js";
 import { useViewStore } from "../lib/store.js";
 import type { TagRow, Timeline } from "../lib/types.js";
 import { Icon, KIND_ICON } from "./Icon.js";
@@ -46,6 +46,7 @@ export function Sidebar({
   onSignOut: () => void;
 }) {
   const { kindFilter, tagFilter, setKindFilter, setTagFilter, setSearchOpen } = useViewStore();
+  const queue = useBlobQueue();
   const queueState = useBlobQueueState();
 
   const kindCounts = useMemo(() => {
@@ -165,6 +166,17 @@ export function Sidebar({
           <p className="mb-1.5 flex items-center gap-1.5 text-xs text-neutral-500">
             <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
             {queueState.pending} upload{queueState.pending > 1 ? "s" : ""} pending
+            <button
+              className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-neutral-100 hover:text-neutral-800"
+              title={
+                queueState.blocked === "storage"
+                  ? "The server has no blob storage configured"
+                  : "Retry these uploads now instead of waiting for the next attempt"
+              }
+              onClick={() => void queue.retryNow()}
+            >
+              <Icon name="retry" className="size-3" /> retry
+            </button>
           </p>
         )}
         <div className="flex items-center justify-between gap-2">

@@ -99,13 +99,29 @@ export class BlobQueue {
     });
 
     // Resume anything a previous session left behind, and whenever the
-    // browser comes back online.
-    void this.#refreshPending().then(() => this.flush());
+    // browser comes back online. Both are signals that the world changed
+    // (new page load, network back), so clear any backoff first: waiting out
+    // a 15-minute delay earned during an outage that's since been fixed just
+    // looks broken.
+    void this.retryNow();
     if (typeof addEventListener === "function") {
       addEventListener("online", () => {
-        this.flush();
+        void this.retryNow();
       });
     }
+  }
+
+  /** Drop all backoff and flush immediately. */
+  async retryNow(): Promise<void> {
+    const db = await this.#db;
+    for (const record of await idbGetAll<UploadRecord>(db, UPLOADS)) {
+      if (record.nextAttemptAt > 0) {
+        await idbPut(db, UPLOADS, { ...record, nextAttemptAt: 0 } satisfies UploadRecord);
+      }
+    }
+    clearTimeout(this.#flushTimer);
+    await this.#refreshPending();
+    this.flush(true);
   }
 
   // --- state for UI ---
