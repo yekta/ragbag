@@ -15,8 +15,9 @@ apps/
   web/            React 19 + Vite + TanStack Router + Tailwind v4
   server/         Hono API: auth, Zero /query + /mutate, blob presigning, ingestion
 packages/
-  contracts/      Zero schema + permissions, shared custom mutators, zod API payloads
-  client-runtime/ Per-platform Zero glue: store setup, auth token plumbing, blob queue
+  contracts/      Zero schema, shared synced queries + custom mutators, zod API payloads
+  client-runtime/ Per-platform Zero glue: store setup, blob upload queue + cache,
+                  Tier-1 local search index
   shared/         Small pure utilities (ids, urls, mime, time, logging)
 ```
 
@@ -41,17 +42,33 @@ server so auth cookies stay first-party. Sign-in is Google OAuth (set
 `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`); with `DEV_LOGIN=true` a dev-only
 anonymous sign-in button appears so sync can be exercised without credentials.
 
+**Blobs** go straight to R2/S3 via presigned URLs. With no bucket configured,
+the server falls back to local-disk storage (`LOCAL_BLOB_DIR`, default
+`.data/blobs` in dev) served through HMAC-presigned URLs — so file dumps work
+out of the box.
+
+**Ingestion** runs inside the API process (`INGEST_WORKER=false` to disable): a
+Postgres job queue (`FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`) feeds the
+classify → extract → enrich → index pipeline. Without `OPENAI_API_KEY` it still
+extracts and indexes content; AI summaries, tags, and embeddings are skipped.
+Embeddings additionally need pgvector (the compose image has it; a bare local
+Postgres may not — migration `0002` adapts either way).
+
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 
-End-to-end sync proof (two Zero clients through zero-cache + Postgres, M1's
-acceptance test — needs the dev stack running):
+Acceptance proofs (each needs the dev stack running — postgres + server, plus
+zero-cache for the two that sync):
 
 ```sh
-pnpm --filter server exec tsx scripts/sync-proof.mts
+cd apps/server
+pnpm exec tsx scripts/sync-proof.mts    # M1: two Zero clients through zero-cache
+pnpm exec tsx scripts/blob-proof.mts    # M2: presign → upload → dedupe → download
+pnpm exec tsx scripts/ingest-proof.mts  # M4: dump → queue → extract → index → sync
 ```
 
 ## Self-hosting
 
 `docker compose up` runs the whole backend: API server + zero-cache + Postgres. Bring your own
-OpenAI key and any S3-compatible bucket (see `.env.example`). Same images and code paths as the
-hosted SaaS.
+OpenAI key (optional — without it, ingestion skips the AI stages) and any S3-compatible bucket
+(optional too — blobs otherwise land on a mounted volume). See `.env.example`. Same images and
+code paths as the hosted SaaS.

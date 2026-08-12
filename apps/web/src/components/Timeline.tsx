@@ -18,7 +18,7 @@ function useRows(items: TimelineRows): Row[] {
   return useMemo(() => {
     // Items arrive newest-first from the shared query; the chat renders
     // oldest-first.
-    let filtered = [...items].reverse();
+    let filtered = items.toReversed();
     if (kindFilter === "pinned") filtered = filtered.filter((i) => i.pinned);
     else if (kindFilter) filtered = filtered.filter((i) => i.kind === kindFilter);
     if (tagFilter) filtered = filtered.filter((i) => i.itemTags.some((t) => t.tagId === tagFilter));

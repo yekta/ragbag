@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isBareUrl, normalizeUrl } from "./url.js";
+import { isBareUrl, isVideoUrl, normalizeUrl } from "./url.js";
 
 describe("normalizeUrl", () => {
   it("keeps ordinary urls intact", () => {
@@ -34,5 +34,28 @@ describe("isBareUrl", () => {
 
   it("rejects prose containing a link", () => {
     expect(isBareUrl("read this https://example.com/post later")).toBe(false);
+  });
+});
+
+describe("isVideoUrl", () => {
+  it("detects the major video hosts", () => {
+    expect(isVideoUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(true);
+    expect(isVideoUrl("https://youtu.be/dQw4w9WgXcQ")).toBe(true);
+    expect(isVideoUrl("https://www.youtube.com/shorts/abc123")).toBe(true);
+    expect(isVideoUrl("https://vimeo.com/76979871")).toBe(true);
+    expect(isVideoUrl("https://www.tiktok.com/@user/video/7106594312292453674")).toBe(true);
+    expect(isVideoUrl("https://www.twitch.tv/videos/1234567")).toBe(true);
+    expect(isVideoUrl("https://www.loom.com/share/abcdef0123")).toBe(true);
+  });
+
+  it("leaves non-video pages on video hosts alone", () => {
+    expect(isVideoUrl("https://www.youtube.com/@somecreator")).toBe(false);
+    expect(isVideoUrl("https://vimeo.com/features")).toBe(false);
+    expect(isVideoUrl("https://www.twitch.tv/somechannel")).toBe(false);
+  });
+
+  it("leaves ordinary links alone", () => {
+    expect(isVideoUrl("https://example.com/article")).toBe(false);
+    expect(isVideoUrl("not a url")).toBe(false);
   });
 });

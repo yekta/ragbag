@@ -73,6 +73,19 @@ export function App() {
   return <Workspace key={identity.userID} identity={identity} status={status} />;
 }
 
+/**
+ * Explicit sign-out: forget the device identity, then reload — the SignIn
+ * screen clears local data (Zero stores + blob caches) once Zero is unmounted.
+ */
+async function signOut(): Promise<void> {
+  clearIdentity();
+  await authClient.signOut().catch(() => {
+    // Offline sign-out still signs out locally; the session dies server-side
+    // when it expires.
+  });
+  location.assign("/");
+}
+
 function Workspace({ identity, status }: { identity: Identity; status: SessionStatus }) {
   const meta = useMeta();
   const queue = blobQueueFor(identity.userID);
@@ -85,17 +98,6 @@ function Workspace({ identity, status }: { identity: Identity; status: SessionSt
       }),
     [identity.userID],
   );
-
-  const signOut = async () => {
-    // Explicit sign-out: forget the device identity; the SignIn screen then
-    // clears local data (Zero stores + blob caches) once Zero has unmounted.
-    clearIdentity();
-    await authClient.signOut().catch(() => {
-      // Offline sign-out still signs out locally; the cookie dies with the
-      // session server-side when it expires.
-    });
-    location.assign("/");
-  };
 
   return (
     <ZeroProvider

@@ -43,6 +43,21 @@ export const EnvSchema = z
     R2_SECRET_ACCESS_KEY: z.string().optional(),
     R2_BUCKET: z.string().optional(),
     LOCAL_BLOB_DIR: z.string().optional(),
+
+    // OpenAI powers enrichment + embeddings (plan §7/§8). Optional: without a
+    // key, ingestion still extracts content — it just skips the AI stages.
+    OPENAI_API_KEY: z.string().optional(),
+    OPENAI_BASE_URL: z.string().optional(),
+    AI_ENRICH_MODEL: z.string().default("gpt-5.6-luna"),
+    AI_EMBED_MODEL: z.string().default("text-embedding-3-small"),
+    // Per-user AI budget over a rolling 24h window (plan §7: caps from day
+    // one — ingestion spend is the SaaS's main variable cost).
+    AI_USER_DAILY_BUDGET_USD: z.coerce.number().default(1),
+
+    // The ingestion worker runs inside the API process for now; the flag is
+    // the groundwork for a dedicated worker instance (plan §11).
+    INGEST_WORKER: z.stringbool().default(true),
+    INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
   })
   .superRefine((cfg, ctx) => {
     if (cfg.NODE_ENV !== "production") return;

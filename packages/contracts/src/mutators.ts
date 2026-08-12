@@ -13,9 +13,13 @@ import { zql } from "./schema.js";
 //
 // Conflict policy is last-writer-wins per mutation — single-user data, no CRDTs.
 
-/** Kinds that need the ingestion pipeline (everything except plain notes). */
-function needsIngest(kind: ItemKind): boolean {
-  return kind !== "note";
+/**
+ * Every dumped item gets an ingestion job (plan §7) — notes included: they
+ * skip extraction but still get AI tags and a summary. Servers without an
+ * OpenAI key complete note jobs as no-ops.
+ */
+function needsIngest(_kind: ItemKind): boolean {
+  return true;
 }
 
 const itemId = z.string().refine(isUlid, "item id must be a ULID");

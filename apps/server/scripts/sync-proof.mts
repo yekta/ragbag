@@ -65,10 +65,10 @@ console.log("OK   client A wrote a note + a link; server pass committed both");
 
 // 5. Client B must see both via sync (poll its local store).
 const deadline = Date.now() + 20_000;
-let seen: { note: boolean; link: boolean; linkPending: boolean } = {
+let seen: { note: boolean; link: boolean; linkContent: boolean } = {
   note: false,
   link: false,
-  linkPending: false,
+  linkContent: false,
 };
 while (Date.now() < deadline) {
   const timeline = await b.run(queries.timeline());
@@ -77,16 +77,17 @@ while (Date.now() < deadline) {
   seen = {
     note: Boolean(note),
     link: Boolean(link),
-    // createItem also wrote the derived item_content row (status pending →
-    // ingestion picks it up in M4); it syncs through the same pipe.
-    linkPending: link?.content?.status === "pending",
+    // createItem also wrote the derived item_content row; it syncs through
+    // the same pipe. Its status races the live ingest worker (pending →
+    // processing → done/failed), so only the row's presence is asserted.
+    linkContent: Boolean(link?.content),
   };
-  if (seen.note && seen.link && seen.linkPending) break;
+  if (seen.note && seen.link && seen.linkContent) break;
   await new Promise((r) => setTimeout(r, 250));
 }
 if (!seen.note || !seen.link) fail(`client B never saw the items: ${JSON.stringify(seen)}`);
-if (!seen.linkPending) fail("link's item_content(status=pending) did not sync");
-console.log("OK   client B received both items (+ pending item_content) via zero-cache");
+if (!seen.linkContent) fail("link's derived item_content row did not sync");
+console.log("OK   client B received both items (+ item_content row) via zero-cache");
 
 // 6. Tags: A sets them, B sees them.
 const timelineA = await a.run(queries.timeline());

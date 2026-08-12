@@ -4,6 +4,7 @@ import {
   boolean,
   index,
   integer,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -195,8 +196,44 @@ export const collectionItem = pgTable(
   (t) => [primaryKey({ columns: [t.collectionId, t.itemId] })],
 );
 
+// Chunked extracted text for search (plan §4/§8) — server-only, never in the
+// Zero schema. Two extra columns live outside drizzle's model and are managed
+// by raw SQL in migration 0002: a generated tsvector ("tsv") and, when
+// pgvector is installed, "embedding vector(1536)" with an HNSW index.
+export const itemChunk = pgTable(
+  "item_chunk",
+  {
+    itemId: text("item_id")
+      .notNull()
+      .references(() => item.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    idx: integer("idx").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.itemId, t.idx] }), index("item_chunk_user_idx").on(t.userId)],
+);
+
+// Per-call AI spend metering (plan §7/§11: per-user caps from day one — AI
+// ingestion is the COGS of the SaaS).
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    itemId: text("item_id"),
+    kind: text("kind").$type<"enrich" | "vision" | "embed">().notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    costUsd: numeric("cost_usd", { precision: 12, scale: 8, mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_usage_user_created_idx").on(t.userId, t.createdAt)],
+);
+
 // Postgres-backed job queue (plan §5): SELECT ... FOR UPDATE SKIP LOCKED.
-// Server-only; never in the Zero schema. The processor pipeline lands in M4.
+// Server-only; never in the Zero schema.
 export const ingestJob = pgTable(
   "ingest_job",
   {

@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { auth, googleConfigured } from "./auth.js";
 import { db } from "./db/client.js";
 import { env } from "./env.js";
+import { startIngestWorker } from "./ingest/worker.js";
 import { blobRoutes } from "./routes/blobs.js";
 import { metaRoutes } from "./routes/meta.js";
 import { zeroRoutes } from "./routes/zero.js";
@@ -14,6 +15,16 @@ if (env.MIGRATE_ON_START) {
   // Relative to cwd: apps/server in dev, /app in the container.
   await migrate(db, { migrationsFolder: "./drizzle" });
   log.info("migrations applied");
+}
+
+const stopIngestWorker = startIngestWorker();
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    // Finish in-flight jobs, then exit; a hard deadline in case one hangs.
+    const deadline = setTimeout(() => process.exit(1), 15_000);
+    deadline.unref();
+    void stopIngestWorker().then(() => process.exit(0));
+  });
 }
 
 const app = new Hono();
