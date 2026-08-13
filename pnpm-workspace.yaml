@@ -32,9 +32,8 @@ catalog:
   linkedom: ^0.18.13
   "@mozilla/readability": ^0.6.0
   pdfjs-dist: ^6.2.108
-  # build-time only: pdfjs needs a DOMMatrix global and we bundle the pure-JS
-  # one out of this package (see ingest/pdf-globals.ts). Pinned to the version
-  # pdfjs itself resolves so the 33MB native binary is fetched once.
+  # pdfjs reaches for this at runtime to polyfill DOMMatrix/Path2D. Pinned to
+  # the version pdfjs itself resolves so only one copy is ever installed.
   "@napi-rs/canvas": 1.0.5
   # runtime — shared
   zod: ^4.4.3

@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "catalog:",
+    "@napi-rs/canvas": "catalog:",
     "@aws-sdk/s3-request-presigner": "catalog:",
     "@hono/node-server": "catalog:",
     "@mozilla/readability": "catalog:",
@@ -30,7 +31,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@napi-rs/canvas": "catalog:",
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",
     "esbuild": "catalog:",

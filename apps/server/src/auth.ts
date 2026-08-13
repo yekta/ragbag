@@ -24,9 +24,17 @@ export const auth = betterAuth({
   // too. Scoping it to the parent domain covers app./api./zero. — all
   // same-site, so the default SameSite=Lax still applies and nothing needs
   // SameSite=None. Everything else (httpOnly, secure) is unchanged.
-  ...(env.COOKIE_DOMAIN
-    ? { advanced: { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } } }
-    : {}),
+  advanced: {
+    ...(env.COOKIE_DOMAIN
+      ? { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }
+      : {}),
+    // better-auth only reads `x-forwarded-for` by default, and refuses a
+    // multi-hop chain unless it knows which hops are proxies. Behind
+    // Cloudflare in front of the platform router that chain is always
+    // multi-hop, so every request fell back to one shared rate-limit bucket.
+    // `cf-connecting-ip` is single-valued and set by the CDN.
+    ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] },
+  },
   session: {
     // Long-lived sliding sessions (plan §9: 30–90 days): auth gates syncing,
     // never using the app.

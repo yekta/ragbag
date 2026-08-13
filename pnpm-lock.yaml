@@ -137,6 +137,9 @@ importers:
       '@mozilla/readability':
         specifier: 'catalog:'
         version: 0.6.0
+      '@napi-rs/canvas':
+        specifier: 'catalog:'
+        version: 1.0.5
       '@ragbag/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -171,9 +174,6 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@napi-rs/canvas':
-        specifier: 'catalog:'
-        version: 1.0.5
       '@types/node':
         specifier: 'catalog:'
         version: 26.2.0

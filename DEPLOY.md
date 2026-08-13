@@ -103,6 +103,11 @@ Deploy from the image `rocicorp/zero:1.8.0`. No build, no watch paths.
 | Target port      | `4848`             |
 | Volume           | mounted at `/data` |
 
+Add the custom domain `zero.ragbag.app` on this service (port `4848`) and the matching DNS
+record, same as the other two. It is easy to skip because nothing server-side complains: the app
+loads, and the only symptom is the sync websocket failing with `WebSocket connection closed
+abruptly` — which is what a browser reports for an unresolvable host.
+
 Give it a long healthcheck grace period: the first boot replicates the whole database into its
 SQLite replica and can take minutes. Without the volume it redoes that on every deploy.
 
@@ -166,7 +171,12 @@ nothing.
 4. Open `https://app.ragbag.app`, sign in with Google. Land back on **app**, not api.
 5. Check the cookie in devtools: `__Secure-better-auth.session_token`, `Domain=.ragbag.app`.
    If the domain is `api.ragbag.app` instead, `COOKIE_DOMAIN` didn't take and sync will not
-   authenticate.
+   authenticate — zero-cache has no cookie to forward, so `/api/zero/query` 401s and the client
+   reports `ProtocolError: Fetch from API server returned non-OK status 401`. Checkable without
+   signing in: `curl -i -X POST https://api.ragbag.app/api/auth/sign-in/social -H 'content-type:
+   application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app/"}'` — the
+   `__Secure-better-auth.state` cookie it sets carries the same `Domain` attribute the session
+   cookie will.
 6. Dump a note. The sidebar's sync dot should read **Synced**, and the item should survive a
    reload — that round trip is the proof zero-cache forwarded the cookie and the API accepted it.
 7. Attach a file, confirm it uploads and the thumbnail renders (exercises presign + R2).
