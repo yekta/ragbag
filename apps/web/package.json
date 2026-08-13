@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "//dev": "`pnpm dev` starts web and server together but Vite is up ~4s first, so without this it proxies /api into a backend that hasn't booted. turbo can't express this: persistent tasks can't be depended on, and `with` doesn't wait. Trailing `;` not `&&` — a missing API should still let you do UI-only work. Target must match server.proxy in vite.config.ts.",
+    "dev": "wait-on -t 30000 http-get://localhost:3001/health; vite",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc",
@@ -39,6 +40,7 @@
     "@vitejs/plugin-react": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "wait-on": "^9.1.0"
   }
 }

@@ -30,9 +30,50 @@ import type { MetaResponse } from "@ragbag/contracts";
 
 type SessionStatus = "checking" | "ok" | "expired" | "offline";
 
+/**
+ * better-auth probes the session once on mount and then leaves `error` set
+ * forever. One failed probe is not a verdict, though — it's a flaky network, an
+ * API redeploy, or a laptop that just woke up — and treating it as one put the
+ * app in `offline` until a manual reload, on an app whose whole premise is
+ * riding those out. So retry on a backoff, and immediately when the browser
+ * says it's back.
+ */
+function useSessionRecovery(error: unknown, refetch: () => void): void {
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!error) {
+      setAttempt(0);
+      return;
+    }
+    // 1s, 2s, 4s … capped at 30s. Each failure schedules the next attempt;
+    // `attempt` is a dependency so this re-arms even if the error object
+    // happens to be identical between tries.
+    const timer = setTimeout(
+      () => {
+        void refetch();
+        setAttempt((n) => n + 1);
+      },
+      Math.min(1_000 * 2 ** attempt, 30_000),
+    );
+    return () => clearTimeout(timer);
+  }, [error, refetch, attempt]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setAttempt(0);
+      void refetch();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refetch]);
+}
+
 export function App() {
   const session = authClient.useSession();
   const [stored, setStored] = useState<Identity | null>(() => loadIdentity());
+
+  useSessionRecovery(session.error, session.refetch);
 
   // "system" theme follows the OS while the app is open. index.html applied the
   // stored choice before first paint; this only handles later changes.

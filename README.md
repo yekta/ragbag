@@ -33,6 +33,10 @@ pnpm install
 cp .env.example .env          # defaults work for local dev; DEV_LOGIN=true
 docker compose up -d postgres # Postgres 17 + pgvector, wal_level=logical
 pnpm dev                      # turbo: API server (:3001) + web (:5173)
+                              #   web's dev script waits on the API's /health
+                              #   first (wait-on), so Vite never proxies /api
+                              #   into a backend that hasn't booted yet
+pnpm --filter web exec vite   # UI-only work: skip the wait, no backend needed
 pnpm dev:zero-cache           # zero-cache (:4848), in a second terminal
 pnpm dev:stop                 # stop everything and free the ports
 ```
