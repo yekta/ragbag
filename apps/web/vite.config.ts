@@ -18,4 +18,13 @@ export default defineConfig({
       "/api": "http://localhost:3001",
     },
   },
+  // `server.proxy` doesn't apply to preview, so repeat it — otherwise the
+  // production bundle can't reach auth and the preview is unusable for the
+  // performance checks it exists for.
+  preview: {
+    port: 4173,
+    proxy: {
+      "/api": "http://localhost:3001",
+    },
+  },
 });

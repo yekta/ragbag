@@ -164,10 +164,12 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
         <AlertDescription className="text-warning-foreground">
           Signed out — your archive is safe on this device and syncing is paused.
         </AlertDescription>
+        {/* Both actions borrow the banner's own amber rather than the mint
+            primary, and swap to a solid fill on hover — no alpha either way. */}
         {meta?.googleAuth && (
           <Button
             size="xs"
-            className="bg-warning-foreground text-warning hover:bg-warning-foreground/90"
+            className="bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground"
             onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/" })}
           >
             Sign in with Google
@@ -177,7 +179,7 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
           <Button
             size="xs"
             variant="outline"
-            className="border-warning-foreground/30 bg-transparent text-warning-foreground"
+            className="border-warning-foreground bg-warning text-warning-foreground hover:bg-warning-foreground hover:text-warning"
             onClick={() => void authClient.signIn.anonymous()}
           >
             Dev sign-in

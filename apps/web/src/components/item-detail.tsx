@@ -3,7 +3,7 @@ import { TEXT_ITEM_KINDS, isTextKind } from "@ragbag/shared";
 import type { ItemKind, TextItemKind } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DeleteItemDialog } from "@/components/delete-item-dialog";
 import { Icon } from "@/components/icon";
 import { AddressActions, KindDot } from "@/components/item-card";
@@ -23,8 +23,12 @@ import { hostOf, timeLabel } from "@/lib/format";
 // Rendered above the timeline so scroll position survives.
 //
 // A Sheet rather than a hand-rolled overlay: focus trap, scroll lock, Esc and
-// the slide animation all come from Radix. Closing routes back to "/", so the
-// route is the source of truth for open/closed.
+// the slide animation all come from Radix. The route decides whether this
+// screen exists; local `open` state decides whether the panel is on screen, so
+// that closing can animate before the route change tears the component down.
+
+/** Keep in step with `data-[state=closed]:duration-150` on SheetContent. */
+const SHEET_EXIT_MS = 150;
 
 const TEXT_SECTION_LABEL: Partial<Record<ItemKind, string>> = {
   note: "Note",
@@ -36,13 +40,32 @@ export function ItemDetail() {
   const { id } = useParams({ strict: false }) as { id: string };
   const zero = useZero();
   const navigate = useNavigate();
-  const [item] = useQuery(queries.item({ id }));
+  const [liveItem] = useQuery(queries.item({ id }));
   const [allTags] = useQuery(queries.tags());
-  const blobUrl = useBlobUrl(item?.blobId);
   const [editing, setEditing] = useState(false);
   const [textDraft, setTextDraft] = useState("");
+  const [open, setOpen] = useState(true);
 
-  const close = () => void navigate({ to: "/" });
+  // Closing has to outlive the route change. Navigating to "/" unmounts this
+  // component on the spot, which meant the panel disappeared in a single frame
+  // while its scrim was still there — no exit animation at all, unlike the
+  // mobile drawer (which is state-driven and slides out properly). So flip
+  // `open` first and leave the route once the panel is gone.
+  const close = () => setOpen(false);
+  useEffect(() => {
+    if (open) return;
+    // Matches the exit duration on SheetContent in ui/sheet.tsx.
+    const t = setTimeout(() => void navigate({ to: "/" }), SHEET_EXIT_MS);
+    return () => clearTimeout(t);
+  }, [open, navigate]);
+
+  // Deleting from here drops the row from the local store immediately, so
+  // while the panel slides out there is nothing left to render. Keep painting
+  // the last copy rather than flashing the loading state on the way out.
+  const lastItem = useRef(liveItem);
+  if (liveItem) lastItem.current = liveItem;
+  const item = liveItem ?? (open ? undefined : lastItem.current);
+  const blobUrl = useBlobUrl(item?.blobId);
 
   const c = item?.content;
   const host = hostOf(item?.url);
@@ -57,7 +80,7 @@ export function ItemDetail() {
   };
 
   return (
-    <Sheet open onOpenChange={(open) => !open && close()}>
+    <Sheet open={open} onOpenChange={(next) => !next && close()}>
       <SheetContent
         side="right"
         showCloseButton={false}
@@ -77,7 +100,7 @@ export function ItemDetail() {
         ) : (
           <>
             {/* header */}
-            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card/95 px-5 py-3 backdrop-blur">
+            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card px-5 py-3">
               <KindDot kind={item.kind} />
               <span className="text-sm font-medium capitalize">{item.kind}</span>
               {item.kind === "todo" && (
@@ -86,7 +109,7 @@ export function ItemDetail() {
                   aria-checked={done}
                   size="xs"
                   variant={done ? "default" : "outline"}
-                  className={done ? "bg-kind-todo text-background hover:bg-kind-todo/90" : ""}
+                  className={done ? "bg-kind-todo text-background hover:bg-kind-todo-hover" : ""}
                   onClick={() =>
                     void zero.mutate(mutators.item.setDone({ id: item.id, done: !done }))
                   }
@@ -129,7 +152,7 @@ export function ItemDetail() {
                     variant="ghost"
                     size="icon-sm"
                     title="Delete"
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
                   >
                     <Icon name="trash" className="size-4" />
                   </Button>
@@ -173,7 +196,7 @@ export function ItemDetail() {
                   </Skeleton>
                 ))}
               {item.kind === "file" && (
-                <div className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4">
+                <div className="flex items-center gap-3 rounded-xl border bg-panel p-4">
                   <Icon name="file" className="size-8 text-kind-file" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{c?.title ?? "File"}</p>
@@ -301,7 +324,7 @@ export function ItemDetail() {
 
               {/* AI summary */}
               {c?.aiSummary && (
-                <section className="rounded-xl bg-ai/8 p-3.5">
+                <section className="rounded-xl bg-ai-soft p-3.5">
                   <SectionLabel>
                     <span className="flex items-center gap-1 text-ai">
                       <Icon name="sparkles" className="size-3.5" /> Summary
@@ -328,7 +351,7 @@ export function ItemDetail() {
                       .map((t) => (
                         <Badge
                           key={t.tagId}
-                          className="bg-ai/12 font-normal text-ai"
+                          className="bg-ai-soft font-normal text-ai"
                           title={`AI ${t.tag!.kind} tag`}
                         >
                           <Icon name="sparkles" className="size-3" />
@@ -369,7 +392,7 @@ export function ItemDetail() {
               {c?.extractedText && (
                 <section>
                   <SectionLabel>Extracted content</SectionLabel>
-                  <div className="space-y-3 rounded-xl border bg-muted/40 p-4 text-[15px] leading-relaxed">
+                  <div className="space-y-3 rounded-xl border bg-panel p-4 text-[15px] leading-relaxed">
                     {c.extractedText.split(/\n{2,}/).map((para, i) => (
                       <p key={i} className="whitespace-pre-wrap">
                         {para}

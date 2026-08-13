@@ -3,33 +3,64 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Muted mint. Every token is OKLCH anchored at hue 168–174 with the chroma held
-   low (0.01–0.09), so the chrome reads as a tinted neutral rather than a green
-   app — only primary/accent/ring carry visible colour. Values were checked for
-   sRGB gamut and WCAG contrast; the ratios are in SHADCN_PLAN.md §3.2. */
+/* Muted mint, anchored at OKLCH hue 168–174.
+ *
+ * Two rules hold this together:
+ *
+ * 1. The chroma budget is lopsided. Surfaces (background, card, popover,
+ *    panel, sidebar, muted, secondary, border, input) and ink sit at
+ *    0.0015–0.012 — within ~2/255 of a neutral grey, so they read as "not
+ *    quite grey" rather than as a green app. primary / ring / accent / the
+ *    kind + ai tokens keep real chroma, because those are the places colour is
+ *    supposed to do work. Every one of them, including borders and shadows,
+ *    carries the mint hue; nothing here is neutral black or white.
+ *
+ * 2. Every colour is an opaque token. No `/40` fills, no `white/10%` borders.
+ *    An alpha colour composites against whatever happens to be behind it, so
+ *    the same class lands differently on the canvas, on a card, and inside the
+ *    detail sheet — which is exactly the drift this palette is meant to stop.
+ *    Soft fills get their own solid tokens (`--kind-*-soft`, `--destructive-
+ *    soft`, `--panel`), and hover states get solid `-hover` tokens.
+ *
+ *    The two deliberate exceptions are things that are *physically*
+ *    translucent: `--scrim` (a veil — you must see the page through it) and
+ *    the shadow scale (a shadow that isn't translucent is a solid block).
+ *    Both are mint-tinted and both bake their alpha into the token, so call
+ *    sites still say `bg-scrim` / `shadow-lg` with no opacity modifier.
+ *
+ * Values were checked for sRGB gamut and WCAG contrast; ratios in
+ * SHADCN_PLAN.md §3.2. */
 
 :root {
   /* The app's language is already rounded-2xl floating cards. */
   --radius: 0.75rem;
 
-  --background: oklch(0.985 0.007 168); /* #f6fcf9 */
-  --foreground: oklch(0.245 0.021 172); /* #16241f */
-  --card: oklch(0.996 0.003 168);
-  --card-foreground: oklch(0.245 0.021 172);
-  --popover: oklch(0.996 0.003 168);
-  --popover-foreground: oklch(0.245 0.021 172);
+  --background: oklch(0.985 0.003 168); /* #f8fbfa */
+  --foreground: oklch(0.245 0.01 172); /* #1c2220 */
+  --card: oklch(0.997 0.0015 168);
+  --card-foreground: oklch(0.245 0.01 172);
+  --popover: oklch(0.997 0.0015 168);
+  --popover-foreground: oklch(0.245 0.01 172);
+  /* Inset blocks inside a card: link/address/file bodies, extracted text. */
+  --panel: oklch(0.977 0.004 168);
 
   --primary: oklch(0.475 0.07 170); /* #2d6956 */
   --primary-foreground: oklch(0.985 0.012 168);
-  --secondary: oklch(0.945 0.016 168);
-  --secondary-foreground: oklch(0.305 0.024 172);
-  --muted: oklch(0.958 0.012 168);
-  --muted-foreground: oklch(0.505 0.022 172); /* #586963 */
-  --accent: oklch(0.915 0.032 170); /* #cfeae0 */
-  --accent-foreground: oklch(0.295 0.032 172);
+  --primary-hover: oklch(0.425 0.068 170);
+  --secondary: oklch(0.947 0.006 168);
+  --secondary-foreground: oklch(0.305 0.012 172);
+  --secondary-hover: oklch(0.925 0.008 168);
+  --muted: oklch(0.96 0.005 168);
+  --muted-foreground: oklch(0.505 0.011 172); /* #5f6764 */
+  /* Accent stays visibly mint: it is the active-row / hover highlight, not a
+     panel surface. */
+  --accent: oklch(0.928 0.024 170); /* #d8ede5 */
+  --accent-foreground: oklch(0.295 0.024 172);
 
   --destructive: oklch(0.545 0.18 27);
   --destructive-foreground: oklch(0.985 0.012 168);
+  --destructive-hover: oklch(0.495 0.175 27);
+  --destructive-soft: oklch(0.955 0.021 27);
   /* Not shadcn tokens: the sync banner and the sync dot / todo tick need a
      warning and a success surface that belong to this palette. */
   --warning: oklch(0.955 0.035 92);
@@ -37,92 +68,141 @@
   --success: oklch(0.95 0.035 160);
   --success-foreground: oklch(0.505 0.09 158);
 
-  --border: oklch(0.9 0.014 168);
-  --input: oklch(0.9 0.014 168);
-  --ring: oklch(0.58 0.06 170); /* 3.99:1 on the canvas */
+  --border: oklch(0.905 0.005 168);
+  --input: oklch(0.898 0.006 168);
+  --ring: oklch(0.58 0.06 170);
 
-  --sidebar: oklch(0.998 0.002 168);
-  --sidebar-foreground: oklch(0.245 0.021 172);
+  --sidebar: oklch(0.999 0.001 168);
+  --sidebar-foreground: oklch(0.245 0.01 172);
   --sidebar-primary: oklch(0.475 0.07 170);
   --sidebar-primary-foreground: oklch(0.985 0.012 168);
-  --sidebar-accent: oklch(0.945 0.02 170);
-  --sidebar-accent-foreground: oklch(0.295 0.03 172);
-  --sidebar-border: oklch(0.905 0.014 168);
+  --sidebar-accent: oklch(0.947 0.018 170);
+  --sidebar-accent-foreground: oklch(0.295 0.024 172);
+  --sidebar-border: oklch(0.91 0.005 168);
   --sidebar-ring: oklch(0.58 0.06 170);
 
   /* Item kinds: muted and hue-spaced so they read as a family next to the mint
-     chrome. Used as text plus a /12 fill. */
+     chrome. `-soft` is the solid fill behind the icon — not the ink at 12%. */
   --kind-note: oklch(0.56 0.085 95);
+  --kind-note-soft: oklch(0.962 0.03 95);
   --kind-todo: oklch(0.535 0.085 160);
+  --kind-todo-soft: oklch(0.962 0.03 160);
+  --kind-todo-hover: oklch(0.485 0.082 160);
   --kind-address: oklch(0.56 0.095 20);
+  --kind-address-soft: oklch(0.962 0.017 20);
   --kind-link: oklch(0.545 0.08 235);
+  --kind-link-soft: oklch(0.962 0.02 235);
   --kind-image: oklch(0.555 0.085 300);
+  --kind-image-soft: oklch(0.962 0.02 300);
   --kind-pdf: oklch(0.545 0.115 30);
+  --kind-pdf-soft: oklch(0.962 0.018 30);
   --kind-file: oklch(0.52 0.03 200);
+  --kind-file-soft: oklch(0.962 0.012 200);
   /* Everything ingestion generated: summaries, AI tags, the sparkles. */
   --ai: oklch(0.545 0.085 285);
+  --ai-soft: oklch(0.962 0.017 285);
 
   --chart-1: oklch(0.615 0.09 168);
   --chart-2: oklch(0.575 0.075 212);
   --chart-3: oklch(0.65 0.075 132);
   --chart-4: oklch(0.66 0.09 84);
   --chart-5: oklch(0.56 0.08 296);
+
+  /* Veils. Translucent by nature; the alpha lives here, not at the call site. */
+  --scrim: oklch(0.3 0.02 172 / 0.4);
+  --scrim-strong: oklch(0.25 0.02 172 / 0.92);
+  /* The scrim is dark in both themes, so its ink is light in both themes —
+     `text-background` would vanish in dark mode. */
+  --scrim-foreground: oklch(0.97 0.005 168);
+  --scrim-foreground-muted: oklch(0.83 0.008 168);
+
+  /* Shadows are mint-tinted, never neutral black. Split into a colour and four
+     strengths so the dark theme can re-tune both without touching the scale. */
+  --shadow-tint: 57 84 75; /* oklch(0.42 0.035 172) */
+  --shadow-a1: 0.04;
+  --shadow-a2: 0.06;
+  --shadow-a3: 0.1;
+  --shadow-a4: 0.18;
 }
 
 .dark {
-  --background: oklch(0.19 0.014 174); /* #0d1613 */
-  --foreground: oklch(0.935 0.011 168);
-  --card: oklch(0.228 0.017 174);
-  --card-foreground: oklch(0.935 0.011 168);
-  --popover: oklch(0.228 0.017 174);
-  --popover-foreground: oklch(0.935 0.011 168);
+  --background: oklch(0.19 0.005 174); /* #121514 */
+  --foreground: oklch(0.935 0.006 168);
+  --card: oklch(0.232 0.006 174); /* #1b1e1d */
+  --card-foreground: oklch(0.935 0.006 168);
+  --popover: oklch(0.232 0.006 174);
+  --popover-foreground: oklch(0.935 0.006 168);
+  --panel: oklch(0.268 0.007 174);
 
   --primary: oklch(0.78 0.09 168); /* #7bcaac */
   --primary-foreground: oklch(0.205 0.03 172);
-  --secondary: oklch(0.278 0.019 174);
-  --secondary-foreground: oklch(0.935 0.011 168);
-  --muted: oklch(0.278 0.019 174);
-  --muted-foreground: oklch(0.712 0.021 168);
-  --accent: oklch(0.318 0.028 172);
-  --accent-foreground: oklch(0.935 0.011 168);
+  --primary-hover: oklch(0.72 0.085 168);
+  --secondary: oklch(0.282 0.007 174);
+  --secondary-foreground: oklch(0.935 0.006 168);
+  --secondary-hover: oklch(0.325 0.008 174);
+  --muted: oklch(0.282 0.007 174);
+  --muted-foreground: oklch(0.712 0.009 168);
+  --accent: oklch(0.322 0.02 172);
+  --accent-foreground: oklch(0.935 0.006 168);
 
-  /* Tuned to read as *text* on the dark canvas. As a button fill it is paired
-     with shadcn's `dark:bg-destructive/60 text-white`, which is what keeps that
-     combination above 4.5:1 — don't hand-roll `bg-destructive text-white`. */
+  /* Light enough to read as *text* on the dark canvas (5.10:1 on a card), so
+     as a fill it takes dark ink rather than white — which is what lets us drop
+     shadcn's `dark:bg-destructive/60` alpha hack. */
   --destructive: oklch(0.665 0.165 27);
-  --destructive-foreground: oklch(0.205 0.03 172);
+  --destructive-foreground: oklch(0.205 0.045 27);
+  --destructive-hover: oklch(0.615 0.17 27);
+  --destructive-soft: oklch(0.265 0.042 27);
   --warning: oklch(0.29 0.045 80);
   --warning-foreground: oklch(0.855 0.085 92);
   --success: oklch(0.29 0.045 160);
   --success-foreground: oklch(0.81 0.095 158);
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.06 170); /* 6.57:1 on the canvas */
+  --border: oklch(0.305 0.008 174);
+  --input: oklch(0.345 0.009 174);
+  --ring: oklch(0.68 0.06 170);
 
-  --sidebar: oklch(0.228 0.017 174);
-  --sidebar-foreground: oklch(0.935 0.011 168);
+  --sidebar: oklch(0.232 0.006 174);
+  --sidebar-foreground: oklch(0.935 0.006 168);
   --sidebar-primary: oklch(0.78 0.09 168);
   --sidebar-primary-foreground: oklch(0.205 0.03 172);
-  --sidebar-accent: oklch(0.318 0.028 172);
-  --sidebar-accent-foreground: oklch(0.935 0.011 168);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: oklch(0.322 0.02 172);
+  --sidebar-accent-foreground: oklch(0.935 0.006 168);
+  --sidebar-border: oklch(0.305 0.008 174);
   --sidebar-ring: oklch(0.68 0.06 170);
 
   --kind-note: oklch(0.79 0.09 95);
+  --kind-note-soft: oklch(0.312 0.038 95);
   --kind-todo: oklch(0.78 0.09 160);
+  --kind-todo-soft: oklch(0.312 0.038 160);
+  --kind-todo-hover: oklch(0.83 0.08 160);
   --kind-address: oklch(0.76 0.095 20);
+  --kind-address-soft: oklch(0.312 0.04 20);
   --kind-link: oklch(0.76 0.08 235);
+  --kind-link-soft: oklch(0.312 0.034 235);
   --kind-image: oklch(0.77 0.085 300);
+  --kind-image-soft: oklch(0.312 0.036 300);
   --kind-pdf: oklch(0.74 0.11 30);
+  --kind-pdf-soft: oklch(0.312 0.04 30);
   --kind-file: oklch(0.76 0.03 200);
+  --kind-file-soft: oklch(0.312 0.013 200);
   --ai: oklch(0.765 0.085 285);
+  --ai-soft: oklch(0.312 0.036 285);
 
   --chart-1: oklch(0.72 0.09 168);
   --chart-2: oklch(0.7 0.08 212);
   --chart-3: oklch(0.75 0.075 132);
   --chart-4: oklch(0.76 0.09 84);
   --chart-5: oklch(0.68 0.08 296);
+
+  --scrim: oklch(0.1 0.015 174 / 0.6);
+  --scrim-strong: oklch(0.1 0.015 174 / 0.94);
+
+  /* Near-black, still mint-hued; a dark canvas needs much more of it. */
+  --shadow-tint: 0 6 4;
+  --shadow-a1: 0.24;
+  --shadow-a2: 0.32;
+  --shadow-a3: 0.44;
+  --shadow-a4: 0.6;
 }
 
 @theme inline {
@@ -137,16 +217,21 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-panel: var(--panel);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-soft: var(--destructive-soft);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-success: var(--success);
@@ -165,19 +250,67 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   --color-kind-note: var(--kind-note);
+  --color-kind-note-soft: var(--kind-note-soft);
   --color-kind-todo: var(--kind-todo);
+  --color-kind-todo-soft: var(--kind-todo-soft);
+  --color-kind-todo-hover: var(--kind-todo-hover);
   --color-kind-address: var(--kind-address);
+  --color-kind-address-soft: var(--kind-address-soft);
   --color-kind-link: var(--kind-link);
+  --color-kind-link-soft: var(--kind-link-soft);
   --color-kind-image: var(--kind-image);
+  --color-kind-image-soft: var(--kind-image-soft);
   --color-kind-pdf: var(--kind-pdf);
+  --color-kind-pdf-soft: var(--kind-pdf-soft);
   --color-kind-file: var(--kind-file);
+  --color-kind-file-soft: var(--kind-file-soft);
   --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+
+  --color-scrim: var(--scrim);
+  --color-scrim-strong: var(--scrim-strong);
+  --color-scrim-foreground: var(--scrim-foreground);
+  --color-scrim-foreground-muted: var(--scrim-foreground-muted);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* Tailwind's shadow scale, re-tinted. `inline` matters: it emits these
+     var() references into the utilities, so `.dark` can re-point the tint and
+     strengths at runtime. */
+  --shadow-2xs: 0 1px 0 0 rgb(var(--shadow-tint) / var(--shadow-a1));
+  --shadow-xs: 0 1px 2px 0 rgb(var(--shadow-tint) / var(--shadow-a1));
+  --shadow-sm:
+    0 1px 2px 0 rgb(var(--shadow-tint) / var(--shadow-a2)),
+    0 1px 3px 0 rgb(var(--shadow-tint) / var(--shadow-a1));
+  --shadow-md:
+    0 2px 4px -1px rgb(var(--shadow-tint) / var(--shadow-a2)),
+    0 4px 8px -2px rgb(var(--shadow-tint) / var(--shadow-a2));
+  --shadow-lg:
+    0 4px 6px -2px rgb(var(--shadow-tint) / var(--shadow-a2)),
+    0 10px 20px -4px rgb(var(--shadow-tint) / var(--shadow-a3));
+  --shadow-xl:
+    0 8px 12px -4px rgb(var(--shadow-tint) / var(--shadow-a2)),
+    0 20px 32px -8px rgb(var(--shadow-tint) / var(--shadow-a3));
+  --shadow-2xl: 0 24px 48px -12px rgb(var(--shadow-tint) / var(--shadow-a4));
+  /* The floating-card shadow the composer set as the app's visual language,
+     defined once. A `@utility` writing `box-shadow` directly would have
+     clobbered any `ring-*` on the same element (Tailwind composes both into one
+     box-shadow) — as a `--shadow-*` key it composes correctly instead. */
+  --shadow-float:
+    0 2px 6px -2px rgb(var(--shadow-tint) / var(--shadow-a2)),
+    0 8px 30px -4px rgb(var(--shadow-tint) / var(--shadow-a3));
+
+  /* Motion. Things arriving decelerate hard — they cover most of the distance
+     immediately, so the panel feels like it was already there. Things leaving
+     accelerate away and take less time, because nobody waits to watch a drawer
+     close. `ease-in-out` (shadcn's default on Sheet) is wrong for both: it
+     crawls at the start, which is what reads as slow. */
+  --ease-enter: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @layer base {
@@ -191,20 +324,24 @@
   }
 
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
 
   body {
     @apply bg-background text-foreground;
   }
-}
 
-/* The floating-card shadow the composer set as the app's visual language, in
-   one place instead of three. */
-@utility shadow-float {
-  box-shadow: 0 8px 30px rgb(0 0 0 / 0.1);
-
-  :where(.dark) & {
-    box-shadow: 0 8px 30px rgb(0 0 0 / 0.45);
+  /* Nothing here is load-bearing motion — every panel is legible at rest — so
+     honour the OS setting rather than easing more gently. Not zero: some
+     state changes wait on `animationend`. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

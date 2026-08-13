@@ -29,7 +29,7 @@ function Linkified({ text }: { text: string }) {
             href={part}
             target="_blank"
             rel="noreferrer"
-            className="break-all text-kind-link underline decoration-kind-link/40 hover:decoration-kind-link"
+            className="break-all text-kind-link underline decoration-kind-link decoration-1 underline-offset-2"
             onClick={(e) => e.stopPropagation()}
           >
             {part}
@@ -47,11 +47,13 @@ export function StatusChip({ item }: { item: TimelineItem }) {
   const status = item.content?.status;
   if (!status || status === "done") return null;
   if (status === "failed") {
+    // A soft chip rather than a solid red badge: the inline retry button needs
+    // a surface of its own, and lightening a solid fill would mean an alpha.
     return (
-      <Badge variant="destructive" className="gap-1.5 px-2 text-[11px]">
+      <Badge className="gap-1.5 bg-destructive-soft px-2 text-[11px] text-destructive">
         <span title={item.content?.error ?? undefined}>failed</span>
         <button
-          className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-px hover:bg-white/30"
+          className="inline-flex items-center gap-0.5 rounded-full bg-card px-1.5 py-px hover:bg-panel"
           title={item.content?.error ?? "Retry ingestion"}
           onClick={(e) => {
             e.preventDefault();
@@ -111,7 +113,7 @@ export function TodoBody({ item, size = "sm" }: { item: TimelineItem; size?: "sm
         title={done ? "Mark as not done" : "Mark as done"}
         // Explicit radius: --radius is 0.75rem for the app's big cards, and
         // `rounded-md` off that turns a 20px box into a circle.
-        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring ${
           done
             ? "border-kind-todo bg-kind-todo text-background"
             : "border-input text-transparent hover:border-kind-todo hover:text-kind-todo"
@@ -177,8 +179,8 @@ export function AddressActions({ address }: { address: string }) {
 export function AddressBody({ item }: { item: TimelineItem }) {
   const address = item.text ?? "";
   return (
-    <div className="mt-0.5 flex gap-3 rounded-xl border bg-muted/40 p-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-kind-address/12 text-kind-address">
+    <div className="mt-0.5 flex gap-3 rounded-xl border bg-panel p-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-kind-address-soft text-kind-address">
         <Icon name="address" className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -202,7 +204,7 @@ function LinkBody({ item }: { item: TimelineItem }) {
       href={item.url ?? "#"}
       target="_blank"
       rel="noreferrer"
-      className="group/link mt-0.5 flex gap-3 rounded-xl border bg-muted/40 p-3 transition hover:bg-muted"
+      className="group/link mt-0.5 flex gap-3 rounded-xl border bg-panel p-3 transition hover:bg-accent"
     >
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -255,11 +257,13 @@ function FileBody({ item }: { item: TimelineItem }) {
     <Link
       to="/item/$id"
       params={{ id: item.id }}
-      className="mt-0.5 flex items-center gap-3 rounded-xl border bg-muted/40 p-3 transition hover:bg-muted"
+      className="mt-0.5 flex items-center gap-3 rounded-xl border bg-panel p-3 transition hover:bg-accent"
     >
       <span
         className={`flex size-10 items-center justify-center rounded-lg ${
-          item.kind === "pdf" ? "bg-kind-pdf/12 text-kind-pdf" : "bg-kind-file/12 text-kind-file"
+          item.kind === "pdf"
+            ? "bg-kind-pdf-soft text-kind-pdf"
+            : "bg-kind-file-soft text-kind-file"
         }`}
       >
         <Icon name={icon} className="size-5" />
@@ -334,7 +338,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="rounded-full text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
             aria-label="Delete"
             title="Delete"
           >
@@ -377,13 +381,13 @@ export function ItemCard({ item }: { item: TimelineItem }) {
 }
 
 const KIND_TONE: Record<TimelineItem["kind"], string> = {
-  note: "text-kind-note bg-kind-note/12",
-  todo: "text-kind-todo bg-kind-todo/12",
-  address: "text-kind-address bg-kind-address/12",
-  link: "text-kind-link bg-kind-link/12",
-  image: "text-kind-image bg-kind-image/12",
-  pdf: "text-kind-pdf bg-kind-pdf/12",
-  file: "text-kind-file bg-kind-file/12",
+  note: "text-kind-note bg-kind-note-soft",
+  todo: "text-kind-todo bg-kind-todo-soft",
+  address: "text-kind-address bg-kind-address-soft",
+  link: "text-kind-link bg-kind-link-soft",
+  image: "text-kind-image bg-kind-image-soft",
+  pdf: "text-kind-pdf bg-kind-pdf-soft",
+  file: "text-kind-file bg-kind-file-soft",
 };
 
 export function KindDot({ kind }: { kind: TimelineItem["kind"] }) {

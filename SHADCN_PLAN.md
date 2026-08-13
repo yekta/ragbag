@@ -160,212 +160,102 @@ still on its old styling. No visual change yet.
 
 ## 3. Phase 1 — the muted-mint theme
 
-Hue anchor **168–174°** in OKLCH (mint/sea-green), chroma held low (0.01–0.09) so it reads as a
-tinted neutral rather than a green app. Chrome is mint-tinted grey; only `primary`, `ring` and
-`accent` carry visible colour.
+Hue anchor **168–174°** in OKLCH (mint/sea-green). Everything carries the hue — surfaces, ink,
+borders, rings, shadows, scrims — but the chroma budget is split so only `primary`, `ring`,
+`accent` and the kind tokens show colour; the rest reads as "not quite grey" (§3.1).
 
-Every value below was computed OKLCH → sRGB and checked for gamut + WCAG contrast (script kept at
-the bottom of this section). **All text pairs pass AA; focus rings pass 3:1.**
+Every value was computed OKLCH → sRGB and checked for gamut + WCAG contrast. **All text pairs pass
+AA; focus rings pass 3:1.**
 
-### 3.1 `src/index.css` (replaces the one-line file)
+### 3.1 `src/index.css`
 
-```css
-@import "tailwindcss";
-@import "tw-animate-css";
+**The shipped token set lives in `apps/web/src/index.css` — read it there, not here.** The full
+block was inlined in this section while the migration was in flight; it has since been revised
+(2026-08-13, after a first pass read too green) and duplicating it invites drift.
 
-@custom-variant dark (&:is(.dark *));
+The shape is the standard shadcn v4 layout: `@import "tailwindcss"` + `tw-animate-css`, a
+`@custom-variant dark`, `:root` / `.dark` token blocks, an `@theme inline` mapping every token to a
+`--color-*` utility, and a small `@layer base`. Ours on top of the shadcn set: `--panel`,
+`--warning`, `--success`, the `-hover` and `-soft` variants, seven `--kind-*` (+ `-soft`), `--ai`,
+the `--scrim*` family, and a re-tinted shadow scale including `--shadow-float`.
 
-:root {
-  --radius: 0.75rem; /* the app's language is already rounded-2xl cards */
+**Two rules hold the palette together.**
 
-  --background: oklch(0.985 0.007 168); /* #f6fcf9 */
-  --foreground: oklch(0.245 0.021 172); /* #16241f */
-  --card: oklch(0.996 0.003 168); /* #fcfefd */
-  --card-foreground: oklch(0.245 0.021 172);
-  --popover: oklch(0.996 0.003 168);
-  --popover-foreground: oklch(0.245 0.021 172);
+_1. The chroma budget is lopsided_ — this is what makes it read as _subtle_ mint:
 
-  --primary: oklch(0.475 0.07 170); /* #2d6956  deep muted mint */
-  --primary-foreground: oklch(0.985 0.012 168);
-  --secondary: oklch(0.945 0.016 168);
-  --secondary-foreground: oklch(0.305 0.024 172);
-  --muted: oklch(0.958 0.012 168);
-  --muted-foreground: oklch(0.505 0.022 172); /* #586963 */
-  --accent: oklch(0.915 0.032 170); /* #cfeae0 */
-  --accent-foreground: oklch(0.295 0.032 172);
+| group          | tokens                                                                     | chroma             |
+| -------------- | -------------------------------------------------------------------------- | ------------------ |
+| surfaces       | background, card, popover, panel, sidebar, muted, secondary, border, input | **0.0015 – 0.009** |
+| ink            | foreground, muted-foreground, secondary-foreground                         | **0.006 – 0.012**  |
+| highlight      | accent, sidebar-accent                                                     | 0.018 – 0.024      |
+| working colour | primary, ring, destructive, warning, success, `--kind-*`, `--ai`           | 0.03 – 0.18        |
 
-  --destructive: oklch(0.545 0.18 27);
-  --destructive-foreground: oklch(0.985 0.012 168);
-  --warning: oklch(0.955 0.035 92); /* surface */
-  --warning-foreground: oklch(0.415 0.075 78);
-  --success: oklch(0.95 0.035 160);
-  --success-foreground: oklch(0.505 0.09 158);
+At those surface values a light canvas is `#f8fbfa` against a neutral `#fafafa`, and a dark canvas
+`#121514` against `#141414` — a max channel delta of ~2/255. The tint is present when you look for
+it and invisible when you don't, while `primary` (`#2d6956`), the active nav row and the kind
+tokens stay unmistakably mint. Raising surface chroma back toward 0.015+ is what made the first
+pass look like a green app.
 
-  --border: oklch(0.9 0.014 168);
-  --input: oklch(0.9 0.014 168);
-  --ring: oklch(0.58 0.06 170); /* 3.99:1 on background */
+_2. Every colour is an opaque token — including borders and shadows._ No `bg-muted/40`, no
+`border: white/10%`, no `dark:bg-destructive/60`. An alpha colour composites against whatever is
+behind it, so one class lands three different ways on the canvas, on a card, and inside the detail
+sheet. The replacements:
 
-  --sidebar: oklch(0.998 0.002 168);
-  --sidebar-foreground: oklch(0.245 0.021 172);
-  --sidebar-primary: oklch(0.475 0.07 170);
-  --sidebar-primary-foreground: oklch(0.985 0.012 168);
-  --sidebar-accent: oklch(0.945 0.02 170);
-  --sidebar-accent-foreground: oklch(0.295 0.03 172);
-  --sidebar-border: oklch(0.905 0.014 168);
-  --sidebar-ring: oklch(0.58 0.06 170);
+| was                                                    | now                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| `bg-muted/40` inset blocks                             | `--panel` (solid, one step off card)                           |
+| `bg-kind-*/12`, `bg-ai/8`, `bg-ai/12`                  | `--kind-*-soft`, `--ai-soft` (8 solid fills)                   |
+| `bg-destructive/10`, `/20`                             | `--destructive-soft`                                           |
+| `bg-primary/90`, `bg-secondary/80,/90`                 | `--primary-hover`, `--secondary-hover`                         |
+| `bg-destructive/90`                                    | `--destructive-hover`                                          |
+| dark `border: oklch(1 0 0 / 10%)`                      | solid `oklch(0.305 0.008 174)` — mint-hued                     |
+| dark `input: oklch(1 0 0 / 15%)`                       | solid `oklch(0.345 0.009 174)`                                 |
+| `ring-ring/50`, `ring-destructive/20,40`               | solid `ring-ring` / `ring-destructive`                         |
+| `bg-input/30`, `bg-input/50`                           | `--panel`, `--accent`                                          |
+| `bg-black/50` (Radix overlays)                         | `--scrim` (mint-hued)                                          |
+| `text-white` on destructive + `dark:bg-destructive/60` | `--destructive-foreground` (near-white light, near-black dark) |
 
-  /* item kinds — muted, mint-harmonised; used as text + `/12` fills */
-  --kind-note: oklch(0.56 0.085 95);
-  --kind-todo: oklch(0.535 0.085 160);
-  --kind-address: oklch(0.56 0.095 20);
-  --kind-link: oklch(0.545 0.08 235);
-  --kind-image: oklch(0.555 0.085 300);
-  --kind-pdf: oklch(0.545 0.115 30);
-  --kind-file: oklch(0.52 0.03 200);
-  --ai: oklch(0.545 0.085 285);
+That last row is worth calling out: shadcn dims the destructive fill to 60% in dark mode purely to
+keep white text legible on it. Instead, dark `--destructive` stays light enough to read as _text_
+on the canvas (5.10:1 on a card) and takes **dark** ink as a fill — one token pair, no alpha, and
+the contrast caveat from the first pass is gone.
 
-  --chart-1: oklch(0.615 0.09 168);
-  --chart-2: oklch(0.575 0.075 212);
-  --chart-3: oklch(0.65 0.075 132);
-  --chart-4: oklch(0.66 0.09 84);
-  --chart-5: oklch(0.56 0.08 296);
-}
+**Shadows carry the hue too.** Tailwind's `--shadow-*` scale is overridden in `@theme inline` to
+`rgb(var(--shadow-tint) / var(--shadow-aN))`, with the tint at `57 84 75` (a dark mint) in light
+and `0 6 4` in dark, plus four strengths the dark theme re-tunes. `inline` is load-bearing: it
+emits the `var()` references into the utilities so `.dark` can re-point them at runtime.
 
-.dark {
-  --background: oklch(0.19 0.014 174); /* #0d1613 */
-  --foreground: oklch(0.935 0.011 168);
-  --card: oklch(0.228 0.017 174); /* #141f1c */
-  --card-foreground: oklch(0.935 0.011 168);
-  --popover: oklch(0.228 0.017 174);
-  --popover-foreground: oklch(0.935 0.011 168);
+`shadow-float` is a `--shadow-float` **theme key**, not a `@utility`. A custom utility writing
+`box-shadow:` directly would clobber any `ring-*` on the same element, since Tailwind composes ring
+and shadow into a single `box-shadow` — which would have silently killed the composer's drag-hover
+ring.
 
-  --primary: oklch(0.78 0.09 168); /* #7bcaac */
-  --primary-foreground: oklch(0.205 0.03 172);
-  --secondary: oklch(0.278 0.019 174);
-  --secondary-foreground: oklch(0.935 0.011 168);
-  --muted: oklch(0.278 0.019 174);
-  --muted-foreground: oklch(0.712 0.021 168);
-  --accent: oklch(0.318 0.028 172);
-  --accent-foreground: oklch(0.935 0.011 168);
+**The two exceptions**, both physically translucent: `--scrim` / `--scrim-strong` (a veil — you
+must see the page through it) and the shadow scale (an opaque shadow is a solid block). Both are
+mint-tinted and both bake their alpha into the token, so call sites still read `bg-scrim` and
+`shadow-lg` with no opacity modifier. The scrim is dark in _both_ themes, so it carries its own
+`--scrim-foreground` / `--scrim-foreground-muted` ink — `text-background` on a scrim was invisible
+in dark mode.
 
-  --destructive: oklch(0.665 0.165 27);
-  --destructive-foreground: oklch(0.205 0.03 172);
-  --warning: oklch(0.29 0.045 80);
-  --warning-foreground: oklch(0.855 0.085 92);
-  --success: oklch(0.29 0.045 160);
-  --success-foreground: oklch(0.81 0.095 158);
-
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.06 170); /* 6.57:1 on background */
-
-  --sidebar: oklch(0.228 0.017 174);
-  --sidebar-foreground: oklch(0.935 0.011 168);
-  --sidebar-primary: oklch(0.78 0.09 168);
-  --sidebar-primary-foreground: oklch(0.205 0.03 172);
-  --sidebar-accent: oklch(0.318 0.028 172);
-  --sidebar-accent-foreground: oklch(0.935 0.011 168);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.68 0.06 170);
-
-  --kind-note: oklch(0.79 0.09 95);
-  --kind-todo: oklch(0.78 0.09 160);
-  --kind-address: oklch(0.76 0.095 20);
-  --kind-link: oklch(0.76 0.08 235);
-  --kind-image: oklch(0.77 0.085 300);
-  --kind-pdf: oklch(0.74 0.11 30);
-  --kind-file: oklch(0.76 0.03 200);
-  --ai: oklch(0.765 0.085 285);
-
-  --chart-1: oklch(0.72 0.09 168);
-  --chart-2: oklch(0.7 0.08 212);
-  --chart-3: oklch(0.75 0.075 132);
-  --chart-4: oklch(0.76 0.09 84);
-  --chart-5: oklch(0.68 0.08 296);
-}
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-kind-note: var(--kind-note);
-  --color-kind-todo: var(--kind-todo);
-  --color-kind-address: var(--kind-address);
-  --color-kind-link: var(--kind-link);
-  --color-kind-image: var(--kind-image);
-  --color-kind-pdf: var(--kind-pdf);
-  --color-kind-file: var(--kind-file);
-  --color-ai: var(--ai);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-}
-
-@layer base {
-  :root {
-    color-scheme: light;
-  }
-  .dark {
-    color-scheme: dark;
-  }
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-```
-
-`color-scheme` matters more than it looks: it fixes native scrollbars, `<input>` chrome and the
-PDF `<iframe>` in `item-detail` so they don't stay white in dark mode.
+`color-scheme: light` / `dark` in `@layer base` matters more than it looks: it fixes native
+scrollbars, `<input>` chrome and the PDF `<iframe>` in `item-detail` so they don't stay white in
+dark mode.
 
 ### 3.2 Verified numbers
 
-| pair                                   | ratio                     |
-| -------------------------------------- | ------------------------- |
-| foreground / background (light / dark) | 15.47 / 15.27             |
-| muted-foreground / card                | 5.74 / 6.67               |
-| primary-foreground / primary           | 6.19 / 9.23               |
-| accent-foreground / accent             | 10.77 / 10.46             |
-| ring / background                      | 3.99 / 6.57               |
-| every `--kind-*` on card               | 4.59 – 5.37 / 7.01 – 8.76 |
-| warning-foreground / warning           | 7.67 / 9.13               |
+Light / dark, recomputed after the 2026-08-13 desaturation:
+
+| pair                                 | ratio                     |
+| ------------------------------------ | ------------------------- |
+| foreground / background              | 15.50 / 15.27             |
+| foreground / card                    | 16.04 / 13.89             |
+| muted-foreground / card              | 5.79 / 6.59               |
+| primary-foreground / primary         | 6.19 / 9.23               |
+| accent-foreground / accent           | 11.21 / 10.33             |
+| foreground / sidebar-accent (active) | 13.94 / —                 |
+| ring / background                    | 3.98 / 6.59               |
+| every `--kind-*` on card             | 4.59 – 5.37 / 7.01 – 8.76 |
+| warning-foreground / warning         | 7.67 / 9.13               |
 
 One caveat carried forward: **dark `--destructive` (`#e7645a`) is tuned to read as _text_ on the
 dark canvas, not as a button fill under white text (3.29:1).** shadcn's own `button.tsx` handles
@@ -388,23 +278,69 @@ this with `dark:bg-destructive/60 text-white`; keep that variant as generated an
 Mechanical, but do it per-file with eyes on — several `neutral-900`s are _fills_ and several are
 _text_, and they diverge:
 
-| current                                              | becomes                                                     |
-| ---------------------------------------------------- | ----------------------------------------------------------- |
-| `bg-neutral-50` (canvas)                             | `bg-background`                                             |
-| `bg-white` (cards, popovers, drawers)                | `bg-card` / `bg-popover` / `bg-sidebar`                     |
-| `border-neutral-200`, `border-neutral-200/90`        | `border-border`                                             |
-| `text-neutral-900`                                   | `text-foreground`                                           |
-| `text-neutral-700/600`                               | `text-foreground` or `text-muted-foreground` (judgement)    |
-| `text-neutral-500/400`                               | `text-muted-foreground`                                     |
-| `bg-neutral-900 text-white` (active nav, send, save) | `bg-primary text-primary-foreground`                        |
-| `hover:bg-neutral-100`                               | `hover:bg-accent hover:text-accent-foreground`              |
-| `bg-neutral-100` chips                               | `bg-secondary text-secondary-foreground`                    |
-| `bg-neutral-900/30` scrims                           | `bg-foreground/20` (Radix overlays own this once on shadcn) |
-| amber sync banner                                    | `warning` tokens via `<Alert>`                              |
-| emerald sync dot / todo check                        | `success` tokens                                            |
-| `red-*` failures/delete                              | `destructive`                                               |
-| `KindDot` map, `sky` links, `violet` AI              | `--kind-*` / `--ai`                                         |
-| `shadow-[0_8px_30px_rgb(0_0_0/0.10)]`                | `shadow-lg` (or keep — but define it once, not in 3 files)  |
+| current                                              | becomes                                                   |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `bg-neutral-50` (canvas)                             | `bg-background`                                           |
+| `bg-white` (cards, popovers, drawers)                | `bg-card` / `bg-popover` / `bg-sidebar`                   |
+| `border-neutral-200`, `border-neutral-200/90`        | `border-border`                                           |
+| `text-neutral-900`                                   | `text-foreground`                                         |
+| `text-neutral-700/600`                               | `text-foreground` or `text-muted-foreground` (judgement)  |
+| `text-neutral-500/400`                               | `text-muted-foreground`                                   |
+| `bg-neutral-900 text-white` (active nav, send, save) | `bg-primary text-primary-foreground`                      |
+| `hover:bg-neutral-100`                               | `hover:bg-accent hover:text-accent-foreground`            |
+| `bg-neutral-100` chips                               | `bg-secondary text-secondary-foreground`                  |
+| `bg-neutral-900/30` scrims                           | `bg-scrim` (Radix overlays own this once on shadcn)       |
+| amber sync banner                                    | `warning` tokens via `<Alert>`                            |
+| emerald sync dot / todo check                        | `success` tokens                                          |
+| `red-*` failures/delete                              | `destructive`                                             |
+| `KindDot` map, `sky` links, `violet` AI              | `--kind-*` / `--ai`                                       |
+| `shadow-[0_8px_30px_rgb(0_0_0/0.10)]`                | `--shadow-float` theme key (defined once, not in 3 files) |
+
+### 3.5 Motion (revised 2026-08-13)
+
+The generated components ship timings that read as sluggish, and the reason isn't only duration:
+
+| surface                                     | shadcn default                                 | now                                 |
+| ------------------------------------------- | ---------------------------------------------- | ----------------------------------- |
+| Sheet content (detail panel, mobile drawer) | **500ms in / 300ms out, `ease-in-out`**        | 200 in / 150 out, enter/exit curves |
+| Sheet overlay (scrim)                       | unset → 150ms default, desynced from the panel | matched to the panel exactly        |
+| Dialog / AlertDialog                        | 200ms, no easing specified                     | 150 in / 100 out, enter/exit curves |
+| Sidebar rail + gap                          | 200ms **`ease-linear`**                        | 200ms, enter curve                  |
+
+Two tokens in `index.css` carry it:
+
+```
+--ease-enter: cubic-bezier(0.32, 0.72, 0, 1);   /* decelerate hard */
+--ease-exit:  cubic-bezier(0.4, 0, 1, 1);       /* accelerate away */
+```
+
+`ease-in-out` is the actual culprit on the drawer: it's symmetric, so the panel barely moves for the
+first ~100ms of a 500ms slide. An arriving panel should cover most of the distance immediately and
+settle; a leaving one should accelerate out and take _less_ time than it took to arrive.
+
+Two details worth keeping:
+
+- **`transition-none` on the animated panels.** These animate via keyframes, but `duration-*` and
+  `ease-*` also set `transition-duration` / `transition-timing-function`, and CSS's default
+  `transition-property` is `all` — so every colour and shadow on the panel silently gained a 200ms
+  transition. tw-animate-css reads `--tw-duration`, which `transition-property: none` doesn't touch,
+  so the keyframe animation is unaffected (verified from computed styles).
+- **`shadow-float` must be a `--shadow-*` theme key, not a `@utility`.** A utility writing
+  `box-shadow:` directly clobbers any `ring-*` on the same element, since Tailwind composes ring and
+  shadow into one `box-shadow` — that would have silently killed the composer's drag-hover ring.
+
+`prefers-reduced-motion: reduce` collapses everything to 1ms (not 0 — some state changes wait on
+`animationend`).
+
+**The item-detail sheet had no exit animation at all.** Closing navigated to `/`, which unmounts the
+component before Radix can play the exit — the panel vanished in a single frame (measured: 23ms)
+while the mobile drawer, being state-driven, slid out properly over ~240ms. It now holds local
+`open` state and defers the route change by `SHEET_EXIT_MS`; during that window it paints the last
+known item, because deleting from the sheet drops the row from the store and would otherwise flash
+the loading spinner on the way out.
+
+Measured on the production bundle (dev numbers are inflated by StrictMode's double render): mobile
+drawer click → fully settled in **217–265ms**, of which 24–51ms is React mounting the portal.
 
 ---
 

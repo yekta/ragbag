@@ -238,7 +238,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
           <div
             ref={cardRef}
             className={`rounded-3xl border bg-card shadow-float transition ${
-              dragZone === "composer" ? "border-primary ring-4 ring-primary/10" : ""
+              dragZone === "composer" ? "border-primary ring-4 ring-accent" : ""
             }`}
           >
             {(attachments.length > 0 || capturing > 0) && (
@@ -407,12 +407,14 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
  */
 function DropOverlay() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 bg-foreground/90 backdrop-blur-sm">
+    // The scrim is dark in both themes, so its ink is too — `text-background`
+    // would be invisible here in dark mode.
+    <div className="pointer-events-none fixed inset-0 z-50 bg-scrim-strong backdrop-blur-sm">
       <div className="flex h-full w-full items-center justify-center p-4">
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-background">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-scrim-foreground">
           <Icon name="plus" className="size-10" />
-          <p className="text-xl font-semibold drop-shadow">Drop to add to your ragbag</p>
-          <p className="text-sm text-background/85">
+          <p className="text-xl font-semibold">Drop to add to your ragbag</p>
+          <p className="text-sm text-scrim-foreground-muted">
             Images, PDFs, anything — release anywhere on this page
           </p>
         </div>

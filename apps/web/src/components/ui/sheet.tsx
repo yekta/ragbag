@@ -28,7 +28,9 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        // Timed to match SheetContent below, or the scrim finishes first and
+        // the panel appears to lag behind its own backdrop.
+        "fixed inset-0 z-50 bg-scrim data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=open]:ease-enter",
         className,
       )}
       {...props}
@@ -52,7 +54,13 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
+          // Was 500ms in / 300ms out on `ease-in-out` — a drawer that takes half
+          // a second to arrive, and an S-curve that barely moves for the first
+          // 100ms of it. Now 200 in / 150 out on the enter/exit curves.
+          // The bare `transition` (transition-property: all) is gone too: the
+          // panel animates via keyframes, and `all` meant every colour and
+          // shadow on it transitioned as a side effect.
+          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition-none data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:ease-enter",
           side === "right" &&
             "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
           side === "left" &&
