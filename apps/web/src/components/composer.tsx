@@ -233,6 +233,14 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   return (
     <>
       {dragZone === "window" && <DropOverlay />}
+      {/* Fade behind the composer, over the bottom half of the timeline column
+          (this positions against SidebarInset, so it never reaches the rail).
+          z-10 puts it above the cards and below the composer, which keeps the
+          card reading as solid and floating on top of it. Inert, or it would
+          swallow scroll and clicks across half the timeline. It runs past the
+          composer's safe-area padding to bottom-0 so the home-indicator strip
+          is covered too. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-1/2 fade-to-canvas" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-4">
         <div className="pointer-events-auto mx-auto w-full max-w-3xl">
           <div

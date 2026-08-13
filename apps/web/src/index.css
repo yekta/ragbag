@@ -345,3 +345,33 @@
     }
   }
 }
+
+/* The canvas fade behind the floating composer: timeline cards dissolve into
+ * the background as they scroll toward the bottom instead of sliding under a
+ * hard edge.
+ *
+ * Solid at the very bottom, half strength at the midpoint, gone at the top.
+ * The upper half is what keeps this from being a band — ending the ramp at 50%
+ * would put a 0%→50% step across the middle of the timeline, which is a more
+ * obvious seam than the one it set out to fix.
+ *
+ * A gradient stop is translucent by definition, so this is the same accepted
+ * exception as `--scrim` and the shadow scale: the alpha lives in the token and
+ * the call site stays a plain class. */
+@utility fade-to-canvas {
+  /* color-mix so the stops stay derived from --background instead of restating
+     the colour per theme. It's inside this project's floor anyway: every token
+     in this file is oklch(), which needs a newer engine than color-mix does.
+     (Lightning CSS emits a no-color-mix fallback that degrades to a solid band,
+     but nothing able to render the rest of the palette will reach it.)
+     The last stop resolves to plain transparent black — harmless, because CSS
+     interpolates gradients with premultiplied alpha, so a zero-alpha colour
+     contributes no colour to the ramp. Verified: no grey cast in either
+     theme. */
+  background-image: linear-gradient(
+    to top,
+    var(--background) 0%,
+    color-mix(in oklab, var(--background) 50%, transparent) 50%,
+    color-mix(in oklab, var(--background) 0%, transparent) 100%
+  );
+}

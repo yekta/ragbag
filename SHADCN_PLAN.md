@@ -332,6 +332,23 @@ Two details worth keeping:
 `prefers-reduced-motion: reduce` collapses everything to 1ms (not 0 — some state changes wait on
 `animationend`).
 
+### 3.6 Canvas fade behind the composer (added 2026-08-13)
+
+`fade-to-canvas` in `index.css`, applied to a `pointer-events-none absolute inset-x-0 bottom-0 z-10
+h-1/2` div rendered just before the composer's wrapper in `composer.tsx`. It positions against
+`SidebarInset`, so it covers the timeline column and never reaches the rail; `z-10` puts it above
+the cards and below the composer (`z-20`), so the card still reads as solid and floating.
+
+Stops: `--background` at the bottom, half strength at the midpoint, transparent at the top. **The
+upper half is the point.** Ending the ramp at 50% — the literal reading of "bg/100 to bg/50" — puts
+a 0%→50% opacity step across the middle of the timeline, which is a more obvious seam than the hard
+edge under the composer that the fade exists to soften.
+
+`color-mix(in oklab, var(--background) …)` keeps the stops derived from the theme rather than
+restating the canvas colour twice per theme. The final stop resolves to plain transparent black,
+which is fine: CSS interpolates gradients with premultiplied alpha, so a zero-alpha colour adds no
+colour to the ramp (checked in both themes — no grey cast).
+
 **The item-detail sheet had no exit animation at all.** Closing navigated to `/`, which unmounts the
 component before Radix can play the exit — the panel vanished in a single frame (measured: 23ms)
 while the mobile drawer, being state-driven, slid out properly over ~240ms. It now holds local
