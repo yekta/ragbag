@@ -46,7 +46,16 @@ function useRows(items: TimelineRows): Row[] {
 // No "filtered view" banner: the sidebar already highlights the active
 // view/tag, so a floating chip over the stream is pure redundancy.
 
-export function Timeline({ items, synced }: { items: TimelineRows; synced: boolean }) {
+export function Timeline({
+  items,
+  synced,
+  syncPaused,
+}: {
+  items: TimelineRows;
+  synced: boolean;
+  /** Sync can't run (refused or offline), so waiting on it would never end. */
+  syncPaused: boolean;
+}) {
   const rows = useRows(items);
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -89,13 +98,18 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
       >
         {empty ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
-            {synced ? (
+            {synced || syncPaused ? (
               <>
                 <Icon name="inbox" className="size-10" />
                 <p className="text-sm">
-                  {items.length === 0
-                    ? "Your ragbag is empty. Dump anything below — it syncs everywhere."
-                    : "Nothing matches this filter."}
+                  {items.length > 0
+                    ? "Nothing matches this filter."
+                    : syncPaused
+                      ? // The spinner here used to run forever while sync was
+                        // refused or offline, implying work was in progress
+                        // that had in fact stopped. The banner above says why.
+                        "Nothing on this device yet. Dump anything below — it syncs once the connection is back."
+                      : "Your ragbag is empty. Dump anything below — it syncs everywhere."}
                 </p>
               </>
             ) : (

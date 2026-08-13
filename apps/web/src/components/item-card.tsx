@@ -8,7 +8,7 @@ import { Icon, KIND_ICON } from "@/components/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBlobUrl } from "@/lib/blobs";
+import { useBlobQueue, useBlobQueueState, useBlobUploadState, useBlobUrl } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
 import { isTouch } from "@/lib/touch";
 import type { TimelineItem } from "@/lib/types";
@@ -234,16 +234,83 @@ function LinkBody({ item }: { item: TimelineItem }) {
   );
 }
 
+/**
+ * "This item's file hasn't reached the server yet" — pinned over the media of
+ * a freshly-dumped card. The bytes render locally either way (that's the
+ * local-first deal); this badge is the difference between "uploading",
+ * "waiting", and "failing, here's why" — states that used to be invisible
+ * until another device quietly couldn't load the image.
+ */
+function UploadBadge({
+  blobId,
+  side = "left",
+}: {
+  blobId: string | null;
+  /** Which top corner to pin to — right for file rows, left over images. */
+  side?: "left" | "right";
+}) {
+  const queue = useBlobQueue();
+  const { blocked } = useBlobQueueState();
+  const upload = useBlobUploadState(blobId);
+  if (!blobId || !upload || upload.stage === "done") return null;
+
+  const failing = upload.stage === "waiting" && upload.lastError !== null && blocked !== "auth";
+  const label = failing
+    ? `Upload failing — ${upload.lastError}. Click to retry now.`
+    : blocked === "auth"
+      ? "Upload paused — sign in to resume"
+      : upload.stage === "inflight" && upload.progress !== null
+        ? `Uploading ${Math.round(upload.progress * 100)}%`
+        : "Waiting to upload";
+
+  return (
+    <button
+      type="button"
+      title={label}
+      onClick={(e) => {
+        // Inside ImageBody the parent img navigates; inside FileBody the
+        // parent is a Link. The badge is its own control either way.
+        e.preventDefault();
+        e.stopPropagation();
+        if (failing) void queue.retryBlob(blobId);
+      }}
+      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm ${
+        side === "left" ? "left-1.5" : "right-1.5"
+      } ${
+        failing
+          ? "border-destructive/50 bg-card/90 text-destructive"
+          : "bg-card/80 text-muted-foreground"
+      }`}
+    >
+      {failing ? (
+        <Icon name="alert" className="size-3" />
+      ) : blocked === "auth" ? (
+        <Icon name="pause" className="size-3" />
+      ) : (
+        <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
+      )}
+      {failing
+        ? "upload failed"
+        : upload.stage === "inflight" && upload.progress !== null
+          ? `${Math.round(upload.progress * 100)}%`
+          : "uploading"}
+    </button>
+  );
+}
+
 function ImageBody({ item }: { item: TimelineItem }) {
   const url = useBlobUrl(item.blobId);
   const navigate = useNavigate();
   return url ? (
-    <img
-      src={url}
-      alt={item.content?.title ?? "dumped image"}
-      className="mt-0.5 max-h-80 max-w-full cursor-zoom-in rounded-xl border object-contain"
-      onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
-    />
+    <span className="relative mt-0.5 inline-block max-w-full">
+      <img
+        src={url}
+        alt={item.content?.title ?? "dumped image"}
+        className="max-h-80 max-w-full cursor-zoom-in rounded-xl border object-contain"
+        onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
+      />
+      <UploadBadge blobId={item.blobId} />
+    </span>
   ) : (
     <div className="mt-0.5 flex h-40 w-64 max-w-full animate-pulse items-center justify-center rounded-xl border bg-muted text-muted-foreground">
       <Icon name="image" className="size-6" />
@@ -257,7 +324,7 @@ function FileBody({ item }: { item: TimelineItem }) {
     <Link
       to="/item/$id"
       params={{ id: item.id }}
-      className="mt-0.5 flex items-center gap-3 rounded-xl border bg-panel p-3 transition hover:bg-accent"
+      className="relative mt-0.5 flex items-center gap-3 rounded-xl border bg-panel p-3 transition hover:bg-accent"
     >
       <span
         className={`flex size-10 items-center justify-center rounded-lg ${
@@ -276,6 +343,7 @@ function FileBody({ item }: { item: TimelineItem }) {
           {item.kind}
         </span>
       </span>
+      <UploadBadge blobId={item.blobId} side="right" />
     </Link>
   );
 }

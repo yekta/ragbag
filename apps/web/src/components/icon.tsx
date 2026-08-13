@@ -1,6 +1,7 @@
 import {
   ArrowUpIcon,
   CheckIcon,
+  CirclePauseIcon,
   CopyIcon,
   ExternalLinkIcon,
   FileIcon,
@@ -26,6 +27,7 @@ import {
   SunIcon,
   TagIcon,
   Trash2Icon,
+  TriangleAlertIcon,
   XIcon,
 } from "lucide-react";
 
@@ -61,6 +63,8 @@ const ICONS = {
   sun: SunIcon,
   moon: MoonIcon,
   monitor: MonitorIcon,
+  alert: TriangleAlertIcon,
+  pause: CirclePauseIcon,
 } as const;
 
 export type IconName = keyof typeof ICONS;

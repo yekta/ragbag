@@ -1,3 +1,4 @@
+import type { BlobQueueState } from "@ragbag/client-runtime";
 import { ITEM_KINDS } from "@ragbag/shared";
 import type { ItemKind } from "@ragbag/shared";
 import { useConnectionState } from "@rocicorp/zero/react";
@@ -53,13 +54,18 @@ const THEME_LABEL: Record<Theme, string> = {
   system: "System",
 };
 
-function SyncDot() {
+/**
+ * `needs-auth` means sync got a 401 — which is either "your session expired"
+ * or "your session is fine and the sync service still refused it". Only the
+ * first is the user's to act on, so only the first says to sign in.
+ */
+function SyncDot({ sessionExpired }: { sessionExpired: boolean }) {
   const state = useConnectionState();
   const [tone, label] =
     state.name === "connected"
       ? ["bg-success-foreground", "Synced"]
       : state.name === "needs-auth"
-        ? ["bg-destructive", "Sign in to sync"]
+        ? ["bg-destructive", sessionExpired ? "Sign in to sync" : "Sync refused"]
         : ["bg-warning-foreground", "Connecting…"];
   return (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={state.name}>
@@ -104,11 +110,13 @@ export function Sidebar({
   items,
   tags,
   name,
+  sessionExpired,
   onSignOut,
 }: {
   items: Timeline;
   tags: readonly TagRow[];
   name: string;
+  sessionExpired: boolean;
   onSignOut: () => void;
 }) {
   const { viewFilter, tagFilter, setViewFilter, setTagFilter, setSearchOpen } = useViewStore();
@@ -272,29 +280,11 @@ export function Sidebar({
       </SidebarContent>
 
       <SidebarFooter className="gap-0 border-t px-4 py-3">
-        {queueState.pending > 0 && (
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
-            {queueState.pending} upload{queueState.pending > 1 ? "s" : ""} pending
-            <Button
-              variant="ghost"
-              size="xs"
-              className="ml-auto text-muted-foreground"
-              title={
-                queueState.blocked === "storage"
-                  ? "The server has no blob storage configured"
-                  : "Retry these uploads now instead of waiting for the next attempt"
-              }
-              onClick={() => void queue.retryNow()}
-            >
-              <Icon name="retry" className="size-3" /> retry
-            </Button>
-          </p>
-        )}
+        <QueueStatus state={queueState} onRetry={() => void queue.retryNow()} />
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{name}</p>
-            <SyncDot />
+            <SyncDot sessionExpired={sessionExpired} />
           </div>
           <ThemeToggle />
           <Button
@@ -309,5 +299,75 @@ export function Sidebar({
         </div>
       </SidebarFooter>
     </SidebarRoot>
+  );
+}
+
+/**
+ * The upload queue's live state, in words: how many are moving, how many are
+ * failing and why, or why the whole queue is parked. A queue that only said
+ * "N pending" while every attempt was quietly dying looked exactly like a
+ * healthy one — the reason is the point.
+ */
+function QueueStatus({ state, onRetry }: { state: BlobQueueState; onRetry: () => void }) {
+  if (state.pending === 0) return null;
+  const entries = Object.values(state.blobs);
+  const failing = entries.filter((b) => b.stage === "waiting" && b.lastError);
+  const plural = state.pending > 1 ? "s" : "";
+
+  if (state.blocked === "auth") {
+    return (
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon name="pause" className="size-3 shrink-0" />
+        {state.pending} upload{plural} paused — sign in to resume
+      </p>
+    );
+  }
+
+  if (state.blocked === "storage") {
+    return (
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs text-destructive">
+        <Icon name="alert" className="size-3 shrink-0" />
+        <span className="min-w-0 truncate">Uploads paused — the server has no blob storage</span>
+        <RetryButton onRetry={onRetry} />
+      </p>
+    );
+  }
+
+  if (failing.length > 0) {
+    const reason = failing[0]!.lastError!;
+    return (
+      <div className="mb-1.5 text-xs">
+        <p className="flex items-center gap-1.5 text-destructive">
+          <Icon name="alert" className="size-3 shrink-0" />
+          {failing.length} upload{failing.length > 1 ? "s" : ""} failing
+          <RetryButton onRetry={onRetry} />
+        </p>
+        <p className="mt-0.5 truncate text-muted-foreground" title={reason}>
+          {reason}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Icon name="spinner" className="size-3 shrink-0 animate-spin [animation-duration:2s]" />
+      {state.pending} upload{plural} in progress
+      <RetryButton onRetry={onRetry} />
+    </p>
+  );
+}
+
+function RetryButton({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      className="ml-auto text-muted-foreground"
+      title="Retry these uploads now instead of waiting for the next attempt"
+      onClick={onRetry}
+    >
+      <Icon name="retry" className="size-3" /> retry
+    </Button>
   );
 }

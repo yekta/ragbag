@@ -1,6 +1,6 @@
 import { ragbagZeroOptions } from "@ragbag/client-runtime";
 import { queries } from "@ragbag/contracts";
-import { useConnectionState, useQuery, ZeroProvider } from "@rocicorp/zero/react";
+import { useConnectionState, useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
 import { Outlet } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { Composer } from "@/components/composer";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { authClient, signInWithGoogle } from "@/lib/auth-client";
-import { BlobQueueProvider, blobQueueFor, useBlobQueue } from "@/lib/blobs";
+import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
 import { useTimelineSearch } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
@@ -169,9 +169,13 @@ function Workspace({ identity, status }: { identity: Identity; status: SessionSt
   );
 }
 
-/** Wakes the blob queue whenever a session becomes available again. */
+/**
+ * Wakes the blob queue whenever a session becomes available again, and turns
+ * upload failures into toasts (once per blob, not once per retry).
+ */
 function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
   const queue = useBlobQueue();
+  useBlobQueueToasts();
   useEffect(() => {
     // A fresh session unparks uploads that 401'd while signed out.
     if (sessionOk) queue.notifyAuthChanged();
@@ -194,24 +198,58 @@ function useOnline(): boolean {
   return online;
 }
 
+/** Zero reports precisely who refused us and with what — pass it on verbatim. */
+type AuthRejection = Extract<
+  ReturnType<typeof useConnectionState>,
+  { name: "needs-auth" }
+>["reason"];
+
+function describeRejection(reason: AuthRejection): string {
+  return reason.type === "zero-cache"
+    ? `the sync service reported: ${reason.reason}`
+    : `its ${reason.type} endpoint answered ${reason.status}`;
+}
+
+/** Shared chrome for the amber banner; the wording is what differs. */
+function BannerAlert({ children }: { children: React.ReactNode }) {
+  return (
+    <Alert className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-none border-x-0 border-t-0 bg-warning text-warning-foreground">
+      {children}
+    </Alert>
+  );
+}
+
+// Both actions borrow the banner's own amber rather than the mint primary, and
+// swap to a solid fill on hover — no alpha either way.
+const BANNER_BUTTON =
+  "bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground";
+
 function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaResponse | undefined }) {
   const conn = useConnectionState();
   const online = useOnline();
+  const zero = useZero();
+  const [error, setError] = useState<string>();
 
-  const needsSignIn = status === "expired" || conn.name === "needs-auth";
-  if (needsSignIn) {
+  // These two used to share one "Signed out" banner, which made a server-side
+  // sync fault look like an expired login: the app said signed out while the
+  // session was perfectly valid, and the only offered action — sign in again —
+  // could not fix it. They are different situations, so they read differently.
+  //
+  // `expired`: the API says this session is gone. Signing in is the fix.
+  if (status === "expired") {
     return (
-      <Alert className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-none border-x-0 border-t-0 bg-warning text-warning-foreground">
+      <BannerAlert>
         <AlertDescription className="text-warning-foreground">
-          Signed out — your archive is safe on this device and syncing is paused.
+          {error ?? "Signed out — your archive is safe on this device and syncing is paused."}
         </AlertDescription>
-        {/* Both actions borrow the banner's own amber rather than the mint
-            primary, and swap to a solid fill on hover — no alpha either way. */}
         {meta?.googleAuth && (
           <Button
             size="xs"
-            className="bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground"
-            onClick={signInWithGoogle}
+            className={BANNER_BUTTON}
+            onClick={() => {
+              setError(undefined);
+              void signInWithGoogle().then(setError);
+            }}
           >
             Sign in with Google
           </Button>
@@ -221,14 +259,37 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
             size="xs"
             variant="outline"
             className="border-warning-foreground bg-warning text-warning-foreground hover:bg-warning-foreground hover:text-warning"
-            onClick={() => void authClient.signIn.anonymous()}
+            onClick={() => {
+              setError(undefined);
+              void authClient.signIn
+                .anonymous()
+                .then(({ error: err }) => setError(err?.message ?? undefined));
+            }}
           >
             Dev sign-in
           </Button>
         )}
-      </Alert>
+      </BannerAlert>
     );
   }
+
+  // `needs-auth` with a live session: we are signed in and sync still got
+  // turned away. That is the server's problem to fix, not the user's — so name
+  // what happened and offer a retry rather than a pointless sign-in.
+  if (conn.name === "needs-auth") {
+    return (
+      <BannerAlert>
+        <AlertDescription className="text-warning-foreground">
+          Signed in, but sync was refused — {describeRejection(conn.reason)}. Your archive is safe
+          on this device; new dumps stay local until sync is accepted.
+        </AlertDescription>
+        <Button size="xs" className={BANNER_BUTTON} onClick={() => void zero.connection.connect()}>
+          Retry sync
+        </Button>
+      </BannerAlert>
+    );
+  }
+
   if (!online || status === "offline" || conn.name === "disconnected") {
     return (
       <p className="border-b bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground">
@@ -281,13 +342,23 @@ function ShellBody({
 }) {
   const [items, itemsResult] = useQuery(queries.timeline());
   const [tags] = useQuery(queries.tags());
+  const conn = useConnectionState();
+  // Sync isn't coming back on its own in these states, so nothing downstream
+  // should keep presenting itself as "in progress".
+  const syncPaused = conn.name === "needs-auth" || conn.name === "disconnected";
   const searchIndex = useTimelineSearch(items);
   const { setSearchOpen } = useViewStore();
   const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
 
   return (
     <>
-      <Sidebar items={items} tags={tags} name={name} onSignOut={onSignOut} />
+      <Sidebar
+        items={items}
+        tags={tags}
+        name={name}
+        sessionExpired={status === "expired"}
+        onSignOut={onSignOut}
+      />
 
       {/* relative: the composer floats over the timeline inside this column */}
       <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
@@ -324,7 +395,7 @@ function ShellBody({
             )
           )}
         </div>
-        <Timeline items={items} synced={itemsResult.type === "complete"} />
+        <Timeline items={items} synced={itemsResult.type === "complete"} syncPaused={syncPaused} />
         <Composer canAttach={meta?.blobs ?? true} />
       </SidebarInset>
 

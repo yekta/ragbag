@@ -88,6 +88,38 @@ the default `BETTER_AUTH_SECRET`.
 No R2? Set `LOCAL_BLOB_DIR=/data/blobs` and mount a volume there instead. With neither, `/api/meta`
 reports `blobs: false` and the composer disables attachments.
 
+**R2 bucket CORS — required for browser uploads.** Blob bytes move straight between the browser
+and the bucket via presigned URLs, which is a cross-origin request: without a CORS policy on the
+bucket, every upload dies in the preflight while everything server-side (ingest, proofs,
+`/api/debug/storage`) works — the classic "stuck uploading forever" deploy bug. The API applies
+the policy itself on boot when its token can (look for `bucket CORS ready` in the logs). With an
+object-scoped token it can't; the log then prints `bucket CORS could not be configured` and this
+policy must be added by hand (Cloudflare dashboard → R2 → bucket → Settings → CORS policy):
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://app.ragbag.app"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["content-type"],
+    "ExposeHeaders": ["etag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Verify from anywhere (expects `access-control-allow-origin` in the response):
+
+```
+curl -si -X OPTIONS "$R2_ENDPOINT/$R2_BUCKET/any-key" \
+  -H "Origin: https://app.ragbag.app" \
+  -H "Access-Control-Request-Method: PUT" \
+  -H "Access-Control-Request-Headers: content-type" | head -20
+```
+
+`GET /api/debug/storage` reports the active driver, a server-side roundtrip, and what the boot-time
+CORS check concluded — if the roundtrip passes while browser uploads fail, CORS is the culprit.
+
 **Google Cloud console:** authorized redirect URI is `https://api.ragbag.app/api/auth/callback/google`
 — the API host, not the app host.
 
@@ -174,12 +206,15 @@ nothing.
    authenticate — zero-cache has no cookie to forward, so `/api/zero/query` 401s and the client
    reports `ProtocolError: Fetch from API server returned non-OK status 401`. Checkable without
    signing in: `curl -i -X POST https://api.ragbag.app/api/auth/sign-in/social -H 'content-type:
-   application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app/"}'` — the
+application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app/"}'` — the
    `__Secure-better-auth.state` cookie it sets carries the same `Domain` attribute the session
    cookie will.
 6. Dump a note. The sidebar's sync dot should read **Synced**, and the item should survive a
    reload — that round trip is the proof zero-cache forwarded the cookie and the API accepted it.
-7. Attach a file, confirm it uploads and the thumbnail renders (exercises presign + R2).
+7. Attach a file: the chip appears instantly, shows an upload progress ring, and settles
+   (exercises presign + R2 + bucket CORS). If it goes red with "The storage bucket blocked the
+   browser's upload", the bucket CORS policy is missing — see §2, and `GET /api/debug/storage`
+   to confirm the server side is fine.
 8. Hard-refresh on `/item/<id>` — must render, not 404.
 
 ## Notes

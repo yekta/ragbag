@@ -2,11 +2,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+  GetBucketCorsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  PutBucketCorsCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import type { CORSRule } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env, localBlobDir, r2Configured } from "../env.js";
 
@@ -34,16 +37,20 @@ export type BlobStorage = {
 const UPLOAD_URL_TTL_SECONDS = 15 * 60;
 const DOWNLOAD_URL_TTL_SECONDS = 60 * 60;
 
-function s3Storage(): BlobStorage {
-  const s3 = new S3Client({
-    region: "auto",
-    endpoint: env.R2_ENDPOINT,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
+// One client for the storage driver AND bucket administration (CORS below).
+const s3Client: S3Client | null = r2Configured
+  ? new S3Client({
+      region: "auto",
+      endpoint: env.R2_ENDPOINT,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
+      },
+    })
+  : null;
+
+function s3Storage(s3: S3Client): BlobStorage {
   const Bucket = env.R2_BUCKET;
   return {
     presignUpload: (key, mime) =>
@@ -147,11 +154,98 @@ function localStorage(dir: string): BlobStorage {
   };
 }
 
-export const storage: BlobStorage | null = r2Configured
-  ? s3Storage()
+export const storage: BlobStorage | null = s3Client
+  ? s3Storage(s3Client)
   : localBlobDir
     ? localStorage(localBlobDir)
     : null;
+
+// --- bucket CORS (the R2 driver's browser-upload prerequisite) ---
+
+// Presigned PUT/GET run straight from the browser to the bucket, which is a
+// cross-origin request: without a CORS rule allowing the web origin, every
+// browser upload dies in the preflight — while server-side access (ingest,
+// proofs) works fine, which made this failure maddening to diagnose.
+
+/** The one rule browser upload/download needs; also printed for manual setup. */
+export function requiredCorsRule(): CORSRule {
+  return {
+    AllowedOrigins: [env.WEB_ORIGIN],
+    AllowedMethods: ["PUT", "GET"],
+    AllowedHeaders: ["content-type"],
+    ExposeHeaders: ["etag"],
+    MaxAgeSeconds: 3600,
+  };
+}
+
+export type BucketCorsStatus =
+  /** Local driver (same-site, covered by the API's own CORS middleware). */
+  | { state: "not-applicable" }
+  | { state: "ok"; detail: string }
+  /** Couldn't verify or apply — a human must set the policy on the bucket. */
+  | { state: "manual-needed"; detail: string };
+
+let corsStatus: BucketCorsStatus = { state: "not-applicable" };
+
+export function bucketCorsStatus(): BucketCorsStatus {
+  return corsStatus;
+}
+
+function ruleCovers(rule: CORSRule, origin: string): boolean {
+  const origins = rule.AllowedOrigins ?? [];
+  const methods = rule.AllowedMethods ?? [];
+  const headers = (rule.AllowedHeaders ?? []).map((h) => h.toLowerCase());
+  return (
+    (origins.includes("*") || origins.includes(origin)) &&
+    ["PUT", "GET"].every((m) => methods.includes(m)) &&
+    (headers.includes("*") || headers.includes("content-type"))
+  );
+}
+
+/**
+ * Make the bucket's CORS policy allow browser uploads from WEB_ORIGIN,
+ * following the ensureVectorColumn() precedent: the server fixes its own
+ * prerequisites on boot when it can. Appends to existing rules, never
+ * replaces them. Never throws — a failure lands in bucketCorsStatus() (and
+ * the boot log) with instructions instead.
+ */
+export async function ensureBucketCors(): Promise<BucketCorsStatus> {
+  if (!s3Client) {
+    corsStatus = { state: "not-applicable" };
+    return corsStatus;
+  }
+  const Bucket = env.R2_BUCKET;
+  try {
+    let rules: CORSRule[] = [];
+    try {
+      const existing = await s3Client.send(new GetBucketCorsCommand({ Bucket }));
+      rules = existing.CORSRules ?? [];
+    } catch (err) {
+      // "No CORS configuration" is the normal first-boot answer, not an error.
+      const name = err instanceof Error ? err.name : "";
+      if (name !== "NoSuchCORSConfiguration" && name !== "CORSConfigurationNotFound") throw err;
+    }
+    if (rules.some((r) => ruleCovers(r, env.WEB_ORIGIN))) {
+      corsStatus = { state: "ok", detail: `an existing rule already allows ${env.WEB_ORIGIN}` };
+      return corsStatus;
+    }
+    await s3Client.send(
+      new PutBucketCorsCommand({
+        Bucket,
+        CORSConfiguration: { CORSRules: [...rules, requiredCorsRule()] },
+      }),
+    );
+    corsStatus = { state: "ok", detail: `added a rule allowing ${env.WEB_ORIGIN}` };
+  } catch (err) {
+    // Object-scoped R2 API tokens can read/write objects but not bucket
+    // configuration — the common reason this lands here.
+    corsStatus = {
+      state: "manual-needed",
+      detail: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+    };
+  }
+  return corsStatus;
+}
 
 /** Reads/writes bytes for the local driver's presigned routes. */
 export async function localDriverPut(key: string, bytes: Uint8Array): Promise<void> {
