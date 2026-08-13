@@ -33,7 +33,21 @@ export const auth = betterAuth({
     // Cloudflare in front of the platform router that chain is always
     // multi-hop, so every request fell back to one shared rate-limit bucket.
     // `cf-connecting-ip` is single-valued and set by the CDN.
-    ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] },
+    ipAddress: {
+      ipAddressHeaders: ["cf-connecting-ip", "true-client-ip", "x-real-ip", "x-forwarded-for"],
+    },
+  },
+  rateLimit: {
+    customRules: {
+      // better-auth caps /sign-in/* at 3 requests per 10s. That rule exists to
+      // slow password guessing, and it keys on the client IP — but when no IP
+      // resolves it degrades to ONE bucket shared by every visitor, so three
+      // clicks anywhere on the internet lock out sign-in for everyone. Google
+      // is our only provider, so this endpoint just mints an OAuth state and
+      // redirects: there is no secret here to guess. Match the ordinary
+      // default instead of the password-grade one.
+      "/sign-in/*": { window: 10, max: 100 },
+    },
   },
   session: {
     // Long-lived sliding sessions (plan §9: 30–90 days): auth gates syncing,

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { useMeta } from "@/lib/use-meta";
 
 export function SignIn() {
   const meta = useMeta();
+  const [error, setError] = useState<string>();
 
   // This screen only shows when no device identity exists — first visit, or
   // right after an explicit sign-out. Clearing local stores here (not during
@@ -33,15 +34,30 @@ export function SignIn() {
 
         <CardContent className="flex flex-col gap-2">
           {meta?.googleAuth && (
-            <Button size="lg" onClick={signInWithGoogle}>
+            <Button
+              size="lg"
+              onClick={() => {
+                setError(undefined);
+                void signInWithGoogle().then(setError);
+              }}
+            >
               Continue with Google
             </Button>
           )}
           {meta?.devLogin && (
-            <Button variant="outline" onClick={() => void authClient.signIn.anonymous()}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setError(undefined);
+                void authClient.signIn
+                  .anonymous()
+                  .then(({ error: err }) => setError(err?.message ?? undefined));
+              }}
+            >
               Dev sign-in (anonymous)
             </Button>
           )}
+          {error && <p className="text-center text-sm text-destructive">{error}</p>}
           {meta && !meta.googleAuth && !meta.devLogin && (
             <p className="text-center text-sm text-destructive">
               This server has neither Google OAuth nor DEV_LOGIN configured — there is nothing to

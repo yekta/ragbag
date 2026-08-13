@@ -20,9 +20,14 @@ export const authClient = createAuthClient({
  * after the round trip. The server accepts it because WEB_ORIGIN is in
  * `trustedOrigins`.
  */
-export function signInWithGoogle(): void {
-  void authClient.signIn.social({
+export async function signInWithGoogle(): Promise<string | undefined> {
+  // better-auth's client resolves with `{data, error}` instead of throwing, so
+  // an unhandled failure here is completely silent: the button does nothing and
+  // nothing reaches the console. Hand the message back for the UI to show.
+  const { error } = await authClient.signIn.social({
     provider: "google",
     callbackURL: `${window.location.origin}/`,
   });
+  if (!error) return undefined; // success navigates away; nothing to report
+  return error.message ?? error.statusText ?? `Sign-in failed (${error.status}).`;
 }
