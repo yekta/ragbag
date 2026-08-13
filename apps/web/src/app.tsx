@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signInWithGoogle } from "@/lib/auth-client";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue } from "@/lib/blobs";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
 import { useTimelineSearch } from "@/lib/search";
@@ -170,7 +170,7 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
           <Button
             size="xs"
             className="bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground"
-            onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/" })}
+            onClick={signInWithGoogle}
           >
             Sign in with Google
           </Button>

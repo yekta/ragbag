@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signInWithGoogle } from "@/lib/auth-client";
 import { dropLocalData } from "@/lib/identity";
 import { useMeta } from "@/lib/use-meta";
 
@@ -33,12 +33,7 @@ export function SignIn() {
 
         <CardContent className="flex flex-col gap-2">
           {meta?.googleAuth && (
-            <Button
-              size="lg"
-              onClick={() =>
-                void authClient.signIn.social({ provider: "google", callbackURL: "/" })
-              }
-            >
+            <Button size="lg" onClick={signInWithGoogle}>
               Continue with Google
             </Button>
           )}

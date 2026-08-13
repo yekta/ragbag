@@ -1,5 +1,6 @@
 import { metaResponse, type MetaResponse } from "@ragbag/contracts";
 import { useEffect, useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 /**
  * Server capabilities from /api/meta (google configured? dev login? blobs?).
@@ -10,7 +11,7 @@ export function useMeta(): MetaResponse | undefined {
   const [meta, setMeta] = useState<MetaResponse>();
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/meta")
+    fetch(apiUrl("/api/meta"), { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled) setMeta(metaResponse.parse(data));

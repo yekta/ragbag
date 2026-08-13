@@ -1,6 +1,7 @@
 import { BlobQueue } from "@ragbag/client-runtime";
 import type { BlobQueueState } from "@ragbag/client-runtime";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { API_BASE } from "@/lib/api";
 
 // One BlobQueue per signed-in user (like Zero's per-user store). The queue
 // itself lives in client-runtime; this file is the React glue.
@@ -10,7 +11,7 @@ const queues = new Map<string, BlobQueue>();
 export function blobQueueFor(userID: string): BlobQueue {
   let queue = queues.get(userID);
   if (!queue) {
-    queue = new BlobQueue({ userID });
+    queue = new BlobQueue({ userID, apiBase: API_BASE });
     queues.set(userID, queue);
   }
   return queue;

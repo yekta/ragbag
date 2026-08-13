@@ -359,15 +359,13 @@ the wrapper's `pb-(--composer-inset)` and this height, so the two can't disagree
 safe-area strip. The card wrapper gets `relative` so it keeps painting above the fade — both live in
 the same stacking context, and an unpositioned block falls behind a positioned sibling.
 
-Stops: `--background` at the bottom, half strength at the midpoint, transparent at the top. **The
-upper half is the point.** Ending the ramp at 50% — the literal reading of "bg/100 to bg/50" — puts
-a 0%→50% opacity step at the gradient's own top edge, which is a more obvious seam than the hard
-edge under the composer that the fade exists to soften.
+Stops: `--background` at the bottom, 75% at the top. It doesn't need to reach transparent because
+the top edge sits behind the composer card — that's what the `+ 1rem` on the height buys — and
+either side of the card it's background over background, so there's nothing for a step to show
+against.
 
 `color-mix(in oklab, var(--background) …)` keeps the stops derived from the theme rather than
-restating the canvas colour twice per theme. The final stop resolves to plain transparent black,
-which is fine: CSS interpolates gradients with premultiplied alpha, so a zero-alpha colour adds no
-colour to the ramp (checked in both themes — no grey cast).
+restating the canvas colour twice per theme.
 
 ---
 

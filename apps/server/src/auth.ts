@@ -19,6 +19,14 @@ export const auth = betterAuth({
     schema: { user, session, account, verification },
   }),
   trustedOrigins: [env.WEB_ORIGIN],
+  // zero-cache authenticates by forwarding the browser's session cookie
+  // (ZERO_*_FORWARD_COOKIES), so the cookie has to be visible on its origin
+  // too. Scoping it to the parent domain covers app./api./zero. — all
+  // same-site, so the default SameSite=Lax still applies and nothing needs
+  // SameSite=None. Everything else (httpOnly, secure) is unchanged.
+  ...(env.COOKIE_DOMAIN
+    ? { advanced: { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } } }
+    : {}),
   session: {
     // Long-lived sliding sessions (plan §9: 30–90 days): auth gates syncing,
     // never using the app.

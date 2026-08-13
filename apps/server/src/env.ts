@@ -23,6 +23,13 @@ export const EnvSchema = z
     BETTER_AUTH_URL: z.string().default("http://localhost:5173"),
     BETTER_AUTH_SECRET: z.string().default("dev-only-secret-change-me"),
     WEB_ORIGIN: z.string().default("http://localhost:5173"),
+    // Set when the web app, the API and zero-cache sit on sibling subdomains
+    // (e.g. ".ragbag.app" for app./api./zero.ragbag.app): the session cookie is
+    // issued for the parent domain so all three see it. Unset in dev, where
+    // everything is localhost — cookies ignore the port, so they already are.
+    // Must be a registrable domain; a Railway-style "*.up.railway.app" host
+    // won't work, those are separate sites.
+    COOKIE_DOMAIN: z.string().optional(),
 
     // Google OAuth is the only sign-in method (§9). Optional so the server
     // can boot in dev without credentials.
