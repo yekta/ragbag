@@ -233,10 +233,16 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   return (
     <>
       {dragZone === "window" && <DropOverlay />}
-      {/* The canvas fade that softens this card's edge lives in timeline.tsx —
-          it belongs to the scroll canvas, not to the shell column. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-4">
-        <div className="pointer-events-auto mx-auto w-full max-w-3xl">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-(--composer-inset) md:px-4">
+        {/* Fade scoped to this container, not the shell column. It covers the
+            gap between the card and the bottom of the column — the only strip
+            where a scrolling card would otherwise be cut off by the viewport
+            edge — plus 1rem that tucks behind the card. Sized off the gap
+            rather than the card because the card grows with its content while
+            the gap is constant. `relative` on the card below keeps it painting
+            on top. */}
+        <div className="fade-to-canvas pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--composer-inset)_+_1rem)]" />
+        <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
             ref={cardRef}
             className={`rounded-3xl border bg-card shadow-float transition ${

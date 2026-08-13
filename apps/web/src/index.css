@@ -35,6 +35,12 @@
   /* The app's language is already rounded-2xl floating cards. */
   --radius: 0.75rem;
 
+  /* The composer's constant distance from the bottom of the column. Defined
+     once because two things depend on it: the composer's own bottom padding,
+     and the height of the fade behind it — the card grows with its content but
+     this gap never does, so the fade is sized off the gap, not off the card. */
+  --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
+
   --background: oklch(0.985 0.003 168); /* #f8fbfa */
   --foreground: oklch(0.245 0.01 172); /* #1c2220 */
   --card: oklch(0.997 0.0015 168);
