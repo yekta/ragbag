@@ -1,3 +1,4 @@
+import "./pdf-globals.js";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // Stage 2 for PDFs (plan §7): the text layer via pdfjs-dist. Scanned PDFs
