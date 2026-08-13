@@ -8,7 +8,27 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
+    <meta name="theme-color" content="#f6fcf9" />
     <title>ragbag</title>
+    <!-- Applies the stored theme before first paint: reading it from React
+         would flash the light canvas on every dark-mode load. Kept in step with
+         lib/theme.ts (same key, same class, same colors). -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("ragbag:theme");
+          var dark =
+            stored === "dark" ||
+            (stored !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) {
+            document.documentElement.classList.add("dark");
+            document.querySelector('meta[name="theme-color"]').content = "#0d1613";
+          }
+        } catch (e) {
+          /* private mode / storage disabled — light is a fine default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

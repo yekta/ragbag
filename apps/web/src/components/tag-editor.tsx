@@ -1,7 +1,9 @@
 import { mutators } from "@ragbag/contracts";
 import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
-import { Icon } from "./Icon.js";
+import { Icon } from "@/components/icon";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 // Edits the user's own topic tags on an item (full-replacement set — the
 // tag.setForItem mutator). AI tags are not editable here; ingestion owns them.
@@ -32,24 +34,25 @@ export function TagEditor({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {userTagNames.map((name) => (
-        <span
-          key={name}
-          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 py-0.5 pl-2.5 pr-1 text-xs text-neutral-700"
-        >
+        <Badge key={name} variant="secondary" className="py-0.5 pl-2.5 pr-1">
           {name}
-          <button
-            className="rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="size-4 rounded-full text-muted-foreground hover:text-foreground"
             title={`Remove ${name}`}
             onClick={() => save(userTagNames.filter((n) => n !== name))}
           >
             <Icon name="x" className="size-3" />
-          </button>
-        </span>
+          </Button>
+        </Badge>
       ))}
       <span className="inline-flex items-center gap-1">
-        <Icon name="plus" className="size-3 text-neutral-400" />
+        <Icon name="plus" className="size-3 text-muted-foreground" />
+        {/* Not a shadcn Input: this is an inline chip-row field, so it stays
+            borderless and sized to the text. */}
         <input
-          className="w-28 bg-transparent py-0.5 text-xs text-neutral-700 placeholder-neutral-400 outline-none"
+          className="w-28 bg-transparent py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="add tag…"
           value={draft}
           list="tag-suggestions"

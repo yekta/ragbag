@@ -14,6 +14,8 @@ import {
   MapPinIcon,
   MenuIcon,
   MicIcon,
+  MonitorIcon,
+  MoonIcon,
   PanelLeftIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -21,6 +23,7 @@ import {
   SparklesIcon,
   StarIcon,
   StickyNoteIcon,
+  SunIcon,
   TagIcon,
   Trash2Icon,
   XIcon,
@@ -55,6 +58,9 @@ const ICONS = {
   sparkles: SparklesIcon,
   menu: MenuIcon,
   sidebar: PanelLeftIcon,
+  sun: SunIcon,
+  moon: MoonIcon,
+  monitor: MonitorIcon,
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -3,11 +3,15 @@ import { addressQuery, mapsSearchUrl } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useBlobUrl } from "../lib/blobs.js";
-import { hostOf, timeLabel } from "../lib/format.js";
-import { isTouch } from "../lib/touch.js";
-import type { TimelineItem } from "../lib/types.js";
-import { Icon, KIND_ICON } from "./Icon.js";
+import { DeleteItemDialog } from "@/components/delete-item-dialog";
+import { Icon, KIND_ICON } from "@/components/icon";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useBlobUrl } from "@/lib/blobs";
+import { hostOf, timeLabel } from "@/lib/format";
+import { isTouch } from "@/lib/touch";
+import type { TimelineItem } from "@/lib/types";
 
 // One timeline entry. Chat-style: the card is the "message"; a comment the
 // user attached to a dump renders above the kind-specific body.
@@ -25,7 +29,7 @@ function Linkified({ text }: { text: string }) {
             href={part}
             target="_blank"
             rel="noreferrer"
-            className="break-all text-sky-700 underline decoration-sky-300 hover:decoration-sky-600"
+            className="break-all text-kind-link underline decoration-kind-link/40 hover:decoration-kind-link"
             onClick={(e) => e.stopPropagation()}
           >
             {part}
@@ -44,10 +48,10 @@ export function StatusChip({ item }: { item: TimelineItem }) {
   if (!status || status === "done") return null;
   if (status === "failed") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+      <Badge variant="destructive" className="gap-1.5 px-2 text-[11px]">
         <span title={item.content?.error ?? undefined}>failed</span>
         <button
-          className="inline-flex items-center gap-0.5 rounded-full bg-red-100 px-1.5 py-px hover:bg-red-200"
+          className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-px hover:bg-white/30"
           title={item.content?.error ?? "Retry ingestion"}
           onClick={(e) => {
             e.preventDefault();
@@ -57,14 +61,14 @@ export function StatusChip({ item }: { item: TimelineItem }) {
         >
           <Icon name="retry" className="size-3" /> retry
         </button>
-      </span>
+      </Badge>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+    <Badge className="gap-1 bg-warning px-2 text-[11px] text-warning-foreground">
       <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
       {status === "processing" ? "processing" : "queued"}
-    </span>
+    </Badge>
   );
 }
 
@@ -78,15 +82,12 @@ export function TagChips({ item, limit = 8 }: { item: TimelineItem; limit?: numb
   return (
     <span className="flex flex-wrap items-center gap-1">
       {shown.map((it) => (
-        <span
-          key={it.tagId}
-          className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600"
-        >
+        <Badge key={it.tagId} variant="secondary" className="px-2 text-[11px] font-normal">
           {it.tag!.name}
-        </span>
+        </Badge>
       ))}
       {userTags.length > shown.length && (
-        <span className="text-[11px] text-neutral-400">+{userTags.length - shown.length}</span>
+        <span className="text-[11px] text-muted-foreground">+{userTags.length - shown.length}</span>
       )}
     </span>
   );
@@ -101,15 +102,19 @@ export function TodoBody({ item, size = "sm" }: { item: TimelineItem; size?: "sm
   const done = Boolean(item.completedAt);
   return (
     <div className="flex items-start gap-2.5">
+      {/* Not the shadcn Checkbox: this one is tinted with the todo kind colour
+          and needs a larger tap target than the default. */}
       <button
         role="checkbox"
         aria-checked={done}
         aria-label={done ? "Mark as not done" : "Mark as done"}
         title={done ? "Mark as not done" : "Mark as done"}
-        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition ${
+        // Explicit radius: --radius is 0.75rem for the app's big cards, and
+        // `rounded-md` off that turns a 20px box into a circle.
+        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
           done
-            ? "border-emerald-600 bg-emerald-600 text-white"
-            : "border-neutral-300 text-transparent hover:border-emerald-500 hover:text-emerald-500"
+            ? "border-kind-todo bg-kind-todo text-background"
+            : "border-input text-transparent hover:border-kind-todo hover:text-kind-todo"
         }`}
         onClick={(e) => {
           e.stopPropagation();
@@ -121,7 +126,7 @@ export function TodoBody({ item, size = "sm" }: { item: TimelineItem; size?: "sm
       <p
         className={`whitespace-pre-wrap break-words leading-relaxed ${
           size === "lg" ? "text-[17px]" : ""
-        } ${done ? "text-neutral-400 line-through" : "text-neutral-900"}`}
+        } ${done ? "text-muted-foreground line-through" : "text-foreground"}`}
       >
         <Linkified text={item.text ?? ""} />
       </p>
@@ -145,24 +150,18 @@ export function AddressActions({ address }: { address: string }) {
     });
   };
 
-  const button =
-    "inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50";
-
   return (
     <div className="flex items-center gap-1.5">
       {mapsUrl && (
-        <a
-          href={mapsUrl}
-          target="_blank"
-          rel="noreferrer"
-          className={button}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Icon name="external" className="size-3" /> Open in Maps
-        </a>
+        <Button variant="outline" size="xs" asChild>
+          <a href={mapsUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+            <Icon name="external" className="size-3" /> Open in Maps
+          </a>
+        </Button>
       )}
-      <button
-        className={button}
+      <Button
+        variant="outline"
+        size="xs"
         onClick={(e) => {
           e.stopPropagation();
           copy();
@@ -170,7 +169,7 @@ export function AddressActions({ address }: { address: string }) {
       >
         <Icon name={copied ? "check" : "copy"} className="size-3" />
         {copied ? "Copied" : "Copy"}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -178,15 +177,13 @@ export function AddressActions({ address }: { address: string }) {
 export function AddressBody({ item }: { item: TimelineItem }) {
   const address = item.text ?? "";
   return (
-    <div className="mt-0.5 flex gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+    <div className="mt-0.5 flex gap-3 rounded-xl border bg-muted/40 p-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-kind-address/12 text-kind-address">
         <Icon name="address" className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
-        {item.content?.title && (
-          <p className="truncate font-medium text-neutral-900">{item.content.title}</p>
-        )}
-        <p className="whitespace-pre-wrap break-words text-[13px] leading-snug text-neutral-600">
+        {item.content?.title && <p className="truncate font-medium">{item.content.title}</p>}
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-snug text-muted-foreground">
           {address}
         </p>
         <div className="mt-2">
@@ -205,20 +202,20 @@ function LinkBody({ item }: { item: TimelineItem }) {
       href={item.url ?? "#"}
       target="_blank"
       rel="noreferrer"
-      className="group/link mt-0.5 flex gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3 transition hover:border-neutral-300 hover:bg-neutral-50"
+      className="group/link mt-0.5 flex gap-3 rounded-xl border bg-muted/40 p-3 transition hover:bg-muted"
     >
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           {c?.faviconUrl && (
             <img src={c.faviconUrl} alt="" className="size-3.5 rounded-sm" loading="lazy" />
           )}
           <span className="truncate">{c?.siteName ?? host ?? item.url}</span>
         </span>
-        <span className="mt-0.5 line-clamp-2 block font-medium text-neutral-900 group-hover/link:underline">
+        <span className="mt-0.5 line-clamp-2 block font-medium group-hover/link:underline">
           {c?.title ?? item.url}
         </span>
         {c?.description && (
-          <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-neutral-500">
+          <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-muted-foreground">
             {c.description}
           </span>
         )}
@@ -242,11 +239,11 @@ function ImageBody({ item }: { item: TimelineItem }) {
     <img
       src={url}
       alt={item.content?.title ?? "dumped image"}
-      className="mt-0.5 max-h-80 max-w-full cursor-zoom-in rounded-xl border border-neutral-200 object-contain"
+      className="mt-0.5 max-h-80 max-w-full cursor-zoom-in rounded-xl border object-contain"
       onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
     />
   ) : (
-    <div className="mt-0.5 flex h-40 w-64 max-w-full animate-pulse items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-400">
+    <div className="mt-0.5 flex h-40 w-64 max-w-full animate-pulse items-center justify-center rounded-xl border bg-muted text-muted-foreground">
       <Icon name="image" className="size-6" />
     </div>
   );
@@ -258,20 +255,22 @@ function FileBody({ item }: { item: TimelineItem }) {
     <Link
       to="/item/$id"
       params={{ id: item.id }}
-      className="mt-0.5 flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3 transition hover:border-neutral-300"
+      className="mt-0.5 flex items-center gap-3 rounded-xl border bg-muted/40 p-3 transition hover:bg-muted"
     >
       <span
         className={`flex size-10 items-center justify-center rounded-lg ${
-          item.kind === "pdf" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600"
+          item.kind === "pdf" ? "bg-kind-pdf/12 text-kind-pdf" : "bg-kind-file/12 text-kind-file"
         }`}
       >
         <Icon name={icon} className="size-5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate font-medium text-neutral-900">
+        <span className="block truncate font-medium">
           {item.content?.title ?? (item.kind === "pdf" ? "PDF document" : "File")}
         </span>
-        <span className="text-[11px] uppercase tracking-wide text-neutral-400">{item.kind}</span>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {item.kind}
+        </span>
       </span>
     </Link>
   );
@@ -281,14 +280,11 @@ export function ItemCard({ item }: { item: TimelineItem }) {
   const zero = useZero();
   const navigate = useNavigate();
 
-  const remove = () => {
-    if (!window.confirm("Delete this item? It disappears from all your devices.")) return;
-    void zero.mutate(mutators.item.delete({ id: item.id }));
-  };
-
   return (
+    // Not <Card>: it has no asChild and this needs to stay an <article>, so it
+    // borrows the card tokens directly.
     <article
-      className="group relative rounded-2xl border border-neutral-200 bg-white p-3.5 shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition hover:shadow-[0_2px_8px_rgb(0_0_0/0.06)]"
+      className="group relative rounded-2xl border bg-card p-3.5 text-card-foreground shadow-sm transition hover:shadow-md"
       // Touch has no hover actions, so tapping the card body opens the detail
       // view instead; links and buttons inside keep their own behavior.
       onClick={(e) => {
@@ -297,37 +293,60 @@ export function ItemCard({ item }: { item: TimelineItem }) {
         void navigate({ to: "/item/$id", params: { id: item.id } });
       }}
     >
-      {/* hover actions */}
-      <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border border-neutral-200 bg-white px-1 py-0.5 shadow-sm group-hover:flex">
-        <button
-          className={`rounded-full p-1.5 hover:bg-neutral-100 ${item.favorite ? "text-amber-500" : "text-neutral-400 hover:text-neutral-700"}`}
-          title={item.favorite ? "Remove from favorites" : "Add to favorites"}
-          onClick={() =>
-            void zero.mutate(mutators.item.setFavorite({ id: item.id, favorite: !item.favorite }))
-          }
-        >
-          <Icon name="star" className="size-4" filled={item.favorite} />
-        </button>
-        <button
-          className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-          title="Details & tags"
-          onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
-        >
-          <Icon name="tag" className="size-4" />
-        </button>
-        <button
-          className="rounded-full p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
-          title="Delete"
-          onClick={remove}
-        >
-          <Icon name="trash" className="size-4" />
-        </button>
+      {/* hover actions. A Tooltip supplies the description, not the name — these
+          are icon-only, so each still needs its own aria-label. */}
+      <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border bg-card px-1 py-0.5 shadow-sm group-hover:flex">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={item.favorite ? "Remove from favorites" : "Add to favorites"}
+              className={`rounded-full ${item.favorite ? "text-kind-note" : "text-muted-foreground"}`}
+              onClick={() =>
+                void zero.mutate(
+                  mutators.item.setFavorite({ id: item.id, favorite: !item.favorite }),
+                )
+              }
+            >
+              <Icon name="star" className="size-4" filled={item.favorite} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {item.favorite ? "Remove from favorites" : "Add to favorites"}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Details and tags"
+              className="rounded-full text-muted-foreground"
+              onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
+            >
+              <Icon name="tag" className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Details &amp; tags</TooltipContent>
+        </Tooltip>
+        <DeleteItemDialog onConfirm={() => void zero.mutate(mutators.item.delete({ id: item.id }))}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            aria-label="Delete"
+            title="Delete"
+          >
+            <Icon name="trash" className="size-4" />
+          </Button>
+        </DeleteItemDialog>
       </div>
 
       {/* the user's message text: note body, or comment on a dump. Todos and
-          addresses own their text, so their bodies render it instead. */}
+            addresses own their text, so their bodies render it instead. */}
       {item.text && item.kind !== "todo" && item.kind !== "address" && (
-        <p className="whitespace-pre-wrap break-words leading-relaxed text-neutral-900">
+        <p className="whitespace-pre-wrap break-words leading-relaxed">
           <Linkified text={item.text} />
         </p>
       )}
@@ -341,13 +360,13 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       <div className="mt-2 flex items-end justify-between gap-2">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           {/* hover actions are unreachable on touch, so favorites need a mark
-              that is always visible */}
-          {item.favorite && <Icon name="star" className="size-3.5 text-amber-500" filled />}
+                that is always visible */}
+          {item.favorite && <Icon name="star" className="size-3.5 text-kind-note" filled />}
           <StatusChip item={item} />
           <TagChips item={item} />
         </span>
         <time
-          className="shrink-0 text-[11px] tabular-nums text-neutral-400"
+          className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
           title={new Date(item.createdAt).toLocaleString()}
         >
           {timeLabel(item.createdAt)}
@@ -357,19 +376,22 @@ export function ItemCard({ item }: { item: TimelineItem }) {
   );
 }
 
+const KIND_TONE: Record<TimelineItem["kind"], string> = {
+  note: "text-kind-note bg-kind-note/12",
+  todo: "text-kind-todo bg-kind-todo/12",
+  address: "text-kind-address bg-kind-address/12",
+  link: "text-kind-link bg-kind-link/12",
+  image: "text-kind-image bg-kind-image/12",
+  pdf: "text-kind-pdf bg-kind-pdf/12",
+  file: "text-kind-file bg-kind-file/12",
+};
+
 export function KindDot({ kind }: { kind: TimelineItem["kind"] }) {
-  const tone = {
-    note: "text-amber-600 bg-amber-50",
-    todo: "text-emerald-600 bg-emerald-50",
-    address: "text-rose-600 bg-rose-50",
-    link: "text-sky-600 bg-sky-50",
-    image: "text-violet-600 bg-violet-50",
-    pdf: "text-red-600 bg-red-50",
-    file: "text-slate-600 bg-slate-100",
-  }[kind];
   return (
-    <span className={`flex size-6 items-center justify-center rounded-md ${tone}`}>
-      <Icon name={KIND_ICON[kind]} className="size-3.5" />
+    <span className={`flex size-6 items-center justify-center rounded-md ${KIND_TONE[kind]}`}>
+      {/* text-current is load-bearing: CommandItem paints bare `svg` children
+          muted-foreground, and the kind tint lives on the span. */}
+      <Icon name={KIND_ICON[kind]} className="size-3.5 text-current" />
     </span>
   );
 }

@@ -1,0 +1,395 @@
+import { mutators, queries } from "@ragbag/contracts";
+import { TEXT_ITEM_KINDS, isTextKind } from "@ragbag/shared";
+import type { ItemKind, TextItemKind } from "@ragbag/shared";
+import { useQuery, useZero } from "@rocicorp/zero/react";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { useState } from "react";
+import { DeleteItemDialog } from "@/components/delete-item-dialog";
+import { Icon } from "@/components/icon";
+import { AddressActions, KindDot } from "@/components/item-card";
+import { TagEditor } from "@/components/tag-editor";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useBlobUrl } from "@/lib/blobs";
+import { hostOf, timeLabel } from "@/lib/format";
+
+// Route overlay (/item/$id): reader view for links, PDF viewer, image
+// lightbox (plan §10), plus the tag editor and favorite/delete/retry actions.
+// Rendered above the timeline so scroll position survives.
+//
+// A Sheet rather than a hand-rolled overlay: focus trap, scroll lock, Esc and
+// the slide animation all come from Radix. Closing routes back to "/", so the
+// route is the source of truth for open/closed.
+
+const TEXT_SECTION_LABEL: Partial<Record<ItemKind, string>> = {
+  note: "Note",
+  todo: "Todo",
+  address: "Address",
+};
+
+export function ItemDetail() {
+  const { id } = useParams({ strict: false }) as { id: string };
+  const zero = useZero();
+  const navigate = useNavigate();
+  const [item] = useQuery(queries.item({ id }));
+  const [allTags] = useQuery(queries.tags());
+  const blobUrl = useBlobUrl(item?.blobId);
+  const [editing, setEditing] = useState(false);
+  const [textDraft, setTextDraft] = useState("");
+
+  const close = () => void navigate({ to: "/" });
+
+  const c = item?.content;
+  const host = hostOf(item?.url);
+  const done = Boolean(item?.completedAt);
+
+  const saveText = () => {
+    if (!item) return;
+    setEditing(false);
+    if (textDraft.trim() !== (item.text ?? "")) {
+      void zero.mutate(mutators.item.edit({ id: item.id, text: textDraft.trim() }));
+    }
+  };
+
+  return (
+    <Sheet open onOpenChange={(open) => !open && close()}>
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="w-full gap-0 overflow-y-auto p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-2xl"
+      >
+        {/* The visible header below carries the heading; Radix still needs an
+            accessible name and description for the dialog itself. */}
+        <SheetTitle className="sr-only">{c?.title ?? item?.text ?? "Item"}</SheetTitle>
+        <SheetDescription className="sr-only">
+          Details, tags and actions for this item.
+        </SheetDescription>
+
+        {!item ? (
+          <div className="flex h-40 items-center justify-center text-muted-foreground">
+            <Icon name="spinner" className="size-6 animate-spin [animation-duration:2s]" />
+          </div>
+        ) : (
+          <>
+            {/* header */}
+            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card/95 px-5 py-3 backdrop-blur">
+              <KindDot kind={item.kind} />
+              <span className="text-sm font-medium capitalize">{item.kind}</span>
+              {item.kind === "todo" && (
+                <Button
+                  role="checkbox"
+                  aria-checked={done}
+                  size="xs"
+                  variant={done ? "default" : "outline"}
+                  className={done ? "bg-kind-todo text-background hover:bg-kind-todo/90" : ""}
+                  onClick={() =>
+                    void zero.mutate(mutators.item.setDone({ id: item.id, done: !done }))
+                  }
+                >
+                  <Icon name="check" className="size-3.5" />
+                  {done ? "Done" : "Mark done"}
+                </Button>
+              )}
+              <time className="text-xs text-muted-foreground">
+                {new Date(item.createdAt).toLocaleDateString()} · {timeLabel(item.createdAt)}
+              </time>
+              <span className="ml-auto flex items-center gap-1">
+                {item.url && (
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      <Icon name="external" className="size-3.5" /> Open original
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title={item.favorite ? "Remove from favorites" : "Add to favorites"}
+                  className={item.favorite ? "text-kind-note" : "text-muted-foreground"}
+                  onClick={() =>
+                    void zero.mutate(
+                      mutators.item.setFavorite({ id: item.id, favorite: !item.favorite }),
+                    )
+                  }
+                >
+                  <Icon name="star" className="size-4" filled={item.favorite} />
+                </Button>
+                <DeleteItemDialog
+                  onConfirm={() => {
+                    void zero.mutate(mutators.item.delete({ id: item.id }));
+                    close();
+                  }}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Delete"
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Icon name="trash" className="size-4" />
+                  </Button>
+                </DeleteItemDialog>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Close (Esc)"
+                  className="text-muted-foreground"
+                  onClick={close}
+                >
+                  <Icon name="x" className="size-4" />
+                </Button>
+              </span>
+            </div>
+
+            <div className="space-y-5 px-5 py-5">
+              {/* hero */}
+              {item.kind === "image" &&
+                (blobUrl ? (
+                  <img
+                    src={blobUrl}
+                    alt={c?.title ?? "image"}
+                    className="max-h-[70vh] w-full rounded-xl border object-contain"
+                  />
+                ) : (
+                  <Skeleton className="flex h-64 items-center justify-center rounded-xl text-muted-foreground">
+                    <Icon name="image" className="size-8" />
+                  </Skeleton>
+                ))}
+              {item.kind === "pdf" &&
+                (blobUrl ? (
+                  <iframe
+                    src={blobUrl}
+                    title={c?.title ?? "PDF"}
+                    className="h-[70vh] w-full rounded-xl border"
+                  />
+                ) : (
+                  <Skeleton className="flex h-40 items-center justify-center rounded-xl text-muted-foreground">
+                    <Icon name="pdf" className="size-8" />
+                  </Skeleton>
+                ))}
+              {item.kind === "file" && (
+                <div className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4">
+                  <Icon name="file" className="size-8 text-kind-file" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{c?.title ?? "File"}</p>
+                    <p className="text-xs text-muted-foreground">Stored in your ragbag</p>
+                  </div>
+                  {blobUrl && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={blobUrl} download={c?.title ?? "file"}>
+                        Download
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
+              {item.kind === "link" && c?.imageUrl && (
+                <img
+                  src={c.imageUrl}
+                  alt=""
+                  className="max-h-72 w-full rounded-xl border object-cover"
+                />
+              )}
+
+              {/* title + site */}
+              {(c?.title || item.url) && (
+                <div>
+                  <h1 className="text-xl font-semibold leading-snug">{c?.title ?? item.url}</h1>
+                  {item.url && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      {c?.faviconUrl && (
+                        <img src={c.faviconUrl} alt="" className="size-4 rounded-sm" />
+                      )}
+                      {c?.siteName ? `${c.siteName} · ${host}` : host}
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* the user's text (note/todo/address body, or a comment on a dump) */}
+              <section>
+                <SectionLabel>{TEXT_SECTION_LABEL[item.kind] ?? "Your comment"}</SectionLabel>
+                {item.kind === "address" && item.text && (
+                  <div className="mb-2">
+                    <AddressActions address={item.text} />
+                  </div>
+                )}
+                {editing ? (
+                  <div>
+                    <Textarea
+                      className="min-h-28 leading-relaxed"
+                      value={textDraft}
+                      autoFocus
+                      onChange={(e) => setTextDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveText();
+                      }}
+                    />
+                    <div className="mt-1 flex gap-2">
+                      <Button size="sm" onClick={saveText}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="-m-1 cursor-text rounded-xl border border-transparent p-1 hover:border-border"
+                    onClick={() => {
+                      setTextDraft(item.text ?? "");
+                      setEditing(true);
+                    }}
+                    title="Click to edit"
+                  >
+                    {item.text ? (
+                      <p
+                        className={`whitespace-pre-wrap leading-relaxed ${
+                          done ? "text-muted-foreground line-through" : ""
+                        }`}
+                      >
+                        {item.text}
+                      </p>
+                    ) : (
+                      <p className="text-sm italic text-muted-foreground">
+                        Click to add a comment…
+                      </p>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Reclassify: a dumped thought that turned out to be a todo, or an
+                  address ingestion guessed wrong about. Text kinds only. */}
+              {isTextKind(item.kind) && (
+                <section>
+                  <SectionLabel>Type</SectionLabel>
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    value={item.kind}
+                    onValueChange={(kind) => {
+                      // Radix emits "" when the active item is clicked again;
+                      // an item always has a kind, so ignore it.
+                      if (kind && kind !== item.kind) {
+                        void zero.mutate(
+                          mutators.item.setKind({ id: item.id, kind: kind as TextItemKind }),
+                        );
+                      }
+                    }}
+                  >
+                    {TEXT_ITEM_KINDS.map((kind) => (
+                      <ToggleGroupItem key={kind} value={kind} className="px-3 capitalize">
+                        {kind}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </section>
+              )}
+
+              {/* AI summary */}
+              {c?.aiSummary && (
+                <section className="rounded-xl bg-ai/8 p-3.5">
+                  <SectionLabel>
+                    <span className="flex items-center gap-1 text-ai">
+                      <Icon name="sparkles" className="size-3.5" /> Summary
+                    </span>
+                  </SectionLabel>
+                  <p className="text-sm leading-relaxed">{c.aiSummary}</p>
+                </section>
+              )}
+
+              {/* tags */}
+              <section>
+                <SectionLabel>Tags</SectionLabel>
+                <TagEditor
+                  itemId={item.id}
+                  userTagNames={item.itemTags
+                    .filter((t) => t.source === "user" && t.tag)
+                    .map((t) => t.tag!.name)}
+                  suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
+                />
+                {item.itemTags.some((t) => t.source === "ai" && t.tag) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {item.itemTags
+                      .filter((t) => t.source === "ai" && t.tag)
+                      .map((t) => (
+                        <Badge
+                          key={t.tagId}
+                          className="bg-ai/12 font-normal text-ai"
+                          title={`AI ${t.tag!.kind} tag`}
+                        >
+                          <Icon name="sparkles" className="size-3" />
+                          {t.tag!.name}
+                        </Badge>
+                      ))}
+                  </div>
+                )}
+              </section>
+
+              {/* ingestion state */}
+              {c?.status === "failed" && (
+                <Alert variant="destructive">
+                  <AlertTitle>Ingestion failed</AlertTitle>
+                  <AlertDescription>
+                    {c.error && <p>{c.error}</p>}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => void zero.mutate(mutators.item.retryIngest({ id: item.id }))}
+                    >
+                      <Icon name="retry" className="size-3.5" /> Retry
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {(c?.status === "pending" || c?.status === "processing") && (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Icon name="spinner" className="size-3.5 animate-spin [animation-duration:2s]" />
+                  {c.status === "processing"
+                    ? "Reading and enriching this item…"
+                    : "Queued for ingestion…"}
+                </p>
+              )}
+
+              {/* reader view */}
+              {c?.extractedText && (
+                <section>
+                  <SectionLabel>Extracted content</SectionLabel>
+                  <div className="space-y-3 rounded-xl border bg-muted/40 p-4 text-[15px] leading-relaxed">
+                    {c.extractedText.split(/\n{2,}/).map((para, i) => (
+                      <p key={i} className="whitespace-pre-wrap">
+                        {para}
+                      </p>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </h2>
+  );
+}

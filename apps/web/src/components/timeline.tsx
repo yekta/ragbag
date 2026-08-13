@@ -1,14 +1,19 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef } from "react";
-import { dayKey, dayLabel } from "../lib/format.js";
-import { useViewStore } from "../lib/store.js";
-import type { Timeline as TimelineRows, TimelineItem } from "../lib/types.js";
-import { Icon } from "./Icon.js";
-import { ItemCard } from "./ItemCard.js";
+import { Icon } from "@/components/icon";
+import { ItemCard } from "@/components/item-card";
+import { Badge } from "@/components/ui/badge";
+import { dayKey, dayLabel } from "@/lib/format";
+import { useViewStore } from "@/lib/store";
+import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
 // bottom like a messenger. Virtualized (plan §10) — the full personal archive
 // is in memory via Zero, only visible cards are in the DOM.
+//
+// The scroll container below is a plain div on purpose: @tanstack/react-virtual
+// measures whatever `getScrollElement` returns, and shadcn's ScrollArea puts a
+// Radix viewport in between, which breaks the measurements. Don't swap it.
 
 type Row = { type: "day"; key: string; label: string } | { type: "item"; item: TimelineItem };
 
@@ -83,7 +88,7 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
         }}
       >
         {empty ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-neutral-400">
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
             {synced ? (
               <>
                 <Icon name="inbox" className="size-10" />
@@ -114,9 +119,9 @@ export function Timeline({ items, synced }: { items: TimelineRows; synced: boole
                 >
                   {row.type === "day" ? (
                     <div className="flex justify-center py-3">
-                      <span className="rounded-full bg-neutral-200/70 px-3 py-0.5 text-[11px] font-medium text-neutral-500">
+                      <Badge variant="secondary" className="px-3 text-[11px] text-muted-foreground">
                         {row.label}
-                      </span>
+                      </Badge>
                     </div>
                   ) : (
                     <div className="pb-3">

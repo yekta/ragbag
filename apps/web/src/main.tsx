@@ -2,8 +2,8 @@ import { RouterProvider, createRootRoute, createRoute, createRouter } from "@tan
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import { App } from "./App.js";
-import { ItemDetail } from "./components/ItemDetail.js";
+import { App } from "@/app";
+import { ItemDetail } from "@/components/item-detail";
 
 // Two routes: the timeline, and an item-detail overlay drawn above it. The
 // App shell owns the Outlet so the timeline stays mounted (and scrolled)

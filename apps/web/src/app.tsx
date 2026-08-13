@@ -2,19 +2,24 @@ import { ragbagZeroOptions } from "@ragbag/client-runtime";
 import { queries } from "@ragbag/contracts";
 import { useConnectionState, useQuery, ZeroProvider } from "@rocicorp/zero/react";
 import { Outlet } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Composer } from "./components/Composer.js";
-import { Icon } from "./components/Icon.js";
-import { SearchOverlay } from "./components/SearchOverlay.js";
-import { Sidebar } from "./components/Sidebar.js";
-import { SignIn } from "./components/SignIn.js";
-import { Timeline } from "./components/Timeline.js";
-import { authClient } from "./lib/auth-client.js";
-import { BlobQueueProvider, blobQueueFor, useBlobQueue } from "./lib/blobs.js";
-import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "./lib/identity.js";
-import { useTimelineSearch } from "./lib/search.js";
-import { useViewStore } from "./lib/store.js";
-import { useMeta } from "./lib/use-meta.js";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { Composer } from "@/components/composer";
+import { Icon } from "@/components/icon";
+import { SearchOverlay } from "@/components/search-overlay";
+import { Sidebar } from "@/components/sidebar";
+import { SignIn } from "@/components/sign-in";
+import { Timeline } from "@/components/timeline";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { authClient } from "@/lib/auth-client";
+import { BlobQueueProvider, blobQueueFor, useBlobQueue } from "@/lib/blobs";
+import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
+import { useTimelineSearch } from "@/lib/search";
+import { useViewStore } from "@/lib/store";
+import { applyTheme, watchSystemTheme } from "@/lib/theme";
+import { useMeta } from "@/lib/use-meta";
 import type { MetaResponse } from "@ragbag/contracts";
 
 // App shell: identity gate → Zero (local-first store + sync) → workspace.
@@ -28,6 +33,10 @@ type SessionStatus = "checking" | "ok" | "expired" | "offline";
 export function App() {
   const session = authClient.useSession();
   const [stored, setStored] = useState<Identity | null>(() => loadIdentity());
+
+  // "system" theme follows the OS while the app is open. index.html applied the
+  // stored choice before first paint; this only handles later changes.
+  useEffect(() => watchSystemTheme(() => applyTheme(useViewStore.getState().theme)), []);
 
   // Remember the signed-in identity for offline launches.
   useEffect(() => {
@@ -63,7 +72,7 @@ export function App() {
   if (!identity) {
     if (session.isPending) {
       return (
-        <main className="flex h-dvh items-center justify-center bg-neutral-50 text-neutral-400">
+        <main className="flex h-dvh items-center justify-center bg-background text-muted-foreground">
           <Icon name="spinner" className="size-6 animate-spin [animation-duration:2s]" />
         </main>
       );
@@ -151,42 +160,72 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
   const needsSignIn = status === "expired" || conn.name === "needs-auth";
   if (needsSignIn) {
     return (
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-        <span>Signed out — your archive is safe on this device and syncing is paused.</span>
+      <Alert className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-none border-x-0 border-t-0 bg-warning text-warning-foreground">
+        <AlertDescription className="text-warning-foreground">
+          Signed out — your archive is safe on this device and syncing is paused.
+        </AlertDescription>
         {meta?.googleAuth && (
-          <button
-            className="rounded-lg bg-amber-900 px-2.5 py-1 text-xs font-medium text-amber-50 hover:bg-amber-800"
+          <Button
+            size="xs"
+            className="bg-warning-foreground text-warning hover:bg-warning-foreground/90"
             onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/" })}
           >
             Sign in with Google
-          </button>
+          </Button>
         )}
         {meta?.devLogin && (
-          <button
-            className="rounded-lg border border-amber-300 px-2.5 py-1 text-xs font-medium hover:bg-amber-100"
+          <Button
+            size="xs"
+            variant="outline"
+            className="border-warning-foreground/30 bg-transparent text-warning-foreground"
             onClick={() => void authClient.signIn.anonymous()}
           >
             Dev sign-in
-          </button>
+          </Button>
         )}
-      </div>
+      </Alert>
     );
   }
   if (!online || status === "offline" || conn.name === "disconnected") {
     return (
-      <div className="border-b border-neutral-200 bg-neutral-100 px-4 py-1.5 text-center text-xs text-neutral-500">
+      <p className="border-b bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground">
         Offline — dumping and search keep working; sync resumes automatically.
-      </div>
+      </p>
     );
   }
   return null;
 }
 
-/** Floating round button for the controls that sit over the timeline. */
-const floatingButton =
-  "pointer-events-auto flex size-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 shadow-md transition hover:bg-neutral-50 hover:text-neutral-800";
-
 function Shell({
+  name,
+  meta,
+  status,
+  onSignOut,
+}: {
+  name: string;
+  meta: MetaResponse | undefined;
+  status: SessionStatus;
+  onSignOut: () => void;
+}) {
+  const { sidebarCollapsed, setSidebarCollapsed } = useViewStore();
+
+  return (
+    // Controlled: collapse is a device preference owned by the view store
+    // (localStorage), not the cookie the generated provider used to write.
+    // ⌘\ lives inside the provider (SIDEBAR_KEYBOARD_SHORTCUT); Esc closes the
+    // mobile drawer through the underlying Sheet.
+    <SidebarProvider
+      open={!sidebarCollapsed}
+      onOpenChange={(open) => setSidebarCollapsed(!open)}
+      className="h-dvh min-h-0"
+    >
+      <ShellBody name={name} meta={meta} status={status} onSignOut={onSignOut} />
+    </SidebarProvider>
+  );
+}
+
+/** Inside the provider, so the floating controls can reach `useSidebar()`. */
+function ShellBody({
   name,
   meta,
   status,
@@ -200,91 +239,67 @@ function Shell({
   const [items, itemsResult] = useQuery(queries.timeline());
   const [tags] = useQuery(queries.tags());
   const searchIndex = useTimelineSearch(items);
-  const { sidebarCollapsed, sidebarOpen, toggleSidebar, setSidebarOpen, setSearchOpen } =
-    useViewStore();
-
-  // ⌘\ toggles the desktop rail; Esc closes the mobile drawer.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "\\" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        useViewStore.getState().toggleSidebar();
-      } else if (e.key === "Escape" && useViewStore.getState().sidebarOpen) {
-        useViewStore.getState().setSidebarOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const sidebar = <Sidebar items={items} tags={tags} name={name} onSignOut={onSignOut} />;
+  const { setSearchOpen } = useViewStore();
+  const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
 
   return (
-    <div className="flex h-dvh bg-neutral-50 text-neutral-900">
-      {/* Desktop rail: a floating card that slides off-canvas when collapsed.
-          The inner box keeps its width so the content doesn't reflow mid-slide. */}
-      <div
-        className={`hidden w-72 shrink-0 py-3 pl-3 transition-[margin,opacity] duration-300 md:block ${
-          sidebarCollapsed ? "pointer-events-none -ml-72 opacity-0" : ""
-        }`}
-      >
-        {sidebar}
-      </div>
-
-      {/* Mobile: the same card as an overlay drawer over a scrim. */}
-      <div className={`fixed inset-0 z-40 md:hidden ${sidebarOpen ? "" : "pointer-events-none"}`}>
-        <div
-          className={`absolute inset-0 bg-neutral-900/30 transition-opacity duration-300 ${
-            sidebarOpen ? "opacity-100" : "opacity-0"
-          }`}
-          onClick={() => setSidebarOpen(false)}
-        />
-        <div
-          className={`absolute inset-y-0 left-0 w-72 max-w-[85vw] py-[max(0.75rem,env(safe-area-inset-top))] pl-[max(0.75rem,env(safe-area-inset-left))] transition-transform duration-300 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          {sidebar}
-        </div>
-      </div>
+    <>
+      <Sidebar items={items} tags={tags} name={name} onSignOut={onSignOut} />
 
       {/* relative: the composer floats over the timeline inside this column */}
-      <main className="relative flex min-w-0 flex-1 flex-col">
+      <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
         <SyncBanner status={status} meta={meta} />
         {/* Zero-height anchors: the floating controls land below the sync
             banner without covering it. */}
-        {sidebarCollapsed && (
-          <div className="relative z-10 hidden md:block">
-            <button
-              className={`${floatingButton} absolute left-3 top-3`}
-              title="Show sidebar (⌘\)"
-              onClick={toggleSidebar}
-            >
-              <Icon name="sidebar" className="size-4" />
-            </button>
-          </div>
-        )}
-        <div className="relative z-10 md:hidden">
-          <button
-            className={`${floatingButton} absolute left-3 top-3`}
-            title="Menu"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Icon name="menu" className="size-5" />
-          </button>
-          <button
-            className={`${floatingButton} absolute right-3 top-3`}
-            title="Search"
-            onClick={() => setSearchOpen(true)}
-          >
-            <Icon name="search" className="size-4" />
-          </button>
+        <div className="relative z-10">
+          {isMobile ? (
+            <>
+              <FloatingButton
+                className="left-3 top-3"
+                title="Menu"
+                onClick={() => setOpenMobile(true)}
+              >
+                <Icon name="menu" className="size-5" />
+              </FloatingButton>
+              <FloatingButton
+                className="right-3 top-3"
+                title="Search"
+                onClick={() => setSearchOpen(true)}
+              >
+                <Icon name="search" className="size-4" />
+              </FloatingButton>
+            </>
+          ) : (
+            !open && (
+              <FloatingButton
+                className="left-3 top-3"
+                title="Show sidebar (⌘\)"
+                onClick={() => setOpen(true)}
+              >
+                <Icon name="sidebar" className="size-4" />
+              </FloatingButton>
+            )
+          )}
         </div>
         <Timeline items={items} synced={itemsResult.type === "complete"} />
         <Composer canAttach={meta?.blobs ?? true} />
-      </main>
+      </SidebarInset>
+
       <SearchOverlay index={searchIndex} items={items} />
+      <Toaster position="top-center" />
       <Outlet />
-    </div>
+    </>
+  );
+}
+
+/** Round button for the controls that sit over the timeline. */
+function FloatingButton({ className, ...props }: ComponentProps<typeof Button>) {
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      className={`absolute rounded-full bg-card text-muted-foreground shadow-md ${className ?? ""}`}
+      {...props}
+    />
   );
 }

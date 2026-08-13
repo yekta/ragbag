@@ -4,12 +4,22 @@ import { newId, normalizeUrl, parseTextCapture } from "@ragbag/shared";
 import type { TextItemKind } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBlobQueue } from "../lib/blobs.js";
-import { useDictation } from "../lib/dictation.js";
-import { isTouch } from "../lib/touch.js";
-import { formatBytes } from "../lib/format.js";
-import { Icon } from "./Icon.js";
-import type { IconName } from "./Icon.js";
+import { toast } from "sonner";
+import { Icon } from "@/components/icon";
+import type { IconName } from "@/components/icon";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
+import { useBlobQueue } from "@/lib/blobs";
+import { useDictation } from "@/lib/dictation";
+import { formatBytes } from "@/lib/format";
+import { isTouch } from "@/lib/touch";
 
 // The dump box (plan §1: zero friction). Text → note; a bare URL → link;
 // a "todo:"/"[ ]" marker → todo; attached files → one item per file through
@@ -47,11 +57,9 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [capturing, setCapturing] = useState(0);
-  const [rejected, setRejected] = useState<string | null>(null);
   // Sticky within the session: someone adding five todos shouldn't re-pick the
   // type five times. "auto" is the default and the common case.
   const [captureType, setCaptureType] = useState<CaptureType>("auto");
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   // Where the dragged files currently hover: over the composer (it highlights
   // itself, as before) or anywhere else (the whole viewport reports it).
   const [dragZone, setDragZone] = useState<"composer" | "window" | null>(null);
@@ -75,7 +83,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                 : [...prev, { captured, previewUrl }],
             );
           })
-          .catch(() => setRejected(`Could not read ${file.name}`))
+          .catch(() => toast.error(`Could not read ${file.name}`))
           .finally(() => setCapturing((n) => n - 1));
       }
     },
@@ -175,7 +183,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
 
     const watchServer = (write: { server: Promise<{ type: string }> }) => {
       void write.server.then((r) => {
-        if (r.type === "error") setRejected("The server rejected a dump — check the console.");
+        if (r.type === "error") toast.error("The server rejected a dump — check the console.");
       });
     };
 
@@ -216,7 +224,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     for (const a of attachments) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
     setAttachments([]);
     setDraft("");
-    setRejected(null);
     textareaRef.current?.focus();
   };
 
@@ -228,21 +235,10 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
       {dragZone === "window" && <DropOverlay />}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-4">
         <div className="pointer-events-auto mx-auto w-full max-w-3xl">
-          {rejected && (
-            <p className="mb-2 flex items-center justify-center gap-2 text-xs text-red-600">
-              {rejected}
-              <button className="underline" onClick={() => setRejected(null)}>
-                dismiss
-              </button>
-            </p>
-          )}
-
           <div
             ref={cardRef}
-            className={`rounded-3xl border bg-white shadow-[0_8px_30px_rgb(0_0_0/0.10)] transition ${
-              dragZone === "composer"
-                ? "border-neutral-900 ring-4 ring-neutral-900/5"
-                : "border-neutral-200/90"
+            className={`rounded-3xl border bg-card shadow-float transition ${
+              dragZone === "composer" ? "border-primary ring-4 ring-primary/10" : ""
             }`}
           >
             {(attachments.length > 0 || capturing > 0) && (
@@ -250,34 +246,36 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                 {attachments.map(({ captured, previewUrl }) => (
                   <span
                     key={captured.blobId}
-                    className="group/att relative flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-1.5 pr-2.5"
+                    className="group/att relative flex items-center gap-2 rounded-xl border bg-muted p-1.5 pr-2.5"
                   >
                     {previewUrl ? (
                       <img src={previewUrl} alt="" className="size-10 rounded-lg object-cover" />
                     ) : (
-                      <span className="flex size-10 items-center justify-center rounded-lg bg-white text-neutral-500">
+                      <span className="flex size-10 items-center justify-center rounded-lg bg-card text-muted-foreground">
                         <Icon name={captured.kind === "pdf" ? "pdf" : "file"} className="size-5" />
                       </span>
                     )}
                     <span className="max-w-40">
-                      <span className="block truncate text-xs font-medium text-neutral-800">
+                      <span className="block truncate text-xs font-medium">
                         {captured.originalName ?? captured.kind}
                       </span>
-                      <span className="text-[11px] text-neutral-400">
+                      <span className="text-[11px] text-muted-foreground">
                         {formatBytes(captured.size)}
                       </span>
                     </span>
-                    <button
-                      className="absolute -right-1.5 -top-1.5 hidden rounded-full border border-neutral-200 bg-white p-0.5 text-neutral-500 shadow-sm hover:text-red-600 group-hover/att:block max-md:block"
+                    <Button
+                      variant="outline"
+                      size="icon-xs"
+                      className="absolute -right-1.5 -top-1.5 hidden rounded-full text-muted-foreground shadow-sm hover:text-destructive group-hover/att:flex max-md:flex"
                       title="Remove"
                       onClick={() => removeAttachment(captured.blobId)}
                     >
                       <Icon name="x" className="size-3" />
-                    </button>
+                    </Button>
                   </span>
                 ))}
                 {capturing > 0 && (
-                  <span className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 px-3 text-xs text-neutral-400">
+                  <span className="flex items-center gap-2 rounded-xl border border-dashed px-3 text-xs text-muted-foreground">
                     <Icon
                       name="spinner"
                       className="size-3.5 animate-spin [animation-duration:2s]"
@@ -288,13 +286,13 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               </div>
             )}
 
-            <textarea
+            <Textarea
               ref={textareaRef}
               rows={1}
               // Autofocus on touch would pop the keyboard the moment the app
               // opens.
               autoFocus={!isTouch}
-              className="max-h-52 w-full resize-none bg-transparent px-5 pb-1 pt-4 leading-relaxed text-neutral-900 placeholder-neutral-400 outline-none"
+              className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base dark:bg-transparent"
               placeholder={dictation.listening ? "Listening…" : selected.placeholder}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -308,8 +306,10 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
 
             <div className="flex items-center justify-between px-2.5 pb-2.5">
               <div className="flex items-center gap-1.5">
-                <button
-                  className="flex size-9 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full text-muted-foreground"
                   title={
                     canAttach ? "Attach files" : "Blob storage is not configured on the server"
                   }
@@ -317,59 +317,45 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Icon name="plus" className="size-5" />
-                </button>
+                </Button>
 
                 {/* Type override. Auto is the default — this is for the dumps
                     the guess would get wrong (an address, a task without a
                     marker), not the everyday path. */}
-                <div className="relative">
-                  <button
-                    className={`flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 ${
-                      captureType === "auto"
-                        ? "border-neutral-200"
-                        : "border-neutral-900 text-neutral-900"
-                    }`}
-                    title={`Dump as: ${selected.label}`}
-                    aria-haspopup="menu"
-                    aria-expanded={typeMenuOpen}
-                    onClick={() => setTypeMenuOpen((open) => !open)}
-                  >
-                    <Icon name={selected.icon} className="size-4" />
-                    {captureType !== "auto" && (
-                      <span className="text-xs font-medium">{selected.label}</span>
-                    )}
-                  </button>
-                  {typeMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setTypeMenuOpen(false)} />
-                      <div
-                        role="menu"
-                        className="absolute bottom-full left-0 z-20 mb-2 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-[0_8px_30px_rgb(0_0_0/0.12)]"
-                      >
-                        {CAPTURE_TYPES.map((type) => (
-                          <button
-                            key={type.value}
-                            role="menuitem"
-                            className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-sm transition hover:bg-neutral-100 ${
-                              captureType === type.value ? "text-neutral-900" : "text-neutral-600"
-                            }`}
-                            onClick={() => {
-                              setCaptureType(type.value);
-                              setTypeMenuOpen(false);
-                              textareaRef.current?.focus();
-                            }}
-                          >
-                            <Icon name={type.icon} className="size-4" />
-                            {type.label}
-                            {captureType === type.value && (
-                              <Icon name="check" className="ml-auto size-3.5" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={`h-9 gap-1.5 rounded-full px-2.5 ${
+                        captureType === "auto"
+                          ? "text-muted-foreground"
+                          : "border-primary text-primary"
+                      }`}
+                      title={`Dump as: ${selected.label}`}
+                    >
+                      <Icon name={selected.icon} className="size-4" />
+                      {captureType !== "auto" && (
+                        <span className="text-xs font-medium">{selected.label}</span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="top" className="w-44">
+                    <DropdownMenuRadioGroup
+                      value={captureType}
+                      onValueChange={(value) => {
+                        setCaptureType(value as CaptureType);
+                        textareaRef.current?.focus();
+                      }}
+                    >
+                      {CAPTURE_TYPES.map((type) => (
+                        <DropdownMenuRadioItem key={type.value} value={type.value}>
+                          <Icon name={type.icon} className="size-4" />
+                          {type.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <input
                 ref={fileInputRef}
@@ -383,26 +369,27 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               />
 
               {showSend ? (
-                <button
-                  className="flex size-9 items-center justify-center rounded-full bg-neutral-900 text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-25"
+                <Button
+                  size="icon"
+                  className="rounded-full"
                   title="Dump (Enter)"
                   disabled={capturing > 0 || !hasContent}
                   onClick={send}
                 >
                   <Icon name="send" className="size-5" />
-                </button>
+                </Button>
               ) : (
-                <button
-                  className={`flex size-9 items-center justify-center rounded-full transition ${
-                    dictation.listening
-                      ? "animate-pulse bg-red-600 text-white hover:bg-red-700"
-                      : "border border-neutral-200 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                <Button
+                  variant={dictation.listening ? "destructive" : "outline"}
+                  size="icon"
+                  className={`rounded-full ${
+                    dictation.listening ? "animate-pulse" : "text-muted-foreground"
                   }`}
                   title={dictation.listening ? "Stop dictation" : "Dictate a note"}
                   onClick={() => (dictation.listening ? dictation.stop() : dictation.start(draft))}
                 >
                   <Icon name="mic" className="size-5" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -415,16 +402,17 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
 /**
  * Full-viewport drop state, shown while files hover anywhere but the composer.
  * pointer-events-none throughout: the window-level handlers own the drop, and
- * an overlay that swallowed events would break it.
+ * an overlay that swallowed events would break it — so this stays a plain div
+ * rather than a Radix dialog.
  */
 function DropOverlay() {
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 bg-neutral-900/90 backdrop-blur-sm">
+    <div className="pointer-events-none fixed inset-0 z-50 bg-foreground/90 backdrop-blur-sm">
       <div className="flex h-full w-full items-center justify-center p-4">
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-background">
           <Icon name="plus" className="size-10" />
           <p className="text-xl font-semibold drop-shadow">Drop to add to your ragbag</p>
-          <p className="text-sm text-white/85">
+          <p className="text-sm text-background/85">
             Images, PDFs, anything — release anywhere on this page
           </p>
         </div>

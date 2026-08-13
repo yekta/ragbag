@@ -1,1 +1,210 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Muted mint. Every token is OKLCH anchored at hue 168–174 with the chroma held
+   low (0.01–0.09), so the chrome reads as a tinted neutral rather than a green
+   app — only primary/accent/ring carry visible colour. Values were checked for
+   sRGB gamut and WCAG contrast; the ratios are in SHADCN_PLAN.md §3.2. */
+
+:root {
+  /* The app's language is already rounded-2xl floating cards. */
+  --radius: 0.75rem;
+
+  --background: oklch(0.985 0.007 168); /* #f6fcf9 */
+  --foreground: oklch(0.245 0.021 172); /* #16241f */
+  --card: oklch(0.996 0.003 168);
+  --card-foreground: oklch(0.245 0.021 172);
+  --popover: oklch(0.996 0.003 168);
+  --popover-foreground: oklch(0.245 0.021 172);
+
+  --primary: oklch(0.475 0.07 170); /* #2d6956 */
+  --primary-foreground: oklch(0.985 0.012 168);
+  --secondary: oklch(0.945 0.016 168);
+  --secondary-foreground: oklch(0.305 0.024 172);
+  --muted: oklch(0.958 0.012 168);
+  --muted-foreground: oklch(0.505 0.022 172); /* #586963 */
+  --accent: oklch(0.915 0.032 170); /* #cfeae0 */
+  --accent-foreground: oklch(0.295 0.032 172);
+
+  --destructive: oklch(0.545 0.18 27);
+  --destructive-foreground: oklch(0.985 0.012 168);
+  /* Not shadcn tokens: the sync banner and the sync dot / todo tick need a
+     warning and a success surface that belong to this palette. */
+  --warning: oklch(0.955 0.035 92);
+  --warning-foreground: oklch(0.415 0.075 78);
+  --success: oklch(0.95 0.035 160);
+  --success-foreground: oklch(0.505 0.09 158);
+
+  --border: oklch(0.9 0.014 168);
+  --input: oklch(0.9 0.014 168);
+  --ring: oklch(0.58 0.06 170); /* 3.99:1 on the canvas */
+
+  --sidebar: oklch(0.998 0.002 168);
+  --sidebar-foreground: oklch(0.245 0.021 172);
+  --sidebar-primary: oklch(0.475 0.07 170);
+  --sidebar-primary-foreground: oklch(0.985 0.012 168);
+  --sidebar-accent: oklch(0.945 0.02 170);
+  --sidebar-accent-foreground: oklch(0.295 0.03 172);
+  --sidebar-border: oklch(0.905 0.014 168);
+  --sidebar-ring: oklch(0.58 0.06 170);
+
+  /* Item kinds: muted and hue-spaced so they read as a family next to the mint
+     chrome. Used as text plus a /12 fill. */
+  --kind-note: oklch(0.56 0.085 95);
+  --kind-todo: oklch(0.535 0.085 160);
+  --kind-address: oklch(0.56 0.095 20);
+  --kind-link: oklch(0.545 0.08 235);
+  --kind-image: oklch(0.555 0.085 300);
+  --kind-pdf: oklch(0.545 0.115 30);
+  --kind-file: oklch(0.52 0.03 200);
+  /* Everything ingestion generated: summaries, AI tags, the sparkles. */
+  --ai: oklch(0.545 0.085 285);
+
+  --chart-1: oklch(0.615 0.09 168);
+  --chart-2: oklch(0.575 0.075 212);
+  --chart-3: oklch(0.65 0.075 132);
+  --chart-4: oklch(0.66 0.09 84);
+  --chart-5: oklch(0.56 0.08 296);
+}
+
+.dark {
+  --background: oklch(0.19 0.014 174); /* #0d1613 */
+  --foreground: oklch(0.935 0.011 168);
+  --card: oklch(0.228 0.017 174);
+  --card-foreground: oklch(0.935 0.011 168);
+  --popover: oklch(0.228 0.017 174);
+  --popover-foreground: oklch(0.935 0.011 168);
+
+  --primary: oklch(0.78 0.09 168); /* #7bcaac */
+  --primary-foreground: oklch(0.205 0.03 172);
+  --secondary: oklch(0.278 0.019 174);
+  --secondary-foreground: oklch(0.935 0.011 168);
+  --muted: oklch(0.278 0.019 174);
+  --muted-foreground: oklch(0.712 0.021 168);
+  --accent: oklch(0.318 0.028 172);
+  --accent-foreground: oklch(0.935 0.011 168);
+
+  /* Tuned to read as *text* on the dark canvas. As a button fill it is paired
+     with shadcn's `dark:bg-destructive/60 text-white`, which is what keeps that
+     combination above 4.5:1 — don't hand-roll `bg-destructive text-white`. */
+  --destructive: oklch(0.665 0.165 27);
+  --destructive-foreground: oklch(0.205 0.03 172);
+  --warning: oklch(0.29 0.045 80);
+  --warning-foreground: oklch(0.855 0.085 92);
+  --success: oklch(0.29 0.045 160);
+  --success-foreground: oklch(0.81 0.095 158);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.68 0.06 170); /* 6.57:1 on the canvas */
+
+  --sidebar: oklch(0.228 0.017 174);
+  --sidebar-foreground: oklch(0.935 0.011 168);
+  --sidebar-primary: oklch(0.78 0.09 168);
+  --sidebar-primary-foreground: oklch(0.205 0.03 172);
+  --sidebar-accent: oklch(0.318 0.028 172);
+  --sidebar-accent-foreground: oklch(0.935 0.011 168);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.68 0.06 170);
+
+  --kind-note: oklch(0.79 0.09 95);
+  --kind-todo: oklch(0.78 0.09 160);
+  --kind-address: oklch(0.76 0.095 20);
+  --kind-link: oklch(0.76 0.08 235);
+  --kind-image: oklch(0.77 0.085 300);
+  --kind-pdf: oklch(0.74 0.11 30);
+  --kind-file: oklch(0.76 0.03 200);
+  --ai: oklch(0.765 0.085 285);
+
+  --chart-1: oklch(0.72 0.09 168);
+  --chart-2: oklch(0.7 0.08 212);
+  --chart-3: oklch(0.75 0.075 132);
+  --chart-4: oklch(0.76 0.09 84);
+  --chart-5: oklch(0.68 0.08 296);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-kind-note: var(--kind-note);
+  --color-kind-todo: var(--kind-todo);
+  --color-kind-address: var(--kind-address);
+  --color-kind-link: var(--kind-link);
+  --color-kind-image: var(--kind-image);
+  --color-kind-pdf: var(--kind-pdf);
+  --color-kind-file: var(--kind-file);
+  --color-ai: var(--ai);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  /* Keeps native scrollbars, form controls and the PDF iframe in item-detail
+     from staying light when the app is dark. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* The floating-card shadow the composer set as the app's visual language, in
+   one place instead of three. */
+@utility shadow-float {
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.1);
+
+  :where(.dark) & {
+    box-shadow: 0 8px 30px rgb(0 0 0 / 0.45);
+  }
+}
