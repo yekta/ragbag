@@ -9,15 +9,14 @@ type RecognitionEvent = {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
 };
 
-type Recognition = {
+// SpeechRecognition is an EventTarget, so its events are subscribed to rather
+// than assigned — but `result` isn't in the DOM event map, hence the cast.
+type Recognition = EventTarget & {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
   start(): void;
   stop(): void;
-  onresult: ((event: RecognitionEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
 };
 
 type RecognitionCtor = new () => Recognition;
@@ -68,21 +67,21 @@ export function useDictation(onTranscript: (text: string) => void): Dictation {
     recognition.interimResults = true;
     prefixRef.current = currentText.trim() ? `${currentText.trimEnd()} ` : "";
 
-    recognition.onresult = (event) => {
+    recognition.addEventListener("result", (event) => {
+      const { results } = event as Event & RecognitionEvent;
       let spoken = "";
-      for (let i = 0; i < event.results.length; i++) {
-        spoken += event.results[i]?.[0]?.transcript ?? "";
+      for (let i = 0; i < results.length; i++) {
+        spoken += results[i]?.[0]?.transcript ?? "";
       }
       onTranscriptRef.current(prefixRef.current + spoken.trimStart());
-    };
-    recognition.onend = () => {
+    });
+    // Either way the session is over: drop the handle and release the button.
+    const finish = () => {
       recognitionRef.current = null;
       setListening(false);
     };
-    recognition.onerror = () => {
-      recognitionRef.current = null;
-      setListening(false);
-    };
+    recognition.addEventListener("end", finish);
+    recognition.addEventListener("error", finish);
 
     recognitionRef.current = recognition;
     recognition.start();

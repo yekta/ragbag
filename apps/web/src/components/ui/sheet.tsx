@@ -28,9 +28,9 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        // Timed to match SheetContent below, or the scrim finishes first and
+        // Timed to match SheetContent below, or the overlay finishes first and
         // the panel appears to lag behind its own backdrop.
-        "fixed inset-0 z-50 bg-scrim data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=open]:ease-enter",
+        "fixed inset-0 z-50 bg-overlay/overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=open]:ease-enter",
         className,
       )}
       {...props}

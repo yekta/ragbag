@@ -73,6 +73,13 @@ type Attachment = {
 /** How long the local hash+persist may take before the chip goes red. */
 const CAPTURE_TIMEOUT_MS = 12_000;
 
+/** The write is optimistic; only the server's verdict can still surprise us. */
+function watchServer(write: { server: Promise<{ type: string }> }) {
+  void write.server.then((r) => {
+    if (r.type === "error") toast.error("The server rejected a dump — check the console.");
+  });
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), ms);
@@ -309,12 +316,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     const text = draft.trim();
     if (!canSend) return;
     dictation.stop();
-
-    const watchServer = (write: { server: Promise<{ type: string }> }) => {
-      void write.server.then((r) => {
-        if (r.type === "error") toast.error("The server rejected a dump — check the console.");
-      });
-    };
 
     if (attachments.length > 0) {
       attachments.forEach(({ captured }, i) => {
@@ -658,17 +659,16 @@ function ProgressRing({ value }: { value: number }) {
  */
 function DropOverlay() {
   return (
-    // The scrim is dark in both themes, so its ink is too — `text-background`
-    // would be invisible here in dark mode.
-    <div className="pointer-events-none fixed inset-0 z-50 bg-scrim-strong backdrop-blur-sm">
-      <div className="flex h-full w-full items-center justify-center p-4">
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-scrim-foreground">
-          <Icon name="plus" className="size-10" />
-          <p className="text-xl font-semibold">Drop to add to your ragbag</p>
-          <p className="text-sm text-scrim-foreground-muted">
-            Images, PDFs, anything — release anywhere on this page
-          </p>
-        </div>
+    // Dimmed, not a takeover: the page stays visible underneath, and the
+    // message rides on a card so its contrast comes from the card, not the
+    // overlay.
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-overlay/overlay-strong p-4 backdrop-blur-xs">
+      <div className="flex flex-col items-center gap-2 rounded-2xl border bg-card px-8 py-6 text-center shadow-float">
+        <Icon name="plus" className="size-8 text-primary" />
+        <p className="font-semibold">Drop to add to your ragbag</p>
+        <p className="text-sm text-muted-foreground">
+          Images, PDFs, anything — release anywhere on this page
+        </p>
       </div>
     </div>
   );

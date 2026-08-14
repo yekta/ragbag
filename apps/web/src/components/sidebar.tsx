@@ -161,9 +161,9 @@ export function Sidebar({
 
   const rankedTags = useMemo(
     () =>
-      [...tags]
+      tags
         .filter((t) => (tagCounts.get(t.id) ?? 0) > 0)
-        .sort(
+        .toSorted(
           (a, b) =>
             (tagCounts.get(b.id) ?? 0) - (tagCounts.get(a.id) ?? 0) || a.name.localeCompare(b.name),
         )

@@ -50,7 +50,7 @@ export function ItemDetail() {
 
   // Closing has to outlive the route change. Navigating to "/" unmounts this
   // component on the spot, which meant the panel disappeared in a single frame
-  // while its scrim was still there — no exit animation at all, unlike the
+  // while its overlay was still there — no exit animation at all, unlike the
   // mobile drawer (which is state-driven and slides out properly). So flip
   // `open` first and leave the route once the panel is gone.
   const close = () => setOpen(false);

@@ -60,7 +60,10 @@ export async function dropLocalData(): Promise<void> {
           (db) =>
             new Promise<void>((resolve) => {
               const req = indexedDB.deleteDatabase(db.name!);
-              req.onsuccess = req.onerror = req.onblocked = () => resolve();
+              // Deleted, refused or blocked — all three mean "stop waiting".
+              for (const event of ["success", "error", "blocked"] as const) {
+                req.addEventListener(event, () => resolve());
+              }
             }),
         ),
     );

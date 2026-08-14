@@ -77,6 +77,17 @@ function editDistance(a: string, b: string): number {
   return prev[b.length]!;
 }
 
+/** One length-prefixed, CRC-suffixed PNG chunk. */
+function chunk(type: string, data: Buffer): Buffer {
+  const out = Buffer.alloc(data.length + 12);
+  out.writeUInt32BE(data.length, 0);
+  out.write(type, 4, "ascii");
+  data.copy(out, 8);
+  const crc = crc32(Buffer.concat([Buffer.from(type, "ascii"), data])) >>> 0;
+  out.writeUInt32BE(crc, data.length + 8);
+  return out;
+}
+
 /**
  * A real greyscale PNG (encoded here so the repo carries no binary fixture):
  * big black block letters on white, which the vision model must both describe
@@ -113,15 +124,6 @@ function buildTestPng(word: string, scale = 14): Uint8Array {
   for (let y = 0; y < height; y++) {
     Buffer.from(px.subarray(y * width, (y + 1) * width)).copy(raw, y * (width + 1) + 1);
   }
-  const chunk = (type: string, data: Buffer): Buffer => {
-    const out = Buffer.alloc(data.length + 12);
-    out.writeUInt32BE(data.length, 0);
-    out.write(type, 4, "ascii");
-    data.copy(out, 8);
-    const crc = crc32(Buffer.concat([Buffer.from(type, "ascii"), data])) >>> 0;
-    out.writeUInt32BE(crc, data.length + 8);
-    return out;
-  };
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);

@@ -23,10 +23,11 @@
  *    soft`, `--panel`), and hover states get solid `-hover` tokens.
  *
  *    The two deliberate exceptions are things that are *physically*
- *    translucent: `--scrim` (a veil — you must see the page through it) and
- *    the shadow scale (a shadow that isn't translucent is a solid block).
- *    Both are mint-tinted and both bake their alpha into the token, so call
- *    sites still say `bg-scrim` / `shadow-lg` with no opacity modifier.
+ *    translucent: `--overlay` (you must see the page through it) and the
+ *    shadow scale (a shadow that isn't translucent is a solid block). Both are
+ *    mint-tinted. The overlay's colour is opaque like everything else and its
+ *    strengths are named `--opacity-overlay*` modifiers, so call sites read
+ *    `bg-overlay/overlay-strong` — a named strength, never a loose `/65`.
  *
  * Values were checked for sRGB gamut and WCAG contrast; ratios in
  * SHADCN_PLAN.md §3.2. */
@@ -114,13 +115,11 @@
   --chart-4: oklch(0.66 0.09 84);
   --chart-5: oklch(0.56 0.08 296);
 
-  /* Veils. Translucent by nature; the alpha lives here, not at the call site. */
-  --scrim: oklch(0.3 0.02 172 / 0.4);
-  --scrim-strong: oklch(0.25 0.02 172 / 0.92);
-  /* The scrim is dark in both themes, so its ink is light in both themes —
-     `text-background` would vanish in dark mode. */
-  --scrim-foreground: oklch(0.97 0.005 168);
-  --scrim-foreground-muted: oklch(0.83 0.008 168);
+  /* One opaque overlay colour for both themes. Its strengths are named opacity
+     modifiers in the @theme block below (`bg-overlay/overlay-strong`), not
+     baked-in alphas. Whatever sits on top brings its own surface — the overlay
+     never carries text. */
+  --overlay: oklch(0.2 0.018 172);
 
   /* Shadows are mint-tinted, never neutral black. Split into a colour and four
      strengths so the dark theme can re-tune both without touching the scale. */
@@ -200,9 +199,6 @@
   --chart-4: oklch(0.76 0.09 84);
   --chart-5: oklch(0.68 0.08 296);
 
-  --scrim: oklch(0.1 0.015 174 / 0.6);
-  --scrim-strong: oklch(0.1 0.015 174 / 0.94);
-
   /* Near-black, still mint-hued; a dark canvas needs much more of it. */
   --shadow-tint: 0 6 4;
   --shadow-a1: 0.24;
@@ -273,10 +269,10 @@
   --color-ai: var(--ai);
   --color-ai-soft: var(--ai-soft);
 
-  --color-scrim: var(--scrim);
-  --color-scrim-strong: var(--scrim-strong);
-  --color-scrim-foreground: var(--scrim-foreground);
-  --color-scrim-foreground-muted: var(--scrim-foreground-muted);
+  --color-overlay: var(--overlay);
+  /* Named opacity modifiers: `bg-overlay/overlay`, `bg-overlay/overlay-strong`. */
+  --opacity-overlay: 0.4;
+  --opacity-overlay-strong: 0.65;
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -362,7 +358,7 @@
  * background — so there's nothing for a step to show against.
  *
  * A gradient stop is translucent by definition, so this is the same accepted
- * exception as `--scrim` and the shadow scale: the alpha lives in the token and
+ * exception as `--overlay` and the shadow scale: the alpha lives in the token and
  * the call site stays a plain class. */
 @utility fade-to-canvas {
   /* color-mix so the stops stay derived from --background instead of restating

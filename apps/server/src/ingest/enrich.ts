@@ -156,8 +156,8 @@ export type PlannedTag = { kind: "type" | "topic" | "entity"; name: string };
  */
 export function plannedTags(enrichment: EnrichmentResult): PlannedTag[] {
   const byName = new Map<string, PlannedTag>();
-  const claim = (key: string, tag: PlannedTag) => {
-    if (!byName.has(key)) byName.set(key, tag);
+  const claim = (key: string, planned: PlannedTag) => {
+    if (!byName.has(key)) byName.set(key, planned);
   };
   // Insertion order is the precedence order.
   for (const t of enrichment.types) claim(t, { kind: "type", name: t });

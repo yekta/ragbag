@@ -3,8 +3,8 @@
 
 export function requestAsPromise<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("IndexedDB request failed"));
+    req.addEventListener("success", () => resolve(req.result));
+    req.addEventListener("error", () => reject(req.error ?? new Error("IndexedDB request failed")));
   });
 }
 
@@ -45,24 +45,30 @@ export function openDb(
       return;
     }
     req.addEventListener("upgradeneeded", () => upgrade(req.result));
-    req.onsuccess = () => {
+    req.addEventListener("success", () => {
       // Won the race against the timeout — but if the timeout already fired,
       // close rather than leak a connection nobody holds.
       if (settled) req.result.close();
       settle(() => resolve(req.result));
-    };
-    req.onerror = () =>
-      settle(() => reject(req.error ?? new Error(`cannot open IndexedDB ${name}`)));
-    req.onblocked = () =>
-      settle(() => reject(new Error(`IndexedDB ${name} is blocked by another open tab`)));
+    });
+    req.addEventListener("error", () =>
+      settle(() => reject(req.error ?? new Error(`cannot open IndexedDB ${name}`))),
+    );
+    req.addEventListener("blocked", () =>
+      settle(() => reject(new Error(`IndexedDB ${name} is blocked by another open tab`))),
+    );
   });
 }
 
 export function txDone(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed"));
-    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
+    tx.addEventListener("complete", () => resolve());
+    tx.addEventListener("error", () =>
+      reject(tx.error ?? new Error("IndexedDB transaction failed")),
+    );
+    tx.addEventListener("abort", () =>
+      reject(tx.error ?? new Error("IndexedDB transaction aborted")),
+    );
   });
 }
 

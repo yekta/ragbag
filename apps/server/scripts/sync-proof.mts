@@ -100,7 +100,9 @@ const tagDeadline = Date.now() + 20_000;
 let tagNames: string[] = [];
 while (Date.now() < tagDeadline) {
   const timelineB = await b.run(queries.timeline());
-  tagNames = (timelineB.find((i) => i.id === linkItem.id)?.tags ?? []).map((t) => t.name).sort();
+  tagNames = (timelineB.find((i) => i.id === linkItem.id)?.tags ?? [])
+    .map((t) => t.name)
+    .toSorted();
   if (tagNames.join(",") === "proof,sync") break;
   await new Promise((r) => setTimeout(r, 250));
 }

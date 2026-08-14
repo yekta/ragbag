@@ -161,7 +161,7 @@ still on its old styling. No visual change yet.
 ## 3. Phase 1 — the muted-mint theme
 
 Hue anchor **168–174°** in OKLCH (mint/sea-green). Everything carries the hue — surfaces, ink,
-borders, rings, shadows, scrims — but the chroma budget is split so only `primary`, `ring`,
+borders, rings, shadows, overlays — but the chroma budget is split so only `primary`, `ring`,
 `accent` and the kind tokens show colour; the rest reads as "not quite grey" (§3.1).
 
 Every value was computed OKLCH → sRGB and checked for gamut + WCAG contrast. **All text pairs pass
@@ -177,7 +177,7 @@ The shape is the standard shadcn v4 layout: `@import "tailwindcss"` + `tw-animat
 `@custom-variant dark`, `:root` / `.dark` token blocks, an `@theme inline` mapping every token to a
 `--color-*` utility, and a small `@layer base`. Ours on top of the shadcn set: `--panel`,
 `--warning`, `--success`, the `-hover` and `-soft` variants, seven `--kind-*` (+ `-soft`), `--ai`,
-the `--scrim*` family, and a re-tinted shadow scale including `--shadow-float`.
+`--overlay` + its `--opacity-overlay*` strengths, and a re-tinted shadow scale including `--shadow-float`.
 
 **Two rules hold the palette together.**
 
@@ -212,7 +212,7 @@ sheet. The replacements:
 | dark `input: oklch(1 0 0 / 15%)`                       | solid `oklch(0.345 0.009 174)`                                 |
 | `ring-ring/50`, `ring-destructive/20,40`               | solid `ring-ring` / `ring-destructive`                         |
 | `bg-input/30`, `bg-input/50`                           | `--panel`, `--accent`                                          |
-| `bg-black/50` (Radix overlays)                         | `--scrim` (mint-hued)                                          |
+| `bg-black/50` (Radix overlays)                         | `--overlay` (mint-hued)                                        |
 | `text-white` on destructive + `dark:bg-destructive/60` | `--destructive-foreground` (near-white light, near-black dark) |
 
 That last row is worth calling out: shadcn dims the destructive fill to 60% in dark mode purely to
@@ -230,12 +230,14 @@ emits the `var()` references into the utilities so `.dark` can re-point them at 
 and shadow into a single `box-shadow` — which would have silently killed the composer's drag-hover
 ring.
 
-**The two exceptions**, both physically translucent: `--scrim` / `--scrim-strong` (a veil — you
-must see the page through it) and the shadow scale (an opaque shadow is a solid block). Both are
-mint-tinted and both bake their alpha into the token, so call sites still read `bg-scrim` and
-`shadow-lg` with no opacity modifier. The scrim is dark in _both_ themes, so it carries its own
-`--scrim-foreground` / `--scrim-foreground-muted` ink — `text-background` on a scrim was invisible
-in dark mode.
+**The two exceptions**, both physically translucent: `--overlay` (you must see the page through it)
+and the shadow scale (an opaque shadow is a solid block). Both are mint-tinted; the shadow scale
+bakes its alpha into the token, while the overlay keeps an opaque colour and names its strengths as
+`--opacity-overlay` / `--opacity-overlay-strong` in the `@theme` block. Tailwind resolves those as
+named opacity modifiers, so call sites read `bg-overlay/overlay` (dialogs, sheets) and
+`bg-overlay/overlay-strong` (the full-screen drop target) — never a loose `/65`. One overlay colour
+serves both themes and carries no ink tokens of its own, because everything shown over it (dialog,
+sheet, the drop card) brings its own surface.
 
 `color-scheme: light` / `dark` in `@layer base` matters more than it looks: it fixes native
 scrollbars, `<input>` chrome and the PDF `<iframe>` in `item-detail` so they don't stay white in
@@ -289,7 +291,7 @@ _text_, and they diverge:
 | `bg-neutral-900 text-white` (active nav, send, save) | `bg-primary text-primary-foreground`                      |
 | `hover:bg-neutral-100`                               | `hover:bg-accent hover:text-accent-foreground`            |
 | `bg-neutral-100` chips                               | `bg-secondary text-secondary-foreground`                  |
-| `bg-neutral-900/30` scrims                           | `bg-scrim` (Radix overlays own this once on shadcn)       |
+| `bg-neutral-900/30` overlays                         | `bg-overlay` (Radix overlays own this once on shadcn)     |
 | amber sync banner                                    | `warning` tokens via `<Alert>`                            |
 | emerald sync dot / todo check                        | `success` tokens                                          |
 | `red-*` failures/delete                              | `destructive`                                             |
@@ -303,7 +305,7 @@ The generated components ship timings that read as sluggish, and the reason isn'
 | surface                                     | shadcn default                                 | now                                 |
 | ------------------------------------------- | ---------------------------------------------- | ----------------------------------- |
 | Sheet content (detail panel, mobile drawer) | **500ms in / 300ms out, `ease-in-out`**        | 200 in / 150 out, enter/exit curves |
-| Sheet overlay (scrim)                       | unset → 150ms default, desynced from the panel | matched to the panel exactly        |
+| Sheet overlay                               | unset → 150ms default, desynced from the panel | matched to the panel exactly        |
 | Dialog / AlertDialog                        | 200ms, no easing specified                     | 150 in / 100 out, enter/exit curves |
 | Sidebar rail + gap                          | 200ms **`ease-linear`**                        | 200ms, enter curve                  |
 
@@ -405,7 +407,7 @@ Same pass: imports become `@/components/item-card` etc. — no `../`, no `.js`.
 **`app.tsx`** — the biggest structural change.
 
 - Shell becomes `SidebarProvider` → `<AppSidebar/>` → `SidebarInset` (see §5). The hand-rolled
-  desktop rail wrapper, mobile drawer, and scrim all delete.
+  desktop rail wrapper, mobile drawer, and overlay all delete.
 - `SyncBanner` → `<Alert>`; the signed-out variant uses `warning` tokens, offline uses `muted`.
 - The `floatingButton` class constant → `<Button variant="outline" size="icon" className="rounded-full shadow-md">`; the mobile hamburger → `<SidebarTrigger>`.
 - Keep: the identity gate, `QueueWiring`, the ⌘\ / Esc effect (relocated, see §5).
@@ -432,7 +434,7 @@ Same pass: imports become `@/components/item-card` etc. — no `../`, no `.js`.
 
 **`item-detail.tsx`**
 
-- The bespoke `Overlay` (fixed + scrim + right panel) → `Sheet side="right"` with
+- The bespoke `Overlay` (fixed + overlay + right panel) → `Sheet side="right"` with
   `className="w-full gap-0 p-0 sm:max-w-2xl"`. Gets focus trap, scroll lock, Esc, and animation for
   free — delete the local Esc `useEffect`.
 - Keep the sticky header inside `SheetContent`; the title needs a `SheetTitle` (visually hidden if

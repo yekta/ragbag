@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 // re-pull): the generated components lean on alpha modifiers — `ring-ring/50`,
 // `bg-primary/90`, `dark:bg-destructive/60`, `bg-input/30`, `bg-black/50` — all
 // of which composite differently depending on what happens to be behind them.
-// They now point at opaque tokens (`-hover`, `-soft`, `panel`, `scrim`); see
+// They now point at opaque tokens (`-hover`, `-soft`, `panel`, `overlay`); see
 // the header of index.css for why. The destructive variant also drops
 // `text-white` + `dark:bg-destructive/60` in favour of `text-destructive-
 // foreground`, which is near-white in light mode and near-black in dark — the
