@@ -363,7 +363,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // borrows the card tokens directly.
     <article
-      className="group relative rounded-2xl border bg-card p-3.5 text-card-foreground shadow-sm transition hover:shadow-md"
+      className="group relative rounded-2xl bg-card p-3.5 text-card-foreground shadow-sm transition hover:shadow-md"
       // Touch has no hover actions, so tapping the card body opens the detail
       // view instead; links and buttons inside keep their own behavior.
       onClick={(e) => {
