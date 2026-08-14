@@ -96,7 +96,46 @@ server…" line. Measured with a 600 ms `/api/meta` (a stand-in for a remote API
 Three different screens before the user can click anything, and the last
 transition moves the target they were reaching for.
 
-### 1.4 The same shape elsewhere
+### 1.4 The archive arrives in waves, and every wave re-lays the whole document
+
+Reported as: _"some messages load, page scrolls to bottom, some more load, page
+scrolls to bottom"_ — a fast, jarring staircase. Three mechanisms stack up, and
+only the first is fixed by §1.1.
+
+**(a) Each rebuilt Zero client replays the whole arrival.** The virtualized list
+lives inside `timeline.tsx`'s `empty ? … : …` branch, so a client rebuild takes
+the timeline from _N rows_ back to _0_ — document height collapses from tens of
+thousands of pixels to one screen, scroll position with it — and then back to
+_N_, at which point `anchorTo: "end"` + `followOnAppend` re-pin the newest item
+and the page "scrolls to the bottom" again. Five clients (§1.1) = up to five
+collapse-and-repin cycles in the first two seconds. This is the bulk of the
+reported staircase.
+
+**(b) A cold device gets the archive in two waves, and the first one is a lie.**
+Measured, 405 items, fresh device, sampling every animation frame:
+
+```
+t(ms)   cards   docHeight   scrollY
+ 1832       5         841        41     ← whatever was already local, pinned to its end
+ 2941      27       58152     57283     ← the server's delivery lands: +57 311px of document
+ 3057      16       58181     57312     ← measurement corrections
+```
+
+The first wave is a complete, plausible, _wrong_ archive: it settles, it pins
+itself to the bottom, and a second later it is replaced by one seventy times
+taller. Waiting for the row set to go quiet — not merely non-empty — is what
+distinguishes these two.
+
+**(c) Late measurement corrections move the view after it has settled.** The
+virtualizer estimates every unmeasured row at 140px (`timeline.tsx:94`) and
+corrects as rows are measured; with end-anchoring, each correction is a scroll
+adjustment. Measured on a warm load of the same archive: the document settles at
+58 198px and is corrected to 58 111px ~500 ms later, dragging `scrollY` 87px with
+it. That delta is small here only because the seeded rows are uniform text —
+images, link cards and long notes are exactly what 140px is wrong about, and the
+error is cumulative over the rows above the viewport.
+
+### 1.5 The same shape elsewhere
 
 - **`SyncDot`** (`sidebar.tsx:65-79`) starts every load on "Connecting…" because
   that is Zero's initial connection state, then flips to "Synced". A status that
@@ -121,11 +160,14 @@ transition moves the target they were reaching for.
 
 ## 2. The primitives — `apps/web/src/lib/settle.ts` (new)
 
-Three hooks, no dependencies, used by everything below.
+Four hooks, no dependencies, used by everything below.
 
 ```ts
 /** True once `ms` have elapsed since mount. Re-renders once. */
 export function useElapsed(ms: number): boolean;
+
+/** True once `value` has not changed for `ms` — "the stream has gone quiet". */
+export function useQuiet<T>(value: T, ms: number): boolean;
 
 /**
  * A status you may show: true only after `active` has held continuously for
@@ -147,6 +189,9 @@ export const SETTLE = {
   loaderAfter: 400,
   /** Once a loader is up, it stays up this long. */
   loaderMin: 450,
+  /** The row set must hold still this long before it counts as the archive —
+      one wave is not the archive (§1.4b). Two frames' worth of slack. */
+  quiet: 150,
   /** Hard cap on the cover: past this we reveal the shell and let the timeline
       show the honest in-place sync loader, so the app stays usable. */
   reveal: 1_500,
@@ -217,11 +262,19 @@ workspace immediately from localStorage without waiting for the session probe.
 `ShellBody` already holds the timeline query, so it decides:
 
 ```tsx
-const known = items.length > 0 || itemsResult.type === "complete" || syncPaused;
+// Non-empty is not enough: the first wave of a cold sync is a complete, wrong
+// archive (§1.4b). The row set has to have stopped moving.
+const arrived = items.length > 0 && useQuiet(items, SETTLE.quiet);
+const known = arrived || itemsResult.type === "complete" || syncPaused;
 const settled = useLatch(known || useElapsed(SETTLE.reveal));
 …
 <SettleCover show={!settled} message="Syncing your archive…" />   // message only once patient
 ```
+
+`useQuiet(items, …)` compares the snapshot by reference, which is exactly right
+here: Zero hands back a new array for every delivery and the identical one when
+nothing has changed, so "quiet" means "no wave for 150 ms" without hashing
+anything.
 
 `Timeline` takes `settled` and stops guessing:
 

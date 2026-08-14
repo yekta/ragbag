@@ -22,12 +22,13 @@
  *    Soft fills get their own solid tokens (`--kind-*-soft`, `--destructive-
  *    soft`, `--panel`), and hover states get solid `-hover` tokens.
  *
- *    The two deliberate exceptions are things that are *physically*
- *    translucent: `--overlay` (you must see the page through it) and the
- *    shadow scale (a shadow that isn't translucent is a solid block). Both are
- *    mint-tinted. The overlay's colour is opaque like everything else and its
- *    strengths are named `--opacity-overlay*` modifiers, so call sites read
- *    `bg-overlay/overlay` — a named strength, never a loose `/40`.
+ *    The deliberate exceptions are things that are *physically* translucent:
+ *    `--overlay` (you must see the page through it), the scrim that fades the
+ *    page out behind the drop state, and the shadow scale (a shadow that isn't
+ *    translucent is a solid block). All are mint-tinted. The colours stay
+ *    opaque like everything else and the strengths are named `--opacity-*`
+ *    modifiers, so call sites read `bg-overlay/overlay` and
+ *    `bg-background/scrim` — a named strength, never a loose `/40`.
  *
  * Values were checked for sRGB gamut and WCAG contrast; ratios in
  * SHADCN_PLAN.md §3.2. */
@@ -136,12 +137,17 @@
      and color-mix only takes percentages. A bare `0.4` makes the declaration
      invalid, which silently drops it back to the opaque fallback. */
   --overlay-alpha: 40%;
-  /* The strength for an overlay that carries its own content rather than
-     something with its own surface — the drop state, which puts an icon and a
-     line of text straight on it. Needs no dark-theme re-tune, unlike the base:
-     at 80% the overlay is close enough to opaque that the canvas underneath
-     barely moves the result either way. */
-  --overlay-alpha-strong: 80%;
+
+  /* The scrim: the full-page fade behind the drop state. Deliberately *not*
+     `--overlay` — an overlay dims a page you are still meant to read through,
+     and the drop state isn't read-through, it takes the screen over. So it
+     fades the page toward the canvas instead of darkening it: `--background`
+     at this strength, i.e. `bg-background/scrim`. One strength for both
+     themes, unlike `--overlay-alpha` — each theme fades toward its own
+     canvas, so the same number lands the same way either way, and at 80% what
+     shows through is a hint of the page rather than a readable one. A
+     percentage, not a 0–1 alpha, for the color-mix reason above. */
+  --scrim-alpha: 80%;
 
   /* Shadows are mint-tinted, never neutral black. Split into a colour and four
      strengths so the dark theme can re-tune both without touching the scale. */
@@ -309,13 +315,14 @@
   --color-ai-soft: var(--ai-soft);
 
   --color-overlay: var(--overlay);
-  /* Named opacity modifiers: `bg-overlay/overlay` under something that brings
-     its own surface, `bg-overlay/overlay-strong` when the overlay itself is the
-     surface. The first points at `--overlay-alpha` so `.dark` can re-tune the
-     strength at runtime — the overlay needs more of itself to register against
-     a dark canvas than against a light one. */
+  /* Named opacity modifiers: `bg-overlay/overlay` to dim the page under
+     something that brings its own surface, `bg-background/scrim` to fade the
+     page out entirely. Both point at the `:root` alphas rather than carrying a
+     number, so `.dark` can re-tune a strength at runtime — the overlay needs
+     more of itself to register against a dark canvas than against a light
+     one. */
   --opacity-overlay: var(--overlay-alpha);
-  --opacity-overlay-strong: var(--overlay-alpha-strong);
+  --opacity-scrim: var(--scrim-alpha);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

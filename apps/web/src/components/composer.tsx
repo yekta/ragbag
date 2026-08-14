@@ -594,11 +594,12 @@ function ProgressRing({ value }: { value: number }) {
  */
 function DropOverlay() {
   return (
-    // The overlay is the surface: it dims the whole page, and the icon and
-    // label sit straight on it — no card. Hence the strong strength, and hence
-    // light ink under both themes: `--overlay` is the same dark colour either
-    // way, so the light theme's ink would disappear into it.
-    <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-overlay/overlay-strong p-6 text-center text-background dark:text-foreground">
+    // The scrim is the surface: it fades the whole page out toward the canvas,
+    // and the icon and label sit straight on it — no card. `bg-background`
+    // rather than `bg-overlay` because this state replaces the page rather
+    // than dimming something you still read through, which also means ordinary
+    // `text-foreground` ink under both themes — it's the canvas underneath.
+    <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/scrim p-6 text-center text-foreground">
       <Icon name="filePlus" className="size-12" />
       <p className="text-lg font-medium">Drop the files to add to your message</p>
     </div>
