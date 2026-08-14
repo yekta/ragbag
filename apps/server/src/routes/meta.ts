@@ -10,6 +10,7 @@ export const metaRoutes = new Hono().get("/", (c) => {
     googleAuth: googleConfigured,
     devLogin: env.DEV_LOGIN,
     blobs: storageConfigured,
+    ai: Boolean(env.OPENAI_API_KEY),
   };
   return c.json(meta);
 });

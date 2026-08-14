@@ -4,6 +4,10 @@ import { auth } from "../auth.js";
 import { bucketCorsStatus, storage } from "../blobs/storage.js";
 import { sql } from "../db/client.js";
 import { env, localBlobDir, r2Configured } from "../env.js";
+import { hasVectorColumn } from "../ingest/indexing.js";
+import { spentLast24h } from "../ingest/usage.js";
+import { ingestHeartbeat } from "../ingest/worker.js";
+import { getAuthData } from "../session.js";
 
 // Temporary diagnostic for deployed environments: which proxy header actually
 // carries the client IP behind whatever CDN/router sits in front of us, and
@@ -137,4 +141,65 @@ export const debugRoutes = new Hono()
     };
     storageProbe = { at: Date.now(), body };
     return c.json(body);
+  })
+  // Answers "why is nothing getting enriched?" without psql: is the worker
+  // alive, what's queued/failed and why, and is AI actually configured. The
+  // per-user spend appears only when the request carries a session — the rest
+  // is aggregate/config state, unauthenticated like its siblings above.
+  .get("/ingest", async (c) => {
+    const heartbeat = ingestHeartbeat();
+
+    const counts = Object.fromEntries(
+      (
+        await sql<{ status: string; count: number }[]>`
+          select status, count(*)::int as count from ingest_job group by status`
+      ).map((r) => [r.status, r.count]),
+    );
+    const [oldest] = await sql<{ age: number | null }[]>`
+      select extract(epoch from now() - min(created_at))::int as age
+      from ingest_job where status = 'queued'`;
+    const recentErrors = (
+      await sql<
+        { item_id: string; status: string; attempts: number; last_error: string; at: string }[]
+      >`
+        select item_id, status, attempts, last_error, updated_at::text as at
+        from ingest_job where last_error is not null
+        order by updated_at desc limit 5`
+    ).map((r) => ({
+      itemId: r.item_id,
+      status: r.status,
+      attempts: r.attempts,
+      lastError: r.last_error,
+      at: r.at,
+    }));
+
+    const authData = await getAuthData(c.req.raw).catch(() => null);
+
+    return c.json({
+      worker: {
+        enabled: heartbeat.enabled,
+        // 0 = never looped since boot; small numbers mean it's alive.
+        lastLoopSecondsAgo: heartbeat.lastLoopAt
+          ? Math.round((Date.now() - heartbeat.lastLoopAt) / 1000)
+          : null,
+      },
+      jobs: {
+        counts,
+        oldestQueuedSeconds: oldest?.age ?? null,
+        recentErrors,
+      },
+      ai: {
+        configured: Boolean(env.OPENAI_API_KEY),
+        enrichModel: env.AI_ENRICH_MODEL,
+        embedModel: env.AI_EMBED_MODEL,
+        vectorColumn: await hasVectorColumn().catch(() => false),
+        // Reporting only — spend is metered, never capped.
+        ...(authData
+          ? { yourSpendLast24hUsd: await spentLast24h(authData.userID).catch(() => null) }
+          : {}),
+      },
+      note: env.OPENAI_API_KEY
+        ? "AI is configured. If items still lack summaries, check recentErrors above and each item's detail view."
+        : "AI is NOT configured (no OPENAI_API_KEY) — every job completes extraction-only: no summaries, no tags.",
+    });
   });

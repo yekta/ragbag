@@ -83,7 +83,11 @@ R2_ENDPOINT=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...  R2_BUCKET=...
 ```
 
 Leave `DEV_LOGIN` unset — `env.ts` refuses to boot with it enabled in production, as it does with
-the default `BETTER_AUTH_SECRET`.
+the default `BETTER_AUTH_SECRET` and with a **missing `OPENAI_API_KEY`**. Enrichment (summaries,
+tags, semantic search) is a core feature, not an add-on: a keyless server used to boot happily and
+silently return extraction-only items forever, which reads as a dead app. Now it refuses to start
+and names the variable. The boot log states which way it went — `AI enrichment enabled` (with the
+models) or, in dev only, `AI enrichment DISABLED`.
 
 No R2? Set `LOCAL_BLOB_DIR=/data/blobs` and mount a volume there instead. With neither, `/api/meta`
 reports `blobs: false` and the composer disables attachments.
@@ -216,6 +220,11 @@ application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app
    browser's upload", the bucket CORS policy is missing — see §2, and `GET /api/debug/storage`
    to confirm the server side is fine.
 8. Hard-refresh on `/item/<id>` — must render, not 404.
+9. Open that note's detail view: an **AI summary and tags** must appear within a few seconds
+   (enrichment is the slow stage — the `ingested` log line goes from ~30ms to seconds when AI is
+   really running). If a summary never comes, the detail view now says why, and
+   `GET /api/debug/ingest` reports worker liveness, queue depth, recent job errors and whether AI
+   is configured at all.
 
 ## Notes
 
@@ -227,5 +236,13 @@ application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app
 - Ingestion runs inside the API process (`INGEST_WORKER=true`). To isolate AI throughput from API
   latency later, deploy a second instance of the same image with `INGEST_WORKER=true` and set it to
   `false` on the API instances.
-- `AI_USER_DAILY_BUDGET_USD` (default 1) caps per-user AI spend over a rolling 24h window and skips
-  enrichment above it — it never fails ingestion.
+- AI spend is metered per user (the `ai_usage` table prices every call) but never capped —
+  enrichment always runs when a key is configured. `GET /api/debug/ingest` reports the caller's
+  last-24h spend.
+- AI stages fail **soft**: a bad key, an unavailable model or a rate limit leaves the extraction
+  intact, marks the item `done`, and records a classified reason (`OpenAI rejected the API key
+(401)`, `model not found (404) — check AI_ENRICH_MODEL`, …) that the item's detail view shows
+  next to a **Run enrichment** button. They never burn ingest retries or discard extracted text.
+- Items that finished without a summary (e.g. everything dumped while a server ran keyless) don't
+  re-run on their own — they're `done`. The sidebar offers **Enrich N items**, which re-queues them
+  in bulk from the client (up to 250 per click).

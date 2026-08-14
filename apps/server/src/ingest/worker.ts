@@ -32,6 +32,13 @@ type ClaimedJob = {
   waitExpired: boolean;
 };
 
+let lastLoopAt = 0;
+
+/** Debug surface: is the worker on, and when did a loop last look for work. */
+export function ingestHeartbeat(): { enabled: boolean; lastLoopAt: number } {
+  return { enabled: env.INGEST_WORKER, lastLoopAt };
+}
+
 async function claimJob(): Promise<ClaimedJob | null> {
   // The wait deadline is evaluated in SQL on purpose: raw queries through
   // this client return timestamps as strings (drizzle/zero replace
@@ -152,6 +159,7 @@ export function startIngestWorker(): () => Promise<void> {
   const loops = Array.from({ length: env.INGEST_CONCURRENCY }, async (_, n) => {
     log.info("ingest worker loop started", { n });
     while (!state.stopping) {
+      lastLoopAt = Date.now();
       let job: ClaimedJob | null = null;
       try {
         job = await claimJob();

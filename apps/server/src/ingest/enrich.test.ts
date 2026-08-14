@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Enrichment, buildEnrichmentPrompt } from "./enrich.js";
+import { Enrichment, buildEnrichmentPrompt, plannedTags } from "./enrich.js";
+import type { EnrichmentResult } from "./enrich.js";
 
 describe("Enrichment schema", () => {
   it("accepts a well-formed enrichment and enforces the tagging rules", () => {
@@ -76,5 +77,47 @@ describe("buildEnrichmentPrompt", () => {
   it("truncates giant content to bound per-item cost (plan §7)", () => {
     const prompt = buildEnrichmentPrompt({ ...base, extractedText: "x".repeat(100_000) });
     expect(prompt.length).toBeLessThan(30_000);
+  });
+});
+
+describe("plannedTags", () => {
+  const base: EnrichmentResult = {
+    summary: "s",
+    types: ["video"],
+    topics: ["rust", "ownership", "realkey"],
+    entities: ["Rust", "realkey", "Mozilla"],
+    lang: "en",
+    suggestedKind: "note",
+  };
+
+  it("emits one tag per name, most specific kind winning", () => {
+    const tags = plannedTags({ ...base, types: ["video", "code"] });
+    expect(tags.filter((t) => t.name.toLowerCase() === "rust")).toEqual([
+      { kind: "topic", name: "rust" },
+    ]);
+    expect(tags.filter((t) => t.name.toLowerCase() === "realkey")).toEqual([
+      { kind: "topic", name: "realkey" },
+    ]);
+    // Names are unique overall — the duplicate badges are gone at the source.
+    const names = tags.map((t) => t.name.toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("keeps a type over a same-named topic, and unrelated entities survive", () => {
+    const tags = plannedTags({ ...base, topics: ["video", "rust", "ownership"] });
+    expect(tags).toContainEqual({ kind: "type", name: "video" });
+    expect(tags).not.toContainEqual({ kind: "topic", name: "video" });
+    expect(tags).toContainEqual({ kind: "entity", name: "Mozilla" });
+  });
+
+  it("normalizes topics, preserves entity casing, and drops blanks", () => {
+    const tags = plannedTags({
+      ...base,
+      topics: ["  Rust  ", "ownership", "memory"],
+      entities: ["  ", "Mozilla"],
+    });
+    expect(tags).toContainEqual({ kind: "topic", name: "rust" });
+    expect(tags).toContainEqual({ kind: "entity", name: "Mozilla" });
+    expect(tags.some((t) => t.name.trim() === "")).toBe(false);
   });
 });

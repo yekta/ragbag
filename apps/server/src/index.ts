@@ -36,6 +36,20 @@ if (env.MIGRATE_ON_START) {
   }
 }
 
+// State the AI truth at boot: a keyless server "works" while silently
+// producing no summaries or tags, which reads as a dead app. Production
+// refuses to boot keyless (env.ts); dev/self-host at least gets told.
+if (env.OPENAI_API_KEY) {
+  log.info("AI enrichment enabled", {
+    model: env.AI_ENRICH_MODEL,
+    embedModel: env.AI_EMBED_MODEL,
+  });
+} else {
+  log.warn(
+    "AI enrichment DISABLED — no OPENAI_API_KEY: items get no summaries, tags or semantic search",
+  );
+}
+
 const stopIngestWorker = startIngestWorker();
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {

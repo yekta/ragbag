@@ -1,8 +1,11 @@
 import type { BlobQueueState } from "@ragbag/client-runtime";
+import { mutators } from "@ragbag/contracts";
+import type { MetaResponse } from "@ragbag/contracts";
 import { ITEM_KINDS } from "@ragbag/shared";
 import type { ItemKind } from "@ragbag/shared";
-import { useConnectionState } from "@rocicorp/zero/react";
-import { useMemo } from "react";
+import { useConnectionState, useZero } from "@rocicorp/zero/react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Icon, KIND_ICON } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,12 +113,14 @@ export function Sidebar({
   items,
   tags,
   name,
+  meta,
   sessionExpired,
   onSignOut,
 }: {
   items: Timeline;
   tags: readonly TagRow[];
   name: string;
+  meta: MetaResponse | undefined;
   sessionExpired: boolean;
   onSignOut: () => void;
 }) {
@@ -280,6 +285,7 @@ export function Sidebar({
       </SidebarContent>
 
       <SidebarFooter className="gap-0 border-t px-4 py-3">
+        <EnrichBackfill items={items} meta={meta} />
         <QueueStatus state={queueState} onRetry={() => void queue.retryNow()} />
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1">
@@ -299,6 +305,82 @@ export function Sidebar({
         </div>
       </SidebarFooter>
     </SidebarRoot>
+  );
+}
+
+/** Ceiling on one backfill click — enough for a personal archive, bounded. */
+const BACKFILL_LIMIT = 250;
+
+/**
+ * Re-run enrichment over items that finished ingestion without a summary.
+ *
+ * The client already syncs `item_content`, so it knows exactly which items
+ * these are — no new server API, just the existing per-item retryIngest
+ * mutator in a loop, bounded by BACKFILL_LIMIT per click.
+ * This exists because a server that ran for a day without an OpenAI key
+ * leaves a pile of permanently-empty items that nothing would otherwise
+ * revisit: they're "done", so no retry ever fires for them.
+ */
+function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse | undefined }) {
+  const zero = useZero();
+  const [running, setRunning] = useState(0);
+
+  const pending = useMemo(
+    () => items.filter((i) => i.content?.status === "done" && !i.content.aiSummary),
+    [items],
+  );
+
+  // Only offer this when the server can actually deliver: `undefined` meta
+  // (offline/unknown) hides it rather than promising something we can't do.
+  if (!meta?.ai || pending.length === 0) return null;
+
+  const batch = pending.slice(0, BACKFILL_LIMIT);
+
+  const run = async () => {
+    setRunning(batch.length);
+    let failed = 0;
+    // Sequential on purpose: this is a background chore, not a race — and it
+    // keeps the mutation log (and the ingest queue) from being flooded.
+    for (const item of batch) {
+      try {
+        await zero.mutate(mutators.item.retryIngest({ id: item.id })).client;
+      } catch {
+        failed += 1;
+      }
+      setRunning((n) => n - 1);
+    }
+    toast.success(
+      `Queued ${batch.length - failed} item${batch.length - failed === 1 ? "" : "s"} for enrichment`,
+      {
+        description:
+          pending.length > batch.length
+            ? `${pending.length - batch.length} more remain — run it again when these finish.`
+            : "Summaries and tags appear as each one finishes.",
+      },
+    );
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      className="mb-1.5 justify-start px-0 text-xs font-normal text-muted-foreground hover:text-foreground"
+      disabled={running > 0}
+      title={`${pending.length} item${pending.length === 1 ? "" : "s"} finished without an AI summary`}
+      onClick={() => void run()}
+    >
+      {running > 0 ? (
+        <>
+          <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
+          Queueing… {running} left
+        </>
+      ) : (
+        <>
+          <Icon name="sparkles" className="size-3" />
+          Enrich {pending.length} item{pending.length === 1 ? "" : "s"}
+        </>
+      )}
+    </Button>
   );
 }
 

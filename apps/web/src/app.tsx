@@ -356,6 +356,7 @@ function ShellBody({
         items={items}
         tags={tags}
         name={name}
+        meta={meta}
         sessionExpired={status === "expired"}
         onSignOut={onSignOut}
       />

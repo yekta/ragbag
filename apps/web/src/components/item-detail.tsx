@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBlobUrl } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
+import { useMeta } from "@/lib/use-meta";
 
 // Route overlay (/item/$id): reader view for links, PDF viewer, image
 // lightbox (plan §10), plus the tag editor and favorite/delete/retry actions.
@@ -42,6 +43,7 @@ export function ItemDetail() {
   const navigate = useNavigate();
   const [liveItem] = useQuery(queries.item({ id }));
   const [allTags] = useQuery(queries.tags());
+  const meta = useMeta();
   const [editing, setEditing] = useState(false);
   const [textDraft, setTextDraft] = useState("");
   const [open, setOpen] = useState(true);
@@ -386,6 +388,30 @@ export function ItemDetail() {
                     ? "Reading and enriching this item…"
                     : "Queued for ingestion…"}
                 </p>
+              )}
+              {/* Enrichment that finished with nothing to show. Silence here
+                  read as a broken app for a full day (the server had no
+                  OpenAI key), so absence now explains itself and offers the
+                  re-run that already existed for outright failures. */}
+              {c?.status === "done" && !c.aiSummary && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <Icon name="sparkles" className="size-3.5 shrink-0" />
+                  <span>
+                    {c.error ??
+                      (meta && !meta.ai
+                        ? "AI enrichment is off on this server — no summary or tags."
+                        : "No AI summary for this item yet.")}
+                  </span>
+                  {meta?.ai !== false && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => void zero.mutate(mutators.item.retryIngest({ id: item.id }))}
+                    >
+                      <Icon name="retry" className="size-3" /> Run enrichment
+                    </Button>
+                  )}
+                </div>
               )}
 
               {/* reader view */}

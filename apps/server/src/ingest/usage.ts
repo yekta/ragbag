@@ -2,11 +2,12 @@ import { log, newId } from "@ragbag/shared";
 import { and, gte, eq, sum } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { aiUsage } from "../db/schema.js";
-import { env } from "../env.js";
 
-// Per-user AI-spend metering + caps from day one (plan §7/§11): every OpenAI
-// call is priced and recorded; enrichment is skipped (not failed) once a
-// user's rolling-24h spend crosses AI_USER_DAILY_BUDGET_USD.
+// Per-user AI-spend metering: every OpenAI call is priced and recorded, so
+// spend is auditable after the fact. Recording only — nothing here gates
+// enrichment. (There used to be a rolling-24h cap that silently skipped
+// enrichment; a stage that quietly does nothing is exactly the failure mode
+// this app keeps getting bitten by.)
 
 /** USD per million tokens. */
 const PRICES: Record<string, { input: number; output: number }> = {
@@ -50,6 +51,7 @@ export async function recordUsage(entry: {
   });
 }
 
+/** What this user's AI calls have cost in the last 24h (reporting only). */
 export async function spentLast24h(userId: string): Promise<number> {
   const [row] = await db
     .select({ total: sum(aiUsage.costUsd) })
@@ -58,8 +60,4 @@ export async function spentLast24h(userId: string): Promise<number> {
       and(eq(aiUsage.userId, userId), gte(aiUsage.createdAt, new Date(Date.now() - 86_400_000))),
     );
   return Number(row?.total ?? 0);
-}
-
-export async function underDailyBudget(userId: string): Promise<boolean> {
-  return (await spentLast24h(userId)) < env.AI_USER_DAILY_BUDGET_USD;
 }

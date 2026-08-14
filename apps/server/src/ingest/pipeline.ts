@@ -10,8 +10,7 @@ import { applyAiTags, enrichItem, existingTopicNames, promoteNoteKind } from "./
 import { PermanentError, WaitingError } from "./errors.js";
 import { NotHtmlError, fetchPage } from "./fetch-page.js";
 import { indexItemText } from "./indexing.js";
-import { openai } from "./openai.js";
-import { underDailyBudget } from "./usage.js";
+import { describeAiError, openai } from "./openai.js";
 
 // The processor pipeline (plan §7): classify → extract → enrich → index.
 // Every write here is a plain Postgres row; Zero replicates item_content and
@@ -58,6 +57,12 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
   const patch: ContentPatch = {};
   let fullText = ""; // untruncated; chunked for search
   let isVideo = false;
+  // AI stages fail SOFT: extraction is never held hostage by OpenAI. Each
+  // skipped/failed stage explains itself here, and the notes land in
+  // item_content.error (status stays "done") where the detail view shows
+  // them next to a "Run enrichment" retry. A silent skip looks like a dead
+  // app; a job hard-failed by a 401 throws away perfectly good extraction.
+  const aiNotes: string[] = [];
 
   switch (row.kind) {
     case "note":
@@ -98,17 +103,27 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
     case "image": {
       const file = await loadBlobBytes(row);
       patch.title = file.originalName;
-      if (openai && (await underDailyBudget(job.userId))) {
-        const vision = await describeImage({
-          bytes: file.bytes,
-          mime: file.mime,
-          userId: job.userId,
-          itemId: job.itemId,
-        });
-        if (vision) {
-          patch.title = vision.title || file.originalName;
-          patch.description = vision.description || null;
-          fullText = [vision.description, vision.ocr_text].filter(Boolean).join("\n\n");
+      if (openai) {
+        try {
+          const vision = await describeImage({
+            bytes: file.bytes,
+            mime: file.mime,
+            userId: job.userId,
+            itemId: job.itemId,
+          });
+          if (vision) {
+            patch.title = vision.title || file.originalName;
+            patch.description = vision.description || null;
+            fullText = [vision.description, vision.ocr_text].filter(Boolean).join("\n\n");
+          }
+        } catch (err) {
+          // The image itself is fine (it renders from the blob) — only the
+          // description is missing, and the note says why.
+          aiNotes.push(`AI image description failed: ${describeAiError(err)}`);
+          log.warn("vision failed; keeping the image without a description", {
+            itemId: job.itemId,
+            err: String(err),
+          });
         }
       }
       break;
@@ -145,12 +160,11 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
 
   patch.extractedText = fullText ? fullText.slice(0, SYNCED_TEXT_LIMIT) : null;
 
-  // Enrich (plan §7 stage 3) — skipped, never failed, when OpenAI is absent
-  // or the user's rolling daily budget is exhausted.
-  let budgetOk = false;
-  if (openai) {
-    budgetOk = await underDailyBudget(job.userId);
-    if (budgetOk) {
+  // Enrich (plan §7 stage 3) — skipped or soft-failed, never job-fatal.
+  if (!openai) {
+    aiNotes.push("AI enrichment is off on this server (no OpenAI API key)");
+  } else {
+    try {
       const enrichment = await enrichItem(
         {
           kind: row.kind,
@@ -175,25 +189,23 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
           log.info("note promoted", { itemId: job.itemId, kind: enrichment.suggestedKind });
         }
       }
-    } else {
-      patch.error = "AI enrichment skipped: daily budget reached";
-      log.warn("enrichment skipped: budget", { userId: job.userId, itemId: job.itemId });
+    } catch (err) {
+      aiNotes.push(`AI enrichment failed: ${describeAiError(err)}`);
+      log.warn("enrichment failed; keeping extraction", {
+        itemId: job.itemId,
+        err: String(err),
+      });
     }
   }
 
   // Index (plan §7 stage 4): notes index their own text.
   const indexText = fullText || row.text || "";
-  await indexItemText({
-    userId: job.userId,
-    itemId: job.itemId,
-    text: indexText,
-    mayEmbed: budgetOk,
-  });
+  await indexItemText({ userId: job.userId, itemId: job.itemId, text: indexText });
 
   await patchContent(job.itemId, {
     ...patch,
     status: "done",
-    error: patch.error ?? null,
+    error: aiNotes.length > 0 ? aiNotes.join(" · ") : null,
     processedAt: new Date(),
   });
 }

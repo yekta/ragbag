@@ -39,5 +39,7 @@ export const metaResponse = z.object({
   googleAuth: z.boolean(),
   devLogin: z.boolean(),
   blobs: z.boolean(),
+  /** AI enrichment configured (always true in production — boot requires it). */
+  ai: z.boolean(),
 });
 export type MetaResponse = z.infer<typeof metaResponse>;

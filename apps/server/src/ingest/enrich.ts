@@ -141,21 +141,47 @@ export async function enrichItem(
  * are never touched (and win when the AI picks the same tag). Tag/item_tag
  * writes replicate to every device through Zero automatically.
  */
+export type PlannedTag = { kind: "type" | "topic" | "entity"; name: string };
+
+/**
+ * The tag rows an enrichment should produce — deduped by NAME, across kinds.
+ *
+ * The model routinely returns the same word in two dimensions (a note about
+ * "realkey" comes back as topic *and* entity; a video link as type *and*
+ * topic). Those are separate rows in `tag` (the key is user+kind+name), so
+ * both used to be attached and the item showed the same word twice. One badge
+ * per word: the most specific kind wins — type (a controlled vocabulary),
+ * then topic, then entity — and the loser is dropped before it ever reaches
+ * the database.
+ */
+export function plannedTags(enrichment: EnrichmentResult): PlannedTag[] {
+  const byName = new Map<string, PlannedTag>();
+  const claim = (key: string, tag: PlannedTag) => {
+    if (!byName.has(key)) byName.set(key, tag);
+  };
+  // Insertion order is the precedence order.
+  for (const t of enrichment.types) claim(t, { kind: "type", name: t });
+  for (const raw of enrichment.topics) {
+    const name = raw.trim().toLowerCase().slice(0, 64);
+    if (name) claim(name, { kind: "topic", name });
+  }
+  for (const raw of enrichment.entities.slice(0, 20)) {
+    const name = raw.trim().slice(0, 64);
+    // Entities keep their original casing; dedupe is case-insensitive, so
+    // "Rust" the entity yields to "rust" the topic.
+    if (name) claim(name.toLowerCase(), { kind: "entity", name });
+  }
+  return [...byName.values()];
+}
+
 export async function applyAiTags(
   enrichment: EnrichmentResult,
   meta: { userId: string; itemId: string },
 ): Promise<void> {
-  const wanted = new Map<string, { kind: "type" | "topic" | "entity"; name: string }>();
-  for (const t of enrichment.types) wanted.set(`type:${t}`, { kind: "type", name: t });
-  for (const raw of enrichment.topics) {
-    const name = raw.trim().toLowerCase().slice(0, 64);
-    if (name) wanted.set(`topic:${name}`, { kind: "topic", name });
-  }
-  for (const raw of enrichment.entities.slice(0, 20)) {
-    const name = raw.trim().slice(0, 64);
-    if (name) wanted.set(`entity:${name.toLowerCase()}`, { kind: "entity", name });
-  }
-  const tags = [...wanted.values()];
+  const tags = plannedTags(enrichment);
+  const wanted = new Map(
+    tags.map((t) => [`${t.kind}:${t.kind === "entity" ? t.name.toLowerCase() : t.name}`, t]),
+  );
 
   if (tags.length > 0) {
     await db

@@ -54,8 +54,6 @@ export async function indexItemText(input: {
   userId: string;
   itemId: string;
   text: string;
-  /** Budget gate decided by the pipeline; embeddings are skipped when false. */
-  mayEmbed: boolean;
 }): Promise<void> {
   const chunks = chunkText(input.text);
   await db.delete(itemChunk).where(eq(itemChunk.itemId, input.itemId));
@@ -70,25 +68,34 @@ export async function indexItemText(input: {
     })),
   );
 
-  if (!openai || !input.mayEmbed || !(await hasVectorColumn())) return;
+  if (!openai || !(await hasVectorColumn())) return;
 
-  const res = await openai.embeddings.create({ model: env.AI_EMBED_MODEL, input: chunks });
-  await recordUsage({
-    userId: input.userId,
-    itemId: input.itemId,
-    kind: "embed",
-    model: env.AI_EMBED_MODEL,
-    inputTokens: res.usage?.prompt_tokens ?? 0,
-    outputTokens: 0,
-  });
+  // Soft-fail: the chunks above already power keyword search; a dead OpenAI
+  // (or a bad embed model) must not fail the whole job over the semantic tier.
+  try {
+    const res = await openai.embeddings.create({ model: env.AI_EMBED_MODEL, input: chunks });
+    await recordUsage({
+      userId: input.userId,
+      itemId: input.itemId,
+      kind: "embed",
+      model: env.AI_EMBED_MODEL,
+      inputTokens: res.usage?.prompt_tokens ?? 0,
+      outputTokens: 0,
+    });
 
-  // One statement for all chunks: embeddings as '[x,y,...]' literals.
-  const vectors = res.data.map((d) => `[${d.embedding.join(",")}]`);
-  const indexes = res.data.map((_, i) => i);
-  await sql`
-    update item_chunk as c
-    set embedding = v.emb::vector
-    from (select unnest(${vectors}::text[]) as emb, unnest(${indexes}::int[]) as idx) as v
-    where c.item_id = ${input.itemId} and c.idx = v.idx`;
-  log.debug("embedded item chunks", { itemId: input.itemId, chunks: chunks.length });
+    // One statement for all chunks: embeddings as '[x,y,...]' literals.
+    const vectors = res.data.map((d) => `[${d.embedding.join(",")}]`);
+    const indexes = res.data.map((_, i) => i);
+    await sql`
+      update item_chunk as c
+      set embedding = v.emb::vector
+      from (select unnest(${vectors}::text[]) as emb, unnest(${indexes}::int[]) as idx) as v
+      where c.item_id = ${input.itemId} and c.idx = v.idx`;
+    log.debug("embedded item chunks", { itemId: input.itemId, chunks: chunks.length });
+  } catch (err) {
+    log.warn("embedding failed; keyword search still works", {
+      itemId: input.itemId,
+      err: String(err),
+    });
+  }
 }
