@@ -60,7 +60,7 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
 
   const pick = (item: TimelineItem) => {
     setSearchOpen(false);
-    void navigate({ to: "/item/$id", params: { id: item.id } });
+    void navigate({ to: "/item/$id", params: { id: item.id }, resetScroll: false });
   };
 
   const blank = query.trim() === "";

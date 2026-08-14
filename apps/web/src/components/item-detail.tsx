@@ -57,7 +57,7 @@ export function ItemDetail() {
   useEffect(() => {
     if (open) return;
     // Matches the exit duration on SheetContent in ui/sheet.tsx.
-    const t = setTimeout(() => void navigate({ to: "/" }), SHEET_EXIT_MS);
+    const t = setTimeout(() => void navigate({ to: "/", resetScroll: false }), SHEET_EXIT_MS);
     return () => clearTimeout(t);
   }, [open, navigate]);
 

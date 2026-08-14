@@ -7,7 +7,9 @@ import { ItemDetail } from "@/components/item-detail";
 
 // Two routes: the timeline, and an item-detail overlay drawn above it. The
 // App shell owns the Outlet so the timeline stays mounted (and scrolled)
-// while the overlay opens and closes.
+// while the overlay opens and closes. Staying *scrolled* also takes
+// `resetScroll: false` on every navigate call now that the document is the
+// scroller — see the note in components/item-card.tsx.
 
 const rootRoute = createRootRoute({
   component: App,
@@ -35,6 +37,12 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+// The document is the app's scroller now (WINDOW_SCROLL_PLAN.md), and the
+// timeline always opens at the newest item — so an offset restored from the
+// last visit is never where we want to be. It would also be restored against a
+// page whose height Zero has not filled in yet.
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

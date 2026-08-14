@@ -318,10 +318,15 @@ function Shell({
     // (localStorage), not the cookie the generated provider used to write.
     // ⌘\ lives inside the provider (SIDEBAR_KEYBOARD_SHORTCUT); Esc closes the
     // mobile drawer through the underlying Sheet.
+    //
+    // A *minimum* height, not a fixed one: the shell grows with the archive so
+    // the document itself is what scrolls (WINDOW_SCROLL_PLAN.md). `dvh` over
+    // shadcn's own `svh` so a short archive still puts the composer at the
+    // bottom of what is actually visible.
     <SidebarProvider
       open={!sidebarCollapsed}
       onOpenChange={(open) => setSidebarCollapsed(!open)}
-      className="h-dvh min-h-0"
+      className="min-h-dvh"
     >
       <ShellBody name={name} meta={meta} status={status} onSignOut={onSignOut} />
     </SidebarProvider>
@@ -361,40 +366,52 @@ function ShellBody({
         onSignOut={onSignOut}
       />
 
-      {/* relative: the composer floats over the timeline inside this column */}
-      <SidebarInset className="relative min-h-0 min-w-0 overflow-hidden">
-        <SyncBanner status={status} meta={meta} />
-        {/* Zero-height anchors: the floating controls land below the sync
-            banner without covering it. */}
-        <div className="relative z-10">
-          {isMobile ? (
-            <>
-              <FloatingButton
-                className="left-3 top-3"
-                title="Menu"
-                onClick={() => setOpenMobile(true)}
-              >
-                <Icon name="menu" className="size-5" />
-              </FloatingButton>
-              <FloatingButton
-                className="right-3 top-3"
-                title="Search"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Icon name="search" className="size-4" />
-              </FloatingButton>
-            </>
-          ) : (
-            !open && (
-              <FloatingButton
-                className="left-3 top-3"
-                title="Show sidebar (⌘\)"
-                onClick={() => setOpen(true)}
-              >
-                <Icon name="sidebar" className="size-4" />
-              </FloatingButton>
-            )
-          )}
+      {/* No `overflow` here, ever: it would make this column a scroll container,
+          and the sticky chrome inside it would then stick to *that* — which
+          never scrolls — instead of to the viewport (WINDOW_SCROLL_PLAN.md
+          §2). `overflow-x-clip` is the safe one if clipping is ever needed:
+          `clip` is not a scroll container. */}
+      <SidebarInset className="relative min-w-0">
+        {/* What the column's fixed height used to pin, the viewport pins now.
+            Sticky rather than fixed so the banner keeps its slot in the flow:
+            the controls stay below it, and the timeline's own offset accounts
+            for it without anyone measuring the banner twice. The block is
+            zero-height when no banner is showing — and a zero-height sticky box
+            still sticks, so the controls float exactly as they did. */}
+        <div className="sticky top-0 z-30">
+          <SyncBanner status={status} meta={meta} />
+          {/* Zero-height anchor: the floating controls land below the sync
+              banner without covering it. */}
+          <div className="relative">
+            {isMobile ? (
+              <>
+                <FloatingButton
+                  className="left-3 top-3"
+                  title="Menu"
+                  onClick={() => setOpenMobile(true)}
+                >
+                  <Icon name="menu" className="size-5" />
+                </FloatingButton>
+                <FloatingButton
+                  className="right-3 top-3"
+                  title="Search"
+                  onClick={() => setSearchOpen(true)}
+                >
+                  <Icon name="search" className="size-4" />
+                </FloatingButton>
+              </>
+            ) : (
+              !open && (
+                <FloatingButton
+                  className="left-3 top-3"
+                  title="Show sidebar (⌘\)"
+                  onClick={() => setOpen(true)}
+                >
+                  <Icon name="sidebar" className="size-4" />
+                </FloatingButton>
+              )
+            )}
+          </div>
         </div>
         <Timeline items={items} synced={itemsResult.type === "complete"} syncPaused={syncPaused} />
         <Composer canAttach={meta?.blobs ?? true} />

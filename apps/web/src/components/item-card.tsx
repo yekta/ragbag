@@ -16,6 +16,15 @@ import type { TimelineItem } from "@/lib/types";
 // One timeline entry. Chat-style: the card is the "message"; a comment the
 // user attached to a dump renders above the kind-specific body.
 
+/**
+ * Opening an item draws an overlay *above* the timeline — it is not a new
+ * screen, and the archive underneath has to stay exactly where the reader left
+ * it. The router scrolls the window to the top on every navigation unless told
+ * otherwise, which was invisible while the timeline had its own scroll box and
+ * very much is not now that the document is the scroller.
+ */
+const openItem = (id: string) => ({ to: "/item/$id", params: { id }, resetScroll: false }) as const;
+
 const URL_RE = /(https?:\/\/[^\s<>"')\]]+)/g;
 
 function Linkified({ text }: { text: string }) {
@@ -305,7 +314,7 @@ function ImageBody({ item }: { item: TimelineItem }) {
         src={url}
         alt={item.content?.title ?? "dumped image"}
         className="max-h-80 max-w-full cursor-zoom-in rounded-lg border object-contain"
-        onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
+        onClick={() => void navigate(openItem(item.id))}
       />
       <UploadBadge blobId={item.blobId} />
     </span>
@@ -360,7 +369,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       onClick={(e) => {
         if (!isTouch) return;
         if (e.target instanceof Element && e.target.closest("a,button")) return;
-        void navigate({ to: "/item/$id", params: { id: item.id } });
+        void navigate(openItem(item.id));
       }}
     >
       {/* hover actions. A Tooltip supplies the description, not the name — these
@@ -393,7 +402,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
               size="icon-sm"
               aria-label="Details and tags"
               className="rounded-full text-muted-foreground"
-              onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
+              onClick={() => void navigate(openItem(item.id))}
             >
               <Icon name="tag" className="size-4" />
             </Button>
