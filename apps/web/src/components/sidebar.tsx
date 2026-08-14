@@ -189,7 +189,7 @@ export function Sidebar({
 
         <Button
           variant="outline"
-          className="mx-1 justify-start gap-2 font-normal text-muted-foreground"
+          className="mx-1 cursor-text justify-start gap-2 font-normal text-muted-foreground"
           onClick={() => {
             setSearchOpen(true);
             setOpenMobile(false);
