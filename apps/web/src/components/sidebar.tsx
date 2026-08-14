@@ -197,7 +197,9 @@ export function Sidebar({
         >
           <Icon name="search" className="size-4" />
           Search…
-          <kbd className="ml-auto rounded-xs border bg-muted px-1.5 text-[10px] max-md:hidden">⌘K</kbd>
+          <kbd className="ml-auto rounded-xs border bg-muted px-1.5 text-[10px] max-md:hidden">
+            ⌘K
+          </kbd>
         </Button>
       </SidebarHeader>
 

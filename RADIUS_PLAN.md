@@ -16,10 +16,10 @@ dialog 20px → result row 12px. Both variants in step 8.3 were screenshotted;
 
 ```css
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);  /*  8px */
-  --radius-md: calc(var(--radius) - 2px);  /* 10px */
-  --radius-lg: var(--radius);              /* 12px */
-  --radius-xl: calc(var(--radius) + 4px);  /* 16px */
+  --radius-sm: calc(var(--radius) - 4px); /*  8px */
+  --radius-md: calc(var(--radius) - 2px); /* 10px */
+  --radius-lg: var(--radius); /* 12px */
+  --radius-xl: calc(var(--radius) + 4px); /* 16px */
 }
 ```
 
@@ -27,15 +27,15 @@ dialog 20px → result row 12px. Both variants in step 8.3 were screenshotted;
 utilities silently fall back to Tailwind's stock values. Resolved, today's
 ladder is:
 
-| utility | resolved | source |
-| --- | --- | --- |
-| `rounded-xs` | 2px | Tailwind default |
-| `rounded-sm` | 8px | ours |
-| `rounded-md` | 10px | ours |
-| `rounded-lg` | 12px | ours |
-| `rounded-xl` | **16px** | ours |
+| utility       | resolved | source                  |
+| ------------- | -------- | ----------------------- |
+| `rounded-xs`  | 2px      | Tailwind default        |
+| `rounded-sm`  | 8px      | ours                    |
+| `rounded-md`  | 10px     | ours                    |
+| `rounded-lg`  | 12px     | ours                    |
+| `rounded-xl`  | **16px** | ours                    |
 | `rounded-2xl` | **16px** | Tailwind default (1rem) |
-| `rounded-3xl` | 24px | Tailwind default |
+| `rounded-3xl` | 24px     | Tailwind default        |
 
 `rounded-xl` and `rounded-2xl` are the same number. That is exactly the reported
 symptom: the item card is `rounded-2xl` (item-card.tsx:359) and every body
@@ -54,7 +54,7 @@ There is a second, milder problem: `md` (10px) and `lg` (12px) are 2px apart, so
 ## 2. The rule
 
 Two surfaces nest correctly when their curves stay concentric: an inner corner
-offset by *d* from the parent's inner edge should be `parent − d`. Applied
+offset by _d_ from the parent's inner edge should be `parent − d`. Applied
 literally on every element that gets brittle, so:
 
 - **R1 — concentric.** A child that sits flush against the parent's padding uses
@@ -79,12 +79,12 @@ generous. Step 8 below screenshots both so the call is made on pixels, not prose
 rule above:
 
 ```css
---radius-xs:  calc(var(--radius) - 8px);  /*  4px */
---radius-sm:  calc(var(--radius) - 6px);  /*  6px */
---radius-md:  calc(var(--radius) - 4px);  /*  8px */
---radius-lg:  var(--radius);              /* 12px */
---radius-xl:  calc(var(--radius) + 4px);  /* 16px */
---radius-2xl: calc(var(--radius) + 8px);  /* 20px */
+--radius-xs: calc(var(--radius) - 8px); /*  4px */
+--radius-sm: calc(var(--radius) - 6px); /*  6px */
+--radius-md: calc(var(--radius) - 4px); /*  8px */
+--radius-lg: var(--radius); /* 12px */
+--radius-xl: calc(var(--radius) + 4px); /* 16px */
+--radius-2xl: calc(var(--radius) + 8px); /* 20px */
 --radius-3xl: calc(var(--radius) + 12px); /* 24px */
 ```
 
@@ -109,20 +109,20 @@ If the tighter `md` reads badly on buttons, the fallback is `6 / 10 / 12 / 16 /
 `apps/web/src/components/item-card.tsx`. Card stays `rounded-2xl` (:359) and
 picks up 20px from step 1.
 
-| line | element | now | → | why |
-| --- | --- | --- | --- | --- |
-| 182 | `AddressBody` block | `rounded-xl` | `rounded-lg` | flush in card `p-3.5` |
-| 207 | `LinkBody` block | `rounded-xl` | `rounded-lg` | same |
-| 309 | image | `rounded-xl` | `rounded-lg` | same |
-| 315 | image skeleton | `rounded-xl` | `rounded-lg` | must match the image it replaces |
-| 327 | `FileBody` row | `rounded-xl` | `rounded-lg` | same |
-| 183 | address icon tile | `rounded-lg` | `rounded-md` | depth 2, inside a 12px block |
-| 330 | file icon tile | `rounded-lg` | `rounded-md` | depth 2 |
-| 230 | link thumbnail | `rounded-lg` | `rounded-md` | depth 2 |
-| 212 | favicon | `rounded-sm` | `rounded-xs` | depth 3, 14px square |
-| 116 | todo checkbox | `rounded-[6px]` | `rounded-sm` | the literal now *is* a rung |
-| 463 | `KindDot` | `rounded-md` | no change | standalone 24px tile |
-| 56, 277, 370 | pills | `rounded-full` | no change | R3 |
+| line         | element             | now             | →            | why                              |
+| ------------ | ------------------- | --------------- | ------------ | -------------------------------- |
+| 182          | `AddressBody` block | `rounded-xl`    | `rounded-lg` | flush in card `p-3.5`            |
+| 207          | `LinkBody` block    | `rounded-xl`    | `rounded-lg` | same                             |
+| 309          | image               | `rounded-xl`    | `rounded-lg` | same                             |
+| 315          | image skeleton      | `rounded-xl`    | `rounded-lg` | must match the image it replaces |
+| 327          | `FileBody` row      | `rounded-xl`    | `rounded-lg` | same                             |
+| 183          | address icon tile   | `rounded-lg`    | `rounded-md` | depth 2, inside a 12px block     |
+| 330          | file icon tile      | `rounded-lg`    | `rounded-md` | depth 2                          |
+| 230          | link thumbnail      | `rounded-lg`    | `rounded-md` | depth 2                          |
+| 212          | favicon             | `rounded-sm`    | `rounded-xs` | depth 3, 14px square             |
+| 116          | todo checkbox       | `rounded-[6px]` | `rounded-sm` | the literal now _is_ a rung      |
+| 463          | `KindDot`           | `rounded-md`    | no change    | standalone 24px tile             |
+| 56, 277, 370 | pills               | `rounded-full`  | no change    | R3                               |
 
 Line 114's comment ("`--radius` is 0.75rem … `rounded-md` off that turns a 20px
 box into a circle") describes the old scale and goes away with the literal.
@@ -132,12 +132,12 @@ box into a circle") describes the old scale and goes away with the literal.
 `apps/web/src/components/composer.tsx`. Card is `rounded-3xl` (24px, :379) with
 `px-3 pt-3` around the attachment strip.
 
-| line | element | now | → | why |
-| --- | --- | --- | --- | --- |
-| 574 | attachment chip | `rounded-xl` | `rounded-lg` | 24 − 12 = 12, exact R1 |
-| 578 | chip thumbnail | `rounded-lg` | `rounded-sm` | 12 − 6 (`p-1.5`) = 6, exact R1 |
-| 666 | drop overlay card | `rounded-2xl` | no change | standalone; gains 20px |
-| 402 | textarea | `rounded-none` | no change | fills the card |
+| line | element           | now            | →            | why                            |
+| ---- | ----------------- | -------------- | ------------ | ------------------------------ |
+| 574  | attachment chip   | `rounded-xl`   | `rounded-lg` | 24 − 12 = 12, exact R1         |
+| 578  | chip thumbnail    | `rounded-lg`   | `rounded-sm` | 12 − 6 (`p-1.5`) = 6, exact R1 |
+| 666  | drop overlay card | `rounded-2xl`  | no change    | standalone; gains 20px         |
+| 402  | textarea          | `rounded-none` | no change    | fills the card                 |
 
 ## 6. Step 4 — search palette
 
@@ -148,15 +148,15 @@ reported bug.
 
 ## 7. Step 5 — primitives that disagree with the card language
 
-| file:line | element | now | → | why |
-| --- | --- | --- | --- | --- |
-| ui/card.tsx:10 | `Card` | `rounded-xl` | `rounded-2xl` | it is a floating card; should match `ItemCard` |
-| sign-in.tsx:24 | logo tile in that card | `rounded-2xl` | `rounded-xl` | currently the tile is as round as its own container |
-| ui/dialog.tsx:56 | dialog content | `rounded-lg` | `rounded-2xl` | 12px modals against 20px cards read as a different app |
-| ui/alert-dialog.tsx:51 | alert content | `rounded-lg` | `rounded-2xl` | same |
-| ui/checkbox.tsx:14 | box | `rounded-[4px]` | `rounded-xs` | the literal now *is* a rung |
-| sidebar.tsx:200 | ⌘K kbd chip | `rounded` (4px) | `rounded-xs` | bare `rounded` bypasses the ladder |
-| ui/tooltip.tsx:47 | arrow | `rounded-[2px]` | no change | rotated decorative square, not a surface |
+| file:line              | element                | now             | →             | why                                                    |
+| ---------------------- | ---------------------- | --------------- | ------------- | ------------------------------------------------------ |
+| ui/card.tsx:10         | `Card`                 | `rounded-xl`    | `rounded-2xl` | it is a floating card; should match `ItemCard`         |
+| sign-in.tsx:24         | logo tile in that card | `rounded-2xl`   | `rounded-xl`  | currently the tile is as round as its own container    |
+| ui/dialog.tsx:56       | dialog content         | `rounded-lg`    | `rounded-2xl` | 12px modals against 20px cards read as a different app |
+| ui/alert-dialog.tsx:51 | alert content          | `rounded-lg`    | `rounded-2xl` | same                                                   |
+| ui/checkbox.tsx:14     | box                    | `rounded-[4px]` | `rounded-xs`  | the literal now _is_ a rung                            |
+| sidebar.tsx:200        | ⌘K kbd chip            | `rounded` (4px) | `rounded-xs`  | bare `rounded` bypasses the ladder                     |
+| ui/tooltip.tsx:47      | arrow                  | `rounded-[2px]` | no change     | rotated decorative square, not a surface               |
 
 Reviewed and deliberately unchanged:
 

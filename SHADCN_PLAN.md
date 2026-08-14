@@ -373,15 +373,15 @@ restating the canvas colour twice per theme.
 
 All seven rungs are declared in `@theme inline`, derived from `--radius` (0.75rem):
 
-| utility | value | typical use |
-| --- | --- | --- |
-| `rounded-xs` | 4px | checkbox, favicon, `kbd` |
-| `rounded-sm` | 6px | todo checkbox, attachment thumbnail |
-| `rounded-md` | 8px | buttons, inputs, icon tiles, menu rows |
-| `rounded-lg` | 12px | blocks nested inside a card |
-| `rounded-xl` | 16px | top-level blocks on a flat panel (item detail) |
-| `rounded-2xl` | 20px | floating cards, dialogs, the sidebar |
-| `rounded-3xl` | 24px | the composer |
+| utility       | value | typical use                                    |
+| ------------- | ----- | ---------------------------------------------- |
+| `rounded-xs`  | 4px   | checkbox, favicon, `kbd`                       |
+| `rounded-sm`  | 6px   | todo checkbox, attachment thumbnail            |
+| `rounded-md`  | 8px   | buttons, inputs, icon tiles, menu rows         |
+| `rounded-lg`  | 12px  | blocks nested inside a card                    |
+| `rounded-xl`  | 16px  | top-level blocks on a flat panel (item detail) |
+| `rounded-2xl` | 20px  | floating cards, dialogs, the sidebar           |
+| `rounded-3xl` | 24px  | the composer                                   |
 
 Declaring all seven is the point. An undeclared rung doesn't disappear — it falls back to
 Tailwind's stock value, and stock `2xl` is `1rem`, the same 16px our `xl` resolves to. With `xs`,
