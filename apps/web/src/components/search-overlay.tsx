@@ -75,7 +75,13 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
       showCloseButton={false}
       // Anchored near the top rather than centred: a search palette that jumps
       // to the middle of the screen reads as a modal, not a command bar.
-      className="top-[8vh] max-w-xl translate-y-0 rounded-2xl md:top-[12vh]"
+      //
+      // The width cap sits on `sm:` deliberately. DialogContent's base classes
+      // carry `max-w-[calc(100%-2rem)]`, which is what holds the palette a
+      // 1rem gutter off each edge on a phone; an unprefixed `max-w-*` here
+      // lands in the same tailwind-merge group and evicts it, and the palette
+      // silently goes edge-to-edge on mobile. Keep this prefixed.
+      className="top-[8vh] translate-y-0 rounded-2xl sm:max-w-xl md:top-[12vh]"
     >
       <CommandInput
         placeholder="Search your ragbag…"
