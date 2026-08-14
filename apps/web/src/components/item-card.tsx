@@ -8,7 +8,14 @@ import { Icon, KIND_ICON } from "@/components/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBlobQueue, useBlobQueueState, useBlobUploadState, useBlobUrl } from "@/lib/blobs";
+import {
+  mediaBox,
+  rememberBlobAspect,
+  useBlobQueue,
+  useBlobQueueState,
+  useBlobUploadState,
+  useBlobUrl,
+} from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
 import { isTouch } from "@/lib/touch";
 import type { TimelineItem } from "@/lib/types";
@@ -305,21 +312,39 @@ function UploadBadge({
   );
 }
 
+/** Keep in step with `max-h-80` on the image below. */
+const IMAGE_MAX_H = "20rem";
+
 function ImageBody({ item }: { item: TimelineItem }) {
   const url = useBlobUrl(item.blobId);
   const navigate = useNavigate();
+  // The box this picture will occupy, known from the last time this device
+  // displayed it. Placeholder and image share it exactly, so the swap moves
+  // nothing — neither the rest of this card nor the rows below it.
+  const box = mediaBox(item.blobId, IMAGE_MAX_H);
+
   return url ? (
     <span className="relative mt-0.5 inline-block max-w-full">
       <img
         src={url}
         alt={item.content?.title ?? "dumped image"}
+        style={box}
         className="max-h-80 max-w-full cursor-zoom-in rounded-lg border object-contain"
         onClick={() => void navigate(openItem(item.id))}
+        onLoad={(e) => rememberBlobAspect(item.blobId, e.currentTarget)}
       />
       <UploadBadge blobId={item.blobId} />
     </span>
   ) : (
-    <div className="mt-0.5 flex h-40 w-64 max-w-full animate-pulse items-center justify-center rounded-lg border bg-muted text-muted-foreground">
+    <div
+      style={box}
+      // No pulse: for anything this device has already read, the bytes arrive
+      // within a frame or two, and a placeholder that animates on its way past
+      // is just another thing flashing.
+      className={`mt-0.5 flex max-w-full items-center justify-center rounded-lg border bg-muted text-muted-foreground ${
+        box ? "" : "h-40 w-64"
+      }`}
+    >
       <Icon name="image" className="size-6" />
     </div>
   );

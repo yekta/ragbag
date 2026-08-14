@@ -9,6 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc",
+    "//settle-proof": "Acceptance harness for SETTLE_PLAN.md — frame-by-frame proof that nothing flashes. Needs the dev stack up (pnpm dev + pnpm dev:zero-cache) and a browser: `npx playwright install chromium` once.",
+    "settle-proof": "node scripts/settle-proof.mjs",
     "//start": "Production static serving (Railway). -s is the SPA fallback: without it a hard refresh on /item/<id> 404s.",
     "start": "serve -s dist -l ${PORT:-4173}"
   },
@@ -38,6 +40,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "playwright": "^1.58.0",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

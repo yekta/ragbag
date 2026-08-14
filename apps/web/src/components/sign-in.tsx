@@ -1,13 +1,21 @@
+import type { MetaResponse } from "@ragbag/contracts";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { authClient, signInWithGoogle } from "@/lib/auth-client";
 import { dropLocalData } from "@/lib/identity";
-import { useMeta } from "@/lib/use-meta";
 
-export function SignIn() {
-  const meta = useMeta();
+/**
+ * `meta` is passed in, not fetched here: which buttons exist is a server
+ * capability, so a card drawn before the answer arrives is a card that changes
+ * shape under the cursor. The app shell holds the canvas until it knows
+ * (SETTLE_PLAN.md §3.7), and this screen paints once, complete.
+ *
+ * `null` means the shell gave up waiting — the server is unreachable, which is
+ * a state to explain rather than a wait to hide.
+ */
+export function SignIn({ meta }: { meta: MetaResponse | null }) {
   const [error, setError] = useState<string>();
 
   // This screen only shows when no device identity exists — first visit, or
@@ -65,9 +73,9 @@ export function SignIn() {
             </p>
           )}
           {!meta && (
-            <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Icon name="spinner" className="size-4 animate-spin [animation-duration:2s]" />
-              Reaching the server…
+            <p className="text-center text-sm text-destructive">
+              Can't reach the server. Your archive is safe — this is only the way in. Retrying
+              automatically.
             </p>
           )}
         </CardContent>

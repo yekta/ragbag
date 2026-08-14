@@ -97,8 +97,14 @@ export function useBlobQueueToasts(): void {
 }
 
 // Object URLs live for the whole session (personal-archive scale); one
-// resolution per blobId, shared across cards/detail views.
+// resolution per blobId, shared across cards/detail views. Two caches, not one:
+// the promise is what de-duplicates concurrent callers, and the *resolved*
+// value is what lets a re-mounted card render its image on its first frame.
+// The timeline is virtualized, so scrolling an image out of view and back is a
+// re-mount — going through the promise every time meant a pulsing grey box and
+// a height change on every pass (SETTLE_PLAN.md §1.5).
 const urlCache = new Map<string, Promise<string | null>>();
+const resolvedUrls = new Map<string, string>();
 
 function resolveUrl(queue: BlobQueue, blobId: string): Promise<string | null> {
   const key = blobId;
@@ -106,9 +112,10 @@ function resolveUrl(queue: BlobQueue, blobId: string): Promise<string | null> {
   if (!promise) {
     promise = queue.fetchBytes(blobId).then((res) => (res ? URL.createObjectURL(res.bytes) : null));
     urlCache.set(key, promise);
-    // Let a later retry re-attempt what failed (offline, not yet uploaded).
     void promise.then((url) => {
+      // Let a later retry re-attempt what failed (offline, not yet uploaded).
       if (url === null) urlCache.delete(key);
+      else resolvedUrls.set(key, url);
     });
   }
   return promise;
@@ -121,10 +128,17 @@ function resolveUrl(queue: BlobQueue, blobId: string): Promise<string | null> {
  */
 export function useBlobUrl(blobId: string | null | undefined): string | null {
   const queue = useBlobQueue();
-  const [url, setUrl] = useState<string | null>(null);
+  // Seeded synchronously: an already-resolved blob never goes through a
+  // placeholder state again for the rest of the session.
+  const [url, setUrl] = useState<string | null>(() => (blobId && resolvedUrls.get(blobId)) || null);
 
   useEffect(() => {
     if (!blobId) return;
+    const known = resolvedUrls.get(blobId);
+    if (known) {
+      setUrl(known);
+      return;
+    }
     let cancelled = false;
     void resolveUrl(queue, blobId).then((u) => {
       if (!cancelled) setUrl(u);
@@ -135,4 +149,72 @@ export function useBlobUrl(blobId: string | null | undefined): string | null {
   }, [queue, blobId]);
 
   return blobId ? url : null;
+}
+
+// Remembered image shapes, so a picture's box is the right size before the
+// picture is there — including on the next visit, before its bytes have been
+// read back out of IndexedDB. Without it, every image card grows from a fixed
+// placeholder to its real height as it loads, which re-flows the rows below and
+// makes the virtualizer re-measure the document under the reader.
+const ASPECT_KEY = "ragbag:blob-aspect";
+/** Bounded: a personal archive's worth of ratios, oldest evicted first. */
+const ASPECT_MAX = 500;
+
+const aspects = new Map<string, number>(loadAspects());
+
+function loadAspects(): [string, number][] {
+  try {
+    const raw = localStorage.getItem(ASPECT_KEY);
+    if (!raw) return [];
+    return Object.entries(JSON.parse(raw) as Record<string, number>).filter(
+      ([, ratio]) => typeof ratio === "number" && ratio > 0,
+    );
+  } catch {
+    return [];
+  }
+}
+
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+function persistAspects(): void {
+  clearTimeout(persistTimer);
+  // Debounced: a screenful of images all load within a few frames of each other.
+  persistTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(ASPECT_KEY, JSON.stringify(Object.fromEntries(aspects)));
+    } catch {
+      // Quota or private mode — the ratios just don't survive the session.
+    }
+  }, 1_000);
+}
+
+/** Width ÷ height for a blob this device has displayed before, if it has. */
+export function blobAspect(blobId: string | null | undefined): number | undefined {
+  return blobId ? aspects.get(blobId) : undefined;
+}
+
+/** Called from an image's `load`: the only place the true ratio is known. */
+export function rememberBlobAspect(blobId: string | null | undefined, img: HTMLImageElement): void {
+  if (!blobId || !img.naturalWidth || !img.naturalHeight) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  if (aspects.get(blobId) === ratio) return;
+  aspects.delete(blobId);
+  aspects.set(blobId, ratio);
+  while (aspects.size > ASPECT_MAX) aspects.delete(aspects.keys().next().value!);
+  persistAspects();
+}
+
+/**
+ * The exact box an image will occupy, for the placeholder that stands in for it
+ * and for the image itself — so the swap changes nothing. `min()` rather than
+ * arithmetic on a measured width: the browser resolves it against whatever the
+ * column happens to be, at any viewport, without React measuring anything.
+ */
+export function mediaBox(
+  blobId: string | null | undefined,
+  maxHeight: string,
+): { width: string; aspectRatio: number } | undefined {
+  const aspect = blobAspect(blobId);
+  return aspect
+    ? { width: `min(100%, calc(${maxHeight} * ${aspect}))`, aspectRatio: aspect }
+    : undefined;
 }

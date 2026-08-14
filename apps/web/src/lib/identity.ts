@@ -1,4 +1,5 @@
 import { dropAllDatabases } from "@rocicorp/zero";
+import { clearArchiveHint } from "@/lib/archive-hint";
 
 // Offline identity (plan §9): auth gates *syncing*, never *using* the app.
 // After a successful sign-in we remember who this device belongs to; on later
@@ -38,6 +39,8 @@ export function clearIdentity(): void {
   } catch {
     // ignore
   }
+  // What this device knew about the archive belonged to that user.
+  clearArchiveHint();
 }
 
 /**

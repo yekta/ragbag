@@ -1,10 +1,14 @@
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Icon } from "@/components/icon";
 import { ItemCard } from "@/components/item-card";
 import { Badge } from "@/components/ui/badge";
+import type { ArchiveState } from "@/lib/archive-state";
+import { blobAspect } from "@/lib/blobs";
 import { dayKey, dayLabel } from "@/lib/format";
+import { BUDGET, usePatient } from "@/lib/settle";
 import { useViewStore } from "@/lib/store";
+import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
 import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
@@ -18,6 +22,11 @@ import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 // `overflow` (it would capture the sticky chrome above and below), and the
 // virtualizer needs `scrollMargin` to know where in the document the list
 // starts.
+//
+// What to show when there is no stream is decided upstream, in one place
+// (lib/archive-state.ts): nothing here infers "the archive is empty" from an
+// empty query result, which is what used to make it flash a sync spinner at a
+// device that had every row on disk (SETTLE_PLAN.md §1.2).
 
 type Row = { type: "day"; key: string; label: string } | { type: "item"; item: TimelineItem };
 
@@ -48,50 +57,115 @@ function useRows(items: TimelineRows): Row[] {
   }, [items, viewFilter, tagFilter]);
 }
 
-// Favorites are reachable from the rail as their own view — deliberately not
-// hoisted above the timeline: the archive stays one chronological stream.
-// No "filtered view" banner: the sidebar already highlights the active
-// view/tag, so a floating chip over the stream is pure redundancy.
+// Row geometry, estimated from what is known before layout.
+//
+// This used to be a flat 140px for every item, which is wrong in both
+// directions at once — a one-line todo against an image card — and the
+// virtualizer pays for the error by resizing the document under the reader as
+// real measurements land, dragging the scroll offset with it (SETTLE_PLAN.md
+// §1.4c). None of this has to be exact. It has to be close enough that the
+// corrections are gossip rather than news.
+
+const DAY_ROW = 46;
+/** Card chrome: vertical padding, the footer row, and the gap below the card. */
+const CARD_CHROME = 68;
+/** `leading-relaxed` at the timeline's font size. */
+const LINE = 26;
+/** Average glyph advance, for turning a character count into lines. */
+const CHAR_PX = 7.4;
+const MEDIA_MAX_H = 320;
+const LINK_PREVIEW = 96;
+const FILE_ROW = 66;
+const ADDRESS_BOX = 116;
+/** The todo checkbox and its gap, which the text wraps beside. */
+const CHECKBOX = 30;
+
+function textHeight(text: string | null | undefined, width: number): number {
+  if (!text) return 0;
+  const perLine = Math.max(20, Math.floor(width / CHAR_PX));
+  // Hard newlines break early; everything else wraps.
+  return (
+    text
+      .split("\n")
+      .reduce((lines, para) => lines + Math.max(1, Math.ceil(para.length / perLine)), 0) * LINE
+  );
+}
+
+function estimateItem(item: TimelineItem, width: number): number {
+  // Todos and addresses own their text; for every other kind it is a comment
+  // above the body.
+  const comment =
+    item.kind === "todo" || item.kind === "address" ? 0 : textHeight(item.text, width);
+  switch (item.kind) {
+    case "todo":
+      return CARD_CHROME + textHeight(item.text, width - CHECKBOX);
+    case "address":
+      return CARD_CHROME + ADDRESS_BOX;
+    case "link":
+      return CARD_CHROME + comment + LINK_PREVIEW;
+    case "image": {
+      // Exact for any image this device has already displayed (lib/blobs.tsx
+      // remembers the ratio); otherwise assume something roughly landscape.
+      const aspect = blobAspect(item.blobId) ?? 4 / 3;
+      return CARD_CHROME + comment + Math.min(MEDIA_MAX_H, width / aspect);
+    }
+    case "pdf":
+    case "file":
+      return CARD_CHROME + comment + FILE_ROW;
+    default:
+      return CARD_CHROME + comment;
+  }
+}
 
 export function Timeline({
   items,
-  synced,
-  syncPaused,
+  state,
+  sync,
+  listRef,
 }: {
   items: TimelineRows;
-  synced: boolean;
-  /** Sync can't run (refused or offline), so waiting on it would never end. */
-  syncPaused: boolean;
+  /** What the workspace is doing. Nothing here second-guesses it. */
+  state: ArchiveState;
+  sync: SyncStatus | null;
+  /** Owned by the shell, which watches it to know when the page has settled. */
+  listRef: RefObject<HTMLDivElement | null>;
 }) {
   const rows = useRows(items);
   const { viewFilter, tagFilter } = useViewStore();
-  const listRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
+  const [width, setWidth] = useState(700);
 
-  // Where the list starts in the document. The window virtualizer maps
-  // `window.scrollY` straight onto row positions, so it has to know how much
-  // document sits above the list: the sync banner, plus the top inset the
-  // floating controls are paid with. Two deviations from the documented
-  // recipe, both because of that banner: it is measured against the document
-  // rather than read off `offsetTop` (the nearest positioned ancestor is this
-  // component's own wrapper, which starts *below* the banner), and it is
+  // Where the list starts in the document, and how wide its text column is. The
+  // window virtualizer maps `window.scrollY` straight onto row positions, so it
+  // has to know how much document sits above the list: the sync banner, plus
+  // the top inset the floating controls are paid with. Two deviations from the
+  // documented recipe, both because of that banner: it is measured against the
+  // document rather than read off `offsetTop` (the nearest positioned ancestor
+  // is this component's own wrapper, which starts *below* the banner), and it is
   // re-measured whenever the document resizes rather than once, because a
   // banner appearing moves the whole list down. Measuring to the same number
   // doesn't re-render.
   useLayoutEffect(() => {
-    const measure = () =>
-      setScrollMargin(
-        listRef.current ? listRef.current.getBoundingClientRect().top + window.scrollY : 0,
-      );
+    const measure = () => {
+      const box = listRef.current?.getBoundingClientRect();
+      setScrollMargin(box ? box.top + window.scrollY : 0);
+      // Minus the card's own horizontal padding: this is the text column, which
+      // is what the row estimates wrap against.
+      if (box && box.width > 0) setWidth(box.width - 60);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(document.documentElement);
     return () => observer.disconnect();
-  }, []);
+  }, [listRef]);
 
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: (i) => (rows[i]?.type === "day" ? 46 : 140),
+    estimateSize: (i) => {
+      const row = rows[i];
+      if (!row) return DAY_ROW;
+      return row.type === "day" ? DAY_ROW : estimateItem(row.item, width);
+    },
     overscan: 10,
     getItemKey: (i) => {
       const row = rows[i]!;
@@ -122,6 +196,14 @@ export function Timeline({
   // out from under the anchor. This covers mount too: Zero can hand over the
   // whole archive on the first render, and `followOnAppend` only fires on a
   // change.
+  //
+  // Pinning the *scroll* is not the whole job, and measurement showed why:
+  // when the archive lands, the offset is already right and the rows are not —
+  // they are laid out at estimated positions, so the newest card can be
+  // 60 000px from where it belongs until the measurement pass corrects it
+  // (~500ms for 400 rows on a dev box). That correction is the reason the shell
+  // is revealed on a settled layout rather than on the arrival of data
+  // (lib/settle.ts, SETTLE_PLAN.md §2.4).
   useLayoutEffect(() => {
     virtualizer.scrollToEnd();
   }, [viewFilter, tagFilter, virtualizer]);
@@ -187,8 +269,6 @@ export function Timeline({
     };
   }, [virtualizer]);
 
-  const empty = rows.length === 0;
-
   return (
     // The top inset is the band the floating controls occupy: content may pass
     // behind them while scrolling, it may never come to rest under them
@@ -199,30 +279,7 @@ export function Timeline({
     // breathing room a chat UI leaves between what was said and what you are
     // typing.
     <div className="relative flex flex-1 flex-col pt-(--timeline-inset-top) pb-12">
-      {empty ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
-          {synced || syncPaused ? (
-            <>
-              <Icon name="inbox" className="size-10" />
-              <p className="text-sm">
-                {items.length > 0
-                  ? "Nothing matches this filter."
-                  : syncPaused
-                    ? // The spinner here used to run forever while sync was
-                      // refused or offline, implying work was in progress
-                      // that had in fact stopped. The banner above says why.
-                      "Nothing on this device yet. Dump anything below — it syncs once the connection is back."
-                    : "Your ragbag is empty. Dump anything below — it syncs everywhere."}
-              </p>
-            </>
-          ) : (
-            <>
-              <Icon name="spinner" className="size-8 animate-spin [animation-duration:2s]" />
-              <p className="text-sm">Syncing your archive…</p>
-            </>
-          )}
-        </div>
-      ) : (
+      {rows.length > 0 ? (
         <div
           ref={listRef}
           // The browser's own scroll anchoring would correct on top of the
@@ -257,7 +314,74 @@ export function Timeline({
             );
           })}
         </div>
+      ) : (
+        <Placeholder filtered={items.length > 0} state={state} sync={sync} />
       )}
+    </div>
+  );
+}
+
+/**
+ * What stands in for the stream when there is nothing to draw. Every branch is
+ * a settled truth — and `opening` draws nothing at all, because the only honest
+ * thing to say about an archive that is still on its way is nothing.
+ */
+function Placeholder({
+  filtered,
+  state,
+  sync,
+}: {
+  /** There are items; this filter just doesn't match any of them. */
+  filtered: boolean;
+  state: ArchiveState;
+  sync: SyncStatus | null;
+}) {
+  // A loader that does appear stays long enough to be read.
+  const syncing = usePatient(state === "syncing", BUDGET.loaderMin);
+
+  if (filtered) {
+    return (
+      <Centred>
+        <Icon name="inbox" className="size-10" />
+        <p className="text-sm">Nothing matches this filter.</p>
+      </Centred>
+    );
+  }
+
+  if (syncing) {
+    return (
+      <Centred role="status">
+        <Icon name="spinner" className="size-8 animate-spin [animation-duration:2s]" />
+        <p className="text-sm">Syncing your archive…</p>
+      </Centred>
+    );
+  }
+
+  if (state === "empty") {
+    return (
+      <Centred>
+        <Icon name="inbox" className="size-10" />
+        <p className="text-sm">
+          {isSyncPaused(sync)
+            ? // No spinner: sync is refused or offline, so nothing is in fact in
+              // progress. The banner above says why.
+              "Nothing on this device yet. Dump anything below — it syncs once the connection is back."
+            : "Your ragbag is empty. Dump anything below — it syncs everywhere."}
+        </p>
+      </Centred>
+    );
+  }
+
+  return null;
+}
+
+function Centred({ children, role }: { children: React.ReactNode; role?: "status" }) {
+  return (
+    <div
+      role={role}
+      className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground"
+    >
+      {children}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { mutators } from "@ragbag/contracts";
 import type { MetaResponse } from "@ragbag/contracts";
 import { ITEM_KINDS } from "@ragbag/shared";
 import type { ItemKind } from "@ragbag/shared";
-import { useConnectionState, useZero } from "@rocicorp/zero/react";
+import { useZero } from "@rocicorp/zero/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Icon, KIND_ICON } from "@/components/icon";
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
 import { useViewStore } from "@/lib/store";
+import type { SyncStatus } from "@/lib/sync-status";
 import type { Theme } from "@/lib/theme";
 import type { TagRow, Timeline } from "@/lib/types";
 
@@ -57,21 +58,29 @@ const THEME_LABEL: Record<Theme, string> = {
   system: "System",
 };
 
+const SYNC_DOT: Record<SyncStatus["name"], [tone: string, label: string]> = {
+  synced: ["bg-success-foreground", "Synced"],
+  syncing: ["bg-warning-foreground", "Connecting…"],
+  offline: ["bg-warning-foreground", "Offline"],
+  // A 401 with a live session is the server's problem, not the user's, so it
+  // does not tell them to sign in — that is what `expired` is for.
+  refused: ["bg-destructive", "Sync refused"],
+  expired: ["bg-destructive", "Sign in to sync"],
+};
+
 /**
- * `needs-auth` means sync got a 401 — which is either "your session expired"
- * or "your session is fine and the sync service still refused it". Only the
- * first is the user's to act on, so only the first says to sign in.
+ * `null` is a verdict that hasn't held long enough to be worth showing
+ * (lib/sync-status.ts) — the row keeps its height and says nothing, rather than
+ * claiming "Connecting…" on every load for the third of a second before the
+ * socket opens.
  */
-function SyncDot({ sessionExpired }: { sessionExpired: boolean }) {
-  const state = useConnectionState();
-  const [tone, label] =
-    state.name === "connected"
-      ? ["bg-success-foreground", "Synced"]
-      : state.name === "needs-auth"
-        ? ["bg-destructive", sessionExpired ? "Sign in to sync" : "Sync refused"]
-        : ["bg-warning-foreground", "Connecting…"];
+function SyncDot({ sync }: { sync: SyncStatus | null }) {
+  const [tone, label] = SYNC_DOT[sync?.name ?? "syncing"];
   return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={state.name}>
+    <span
+      className={`flex items-center gap-1.5 text-xs text-muted-foreground ${sync ? "" : "invisible"}`}
+      title={sync?.name ?? ""}
+    >
       <span className={`size-2 rounded-full ${tone}`} />
       {label}
     </span>
@@ -114,14 +123,14 @@ export function Sidebar({
   tags,
   name,
   meta,
-  sessionExpired,
+  sync,
   onSignOut,
 }: {
   items: Timeline;
   tags: readonly TagRow[];
   name: string;
   meta: MetaResponse | undefined;
-  sessionExpired: boolean;
+  sync: SyncStatus | null;
   onSignOut: () => void;
 }) {
   const { viewFilter, tagFilter, setViewFilter, setTagFilter, setSearchOpen } = useViewStore();
@@ -295,7 +304,7 @@ export function Sidebar({
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{name}</p>
-            <SyncDot sessionExpired={sessionExpired} />
+            <SyncDot sync={sync} />
           </div>
           <ThemeToggle />
           <Button

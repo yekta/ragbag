@@ -1,7 +1,9 @@
 # Settle plan — nothing paints until it is the final answer
 
-Status: planned (root causes and available signals measured in a headless
-browser, 2026-08-14).
+Status: **implemented** (2026-08-14). Root causes, available signals and results
+all measured in a headless browser; the harness is committed as
+`apps/web/scripts/settle-proof.mjs` (`pnpm --filter web settle-proof`), and §5
+records what it says now.
 
 Trigger: a cold load of the web app shows "Syncing your archive…", then the
 cards, then "Syncing your archive…" again, then the cards — several times over.
@@ -429,37 +431,89 @@ the exact regression of §1.1, which nothing in the type system prevents.
 
 ---
 
-## 5. Verification — `apps/web/scripts/settle-proof.mjs` (new, committed)
+## 5. Verification — `apps/web/scripts/settle-proof.mjs` (committed)
 
-The harness that produced every number in §1 becomes a repo script, in the
-spirit of `apps/server/scripts/*-proof.mts`: headless Chromium against the local
-stack, sampling every animation frame, run against a seeded 405-row archive.
-Playwright joins `apps/web` as a devDependency (`npx playwright install
-chromium` on a fresh machine). **CLS is recorded but is not the criterion** —
-§1.4c measured 0.0000 while the reader was looking at an empty viewport.
+The harness that produced every number in §1 is a repo script, in the spirit of
+`apps/server/scripts/*-proof.mts`: headless Chromium against the local stack,
+sampling the DOM every animation frame. Playwright is an `apps/web`
+devDependency (`npx playwright install chromium` once on a fresh machine).
 
-Asserted:
+```
+pnpm --filter web settle-proof            # fresh profile: sign-in, seed, reloads, first sync
+pnpm --filter web settle-proof -- --keep  # reuse the profile (a settled archive)
+```
 
-1. **One** `ZERO INIT` per page load (was 5), including across session
-   resolution, meta arrival and a session retry.
-2. Warm reload ×5: the frame sequence is exactly `canvas → cards(n)`. No
+Three measurement decisions, each of which changed a verdict:
+
+- **CLS is recorded and is not the criterion.** It reported 0.0000 while the
+  reader was looking at empty space 55 000px from the archive (§1.4c). The
+  virtualizer moves rows with transforms and moves the scroll offset; CLS counts
+  neither.
+- **Covered frames don't count.** Behind the cover the newest card is ~60 000px
+  out of place for ~500ms while the list measures itself — that is the mechanism
+  working. Asserting on frames nobody saw made the harness fail a correct app.
+- **The window is one second from the first _visible_ card.** After that, height
+  changes are the app reacting to news: an item finishing ingestion drops its
+  "processing" chip and is genuinely a different height. The harness now waits
+  for ingestion to finish before the reload cases for the same reason.
+
+Asserted (all passing, 32/32 fresh + 30/30 on a 412-row archive):
+
+1. **One Zero client per page load** (was five), across session resolution, meta
+   arrival and session retries.
+2. **Warm reload ×5**: the sequence is exactly `blank → canvas → cards`. No
    `syncing`, no `empty`, no alternation.
-3. **Anchor invariant.** From the first revealed frame to steady state: the
-   newest card's viewport box moves ≤ 1px, the document height never decreases,
-   and its first value is within 1% of its final one. (Today: one frame at
-   −55 310px, then a 22px settle, on a document that goes 841 → 58 152 → 58 111.)
-4. First run (no hint, cold store, 400 kbit/s): loader is the first thing shown,
-   is visible ≥ 400 ms, never re-appears once cards are up.
-5. Signed out with `/api/meta` delayed 600 ms: one card box for the lifetime of
-   the screen — same height, same top, from first paint to click.
-6. A scroll pass over image cards: no row height changes after a card's first
-   paint; no image placeholder appears for a blob resolved earlier in the
-   session.
-7. `pnpm lint` and `pnpm turbo run typecheck test build` clean.
+3. **Anchor invariant**: from the first visible frame to steady state the newest
+   card's box moves **0px**, the document height never decreases, and its first
+   value equals its final one (412 rows: 63 021 → 63 021, i.e. the estimator is
+   inside 0.1% before a single row has been measured).
+4. **First sync** (no hint, cold store, 400 kbit/s): the loader is the first
+   thing shown, is readable (8.2s at 412 rows; the ≥400ms floor is what stops it
+   blinking on a fast one), never returns once cards are up, and hands over to
+   the archive in a ~90–220ms cross-fade.
+5. **Signed out** with `/api/meta` delayed 600ms: one card box for the lifetime
+   of the screen — `226@337`, from first paint to click (was 210@295 → 226@287).
+6. **No console errors**, which is also what proves the §3.13 tripwires stay
+   quiet in normal operation.
+
+Checked by hand alongside it (not in the harness, because they need network
+control rather than page control):
+
+- **Offline blip vs outage**: 300ms offline → the strip never appears, the dot
+  stays "Synced"; a 2.5s outage → the strip appears once (+29px, a deliberate
+  change) and the dot reads "Offline"; recovery clears both instantly.
+- **Empty archive**: first load after sign-up shows the sync loader, then the
+  empty state; every load after that goes straight to the empty state with no
+  loader at all, because the hint says zero.
+- `pnpm lint` and `pnpm turbo run typecheck test build` clean (11/11 tasks).
 
 ---
 
-## 6. Non-goals, and what is deliberately deferred
+## 6. What the code says that the plan didn't
+
+Three things only measurement could settle, recorded because the next person
+will otherwise reason their way back to the wrong answer:
+
+- **Pinning the scroll is not the fix for the unanchored frame.** An early cut of
+  this work re-pinned the list to the newest item the moment rows arrived. It is
+  a no-op: measured `scrollY` before and after the call was identical (62 290),
+  because the offset is already right — it is the _rows_ that are still at their
+  estimated positions. Only measurement moves them, which is why the reveal
+  waits on a settled layout (§2.4) rather than on the arrival of data.
+- **The cover must come back after a first sync, and it must fade.** The shell is
+  revealed during a long sync so capture is never blocked (plan §1) — which means
+  when the archive finally lands, it needs somewhere unseen to lay itself out.
+  Cutting to the canvas for ~200ms read as a blink; the cover now fades in over
+  the loader and out into the archive, and only on that path (fading in on boot
+  would show a frame of the half-built shell).
+- **`usePatient` on the sync loader is what makes "first run" honest.** With no
+  hint the loader appears immediately — the app _knows_ nothing is local — and
+  the 400ms floor is what keeps that from being a blink when the answer comes
+  back fast.
+
+---
+
+## 7. Non-goals, and what is deliberately deferred
 
 - **No skeleton screens.** A skeleton is a state the app takes back.
 - **No change to what any state _says_** — the offline/expired/refused wording,

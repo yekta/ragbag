@@ -15,8 +15,9 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useBlobUrl } from "@/lib/blobs";
+import { mediaBox, rememberBlobAspect, useBlobUrl } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
+import { useHeld } from "@/lib/settle";
 import { useMeta } from "@/lib/use-meta";
 
 // Route overlay (/item/$id): reader view for links, PDF viewer, image
@@ -68,6 +69,10 @@ export function ItemDetail() {
   if (liveItem) lastItem.current = liveItem;
   const item = liveItem ?? (open ? undefined : lastItem.current);
   const blobUrl = useBlobUrl(item?.blobId);
+  // The item is in the local store, so it is normally here before the sheet has
+  // finished sliding in. A spinner for that frame is noise; one only appears if
+  // the wait turns out to be real.
+  const stillLoading = useHeld(!item, 250);
 
   const c = item?.content;
   const host = hostOf(item?.url);
@@ -96,9 +101,14 @@ export function ItemDetail() {
         </SheetDescription>
 
         {!item ? (
-          <div className="flex h-40 items-center justify-center text-muted-foreground">
-            <Icon name="spinner" className="size-6 animate-spin [animation-duration:2s]" />
-          </div>
+          stillLoading && (
+            <div
+              role="status"
+              className="flex h-40 items-center justify-center text-muted-foreground"
+            >
+              <Icon name="spinner" className="size-6 animate-spin [animation-duration:2s]" />
+            </div>
+          )
         ) : (
           <>
             {/* header */}
@@ -178,10 +188,19 @@ export function ItemDetail() {
                   <img
                     src={blobUrl}
                     alt={c?.title ?? "image"}
+                    style={mediaBox(item.blobId, "70vh")}
                     className="max-h-[70vh] w-full rounded-xl border object-contain"
+                    onLoad={(e) => rememberBlobAspect(item.blobId, e.currentTarget)}
                   />
                 ) : (
-                  <Skeleton className="flex h-64 items-center justify-center rounded-xl text-muted-foreground">
+                  // Same box as the image that replaces it, whenever this
+                  // device has seen it before — so nothing below it moves.
+                  <Skeleton
+                    style={mediaBox(item.blobId, "70vh")}
+                    className={`flex items-center justify-center rounded-xl text-muted-foreground ${
+                      mediaBox(item.blobId, "70vh") ? "" : "h-64"
+                    }`}
+                  >
                     <Icon name="image" className="size-8" />
                   </Skeleton>
                 ))}

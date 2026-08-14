@@ -1,11 +1,12 @@
 import { ragbagZeroOptions } from "@ragbag/client-runtime";
-import { queries } from "@ragbag/contracts";
-import { useConnectionState, useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
+import { queries, type Schema } from "@ragbag/contracts";
+import { useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
 import { Outlet } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Composer } from "@/components/composer";
 import { Icon } from "@/components/icon";
 import { SearchOverlay } from "@/components/search-overlay";
+import { SettleCover } from "@/components/settle-cover";
 import { Sidebar } from "@/components/sidebar";
 import { SignIn } from "@/components/sign-in";
 import { Timeline } from "@/components/timeline";
@@ -14,19 +15,26 @@ import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { authClient, signInWithGoogle } from "@/lib/auth-client";
+import { useArchiveHintWriter, useArchiveState, useStableRows } from "@/lib/archive-state";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
 import { useTimelineSearch } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
+import { BUDGET, useHeld, useLatch } from "@/lib/settle";
+import { useSyncStatus, type SyncStatus } from "@/lib/sync-status";
 import { applyTheme, watchSystemTheme } from "@/lib/theme";
 import { useMeta } from "@/lib/use-meta";
 import type { MetaResponse } from "@ragbag/contracts";
+import type { Zero } from "@rocicorp/zero";
 
 // App shell: identity gate → Zero (local-first store + sync) → workspace.
 // Auth gates *syncing*, never *using* (plan §9): once a device has an
 // identity, the workspace opens instantly from the local store — session
 // pending, expired, or fully offline — and a banner nudges when sync needs a
 // sign-in. Only an explicit sign-out clears the identity (and local data).
+//
+// Nothing here paints a state it is about to take back (SETTLE_PLAN.md): the
+// boot screen is the bare canvas until it knows which screen it owes you.
 
 type SessionStatus = "checking" | "ok" | "expired" | "offline";
 
@@ -71,7 +79,11 @@ function useSessionRecovery(error: unknown, refetch: () => void): void {
 
 export function App() {
   const session = authClient.useSession();
+  const meta = useMeta();
   const [stored, setStored] = useState<Identity | null>(() => loadIdentity());
+  // The boot screen's budget: how long the canvas may stand in for a sign-in
+  // screen before an unreachable server becomes the thing we say out loud.
+  const waited = useHeld(!meta, BUDGET.unreachable);
 
   useSessionRecovery(session.error, session.refetch);
 
@@ -111,18 +123,49 @@ export function App() {
   }
 
   if (!identity) {
-    if (session.isPending) {
-      return (
-        <main className="flex h-dvh items-center justify-center bg-background text-muted-foreground">
-          <Icon name="spinner" className="size-6 animate-spin [animation-duration:2s]" />
-        </main>
-      );
-    }
-    return <SignIn />;
+    // No device identity: the sign-in screen is the answer, but only once it
+    // can be drawn complete. Capabilities decide which buttons exist, so a card
+    // rendered before /api/meta lands is a card that changes shape under the
+    // cursor. Until then this is the bare canvas — and, if the server is slow
+    // enough that the wait is real, one spinner.
+    //
+    // Unless the server never answers at all: a spinner with no end is not a
+    // screen. Past the budget, the card is drawn anyway and says what is wrong,
+    // which is a state in its own right rather than a stand-in for one.
+    if ((session.isPending || !meta) && !waited) return <SettleCover show loader />;
+    return <SignIn meta={meta ?? null} />;
   }
 
-  return <Workspace key={identity.userID} identity={identity} status={status} />;
+  return <Workspace key={identity.userID} identity={identity} meta={meta} status={status} />;
 }
+
+/**
+ * Preload the whole archive (plan §6): every device holds the full timeline, so
+ * reads and search work fully offline. 'forever' keeps the queries registered
+ * even when no screen is showing them.
+ *
+ * Module scope, and it must stay there. Every prop of `ZeroProvider` — `init`
+ * included — is a dependency of the effect that constructs the client, and that
+ * effect's cleanup is `zero.close()`. An inline callback here rebuilt the Zero
+ * client on *every render of `Workspace`* (five clients per page load, measured),
+ * which reset every query view to empty and made the timeline flash the sync
+ * spinner over and over. See SETTLE_PLAN.md §1.1.
+ */
+const preloadArchive = (zero: Zero<Schema>) => {
+  if (import.meta.env.DEV) {
+    inits += 1;
+    if (inits > 2) {
+      console.error(
+        `[settle] the Zero client has been built ${inits} times this page load — something ` +
+          `passed ZeroProvider an unstable prop (SETTLE_PLAN.md §1.1). Two is StrictMode's double mount.`,
+      );
+    }
+  }
+  zero.preload(queries.timeline(), { ttl: "forever" });
+  zero.preload(queries.tags(), { ttl: "forever" });
+};
+
+let inits = 0;
 
 /**
  * Explicit sign-out: forget the device identity, then reload — the SignIn
@@ -137,8 +180,15 @@ async function signOut(): Promise<void> {
   location.assign("/");
 }
 
-function Workspace({ identity, status }: { identity: Identity; status: SessionStatus }) {
-  const meta = useMeta();
+function Workspace({
+  identity,
+  meta,
+  status,
+}: {
+  identity: Identity;
+  meta: MetaResponse | undefined;
+  status: SessionStatus;
+}) {
   const queue = blobQueueFor(identity.userID);
   const opts = useMemo(
     () =>
@@ -151,16 +201,7 @@ function Workspace({ identity, status }: { identity: Identity; status: SessionSt
   );
 
   return (
-    <ZeroProvider
-      {...opts}
-      init={(zero) => {
-        // Preload the whole archive (plan §6): every device holds the full
-        // timeline, so reads and search work fully offline. 'forever' keeps
-        // the queries registered even when no screen is showing them.
-        zero.preload(queries.timeline(), { ttl: "forever" });
-        zero.preload(queries.tags(), { ttl: "forever" });
-      }}
-    >
+    <ZeroProvider {...opts} init={preloadArchive}>
       <BlobQueueProvider value={queue}>
         <QueueWiring sessionOk={status === "ok"} />
         <Shell name={identity.name} meta={meta} status={status} onSignOut={() => void signOut()} />
@@ -183,33 +224,6 @@ function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
   return null;
 }
 
-function useOnline(): boolean {
-  const [online, setOnline] = useState(navigator.onLine);
-  useEffect(() => {
-    const up = () => setOnline(true);
-    const down = () => setOnline(false);
-    window.addEventListener("online", up);
-    window.addEventListener("offline", down);
-    return () => {
-      window.removeEventListener("online", up);
-      window.removeEventListener("offline", down);
-    };
-  }, []);
-  return online;
-}
-
-/** Zero reports precisely who refused us and with what — pass it on verbatim. */
-type AuthRejection = Extract<
-  ReturnType<typeof useConnectionState>,
-  { name: "needs-auth" }
->["reason"];
-
-function describeRejection(reason: AuthRejection): string {
-  return reason.type === "zero-cache"
-    ? `the sync service reported: ${reason.reason}`
-    : `its ${reason.type} endpoint answered ${reason.status}`;
-}
-
 /** Shared chrome for the amber banner; the wording is what differs. */
 function BannerAlert({ children }: { children: React.ReactNode }) {
   return (
@@ -224,19 +238,22 @@ function BannerAlert({ children }: { children: React.ReactNode }) {
 const BANNER_BUTTON =
   "bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground";
 
-function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaResponse | undefined }) {
-  const conn = useConnectionState();
-  const online = useOnline();
+function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaResponse | undefined }) {
   const zero = useZero();
   const [error, setError] = useState<string>();
 
+  // `sync` is already settled (lib/sync-status.ts): a blip between reconnects
+  // never reaches this point, so a banner appearing is always news. That
+  // matters more here than anywhere else — this block is in the document flow,
+  // so anything it does moves the entire timeline down.
+  //
   // These two used to share one "Signed out" banner, which made a server-side
   // sync fault look like an expired login: the app said signed out while the
   // session was perfectly valid, and the only offered action — sign in again —
   // could not fix it. They are different situations, so they read differently.
   //
   // `expired`: the API says this session is gone. Signing in is the fix.
-  if (status === "expired") {
+  if (sync?.name === "expired") {
     return (
       <BannerAlert>
         <AlertDescription className="text-warning-foreground">
@@ -276,12 +293,12 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
   // `needs-auth` with a live session: we are signed in and sync still got
   // turned away. That is the server's problem to fix, not the user's — so name
   // what happened and offer a retry rather than a pointless sign-in.
-  if (conn.name === "needs-auth") {
+  if (sync?.name === "refused") {
     return (
       <BannerAlert>
         <AlertDescription className="text-warning-foreground">
-          Signed in, but sync was refused — {describeRejection(conn.reason)}. Your archive is safe
-          on this device; new dumps stay local until sync is accepted.
+          Signed in, but sync was refused — {sync.detail}. Your archive is safe on this device; new
+          dumps stay local until sync is accepted.
         </AlertDescription>
         <Button size="xs" className={BANNER_BUTTON} onClick={() => void zero.connection.connect()}>
           Retry sync
@@ -290,7 +307,7 @@ function SyncBanner({ status, meta }: { status: SessionStatus; meta: MetaRespons
     );
   }
 
-  if (!online || status === "offline" || conn.name === "disconnected") {
+  if (sync?.name === "offline") {
     return (
       <p className="border-b bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground">
         Offline — dumping and search keep working; sync resumes automatically.
@@ -345,24 +362,46 @@ function ShellBody({
   status: SessionStatus;
   onSignOut: () => void;
 }) {
-  const [items, itemsResult] = useQuery(queries.timeline());
+  const [rawItems, itemsResult] = useQuery(queries.timeline());
   const [tags] = useQuery(queries.tags());
-  const conn = useConnectionState();
-  // Sync isn't coming back on its own in these states, so nothing downstream
-  // should keep presenting itself as "in progress".
-  const syncPaused = conn.name === "needs-auth" || conn.name === "disconnected";
+  const sync = useSyncStatus(status === "expired");
+  // Never fewer rows than we have already painted (SETTLE_PLAN.md §3.5).
+  const items = useStableRows(rawItems, itemsResult.type);
+  // The list element, watched to know when the page has come to rest — the
+  // reveal waits for that, not for a stopwatch.
+  const listRef = useRef<HTMLDivElement>(null);
+  const state = useArchiveState({
+    count: items.length,
+    resultType: itemsResult.type,
+    sync,
+    anchor: listRef,
+  });
+  useArchiveHintWriter(state, items.length);
+  // Has the app ever been on screen this session? Only then is a cover a
+  // transition rather than the boot.
+  const revealed = useLatch(state !== "opening");
   const searchIndex = useTimelineSearch(items);
   const { setSearchOpen } = useViewStore();
   const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
 
   return (
     <>
+      {/* Over a shell that is already mounted: the timeline lays out, measures
+          and anchors itself to the newest item underneath this, so the first
+          frame anyone sees is the finished one.
+          
+          After a first sync it comes back — the archive has to lay itself out
+          somewhere unseen — but by then the app is on screen and in use, so it
+          arrives as a cross-fade from the sync loader rather than as a cut to
+          the canvas. */}
+      <SettleCover show={state === "opening"} fadeIn={revealed} />
+
       <Sidebar
         items={items}
         tags={tags}
         name={name}
         meta={meta}
-        sessionExpired={status === "expired"}
+        sync={sync}
         onSignOut={onSignOut}
       />
 
@@ -379,7 +418,7 @@ function ShellBody({
             zero-height when no banner is showing — and a zero-height sticky box
             still sticks, so the controls float exactly as they did. */}
         <div className="sticky top-0 z-30">
-          <SyncBanner status={status} meta={meta} />
+          <SyncBanner sync={sync} meta={meta} />
           {/* Zero-height anchor: the floating controls land below the sync
               banner without covering it. */}
           <div className="relative">
@@ -413,7 +452,7 @@ function ShellBody({
             )}
           </div>
         </div>
-        <Timeline items={items} synced={itemsResult.type === "complete"} syncPaused={syncPaused} />
+        <Timeline items={items} state={state} sync={sync} listRef={listRef} />
         <Composer canAttach={meta?.blobs ?? true} />
       </SidebarInset>
 
