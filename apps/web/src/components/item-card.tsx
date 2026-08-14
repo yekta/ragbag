@@ -324,12 +324,19 @@ function ImageBody({ item }: { item: TimelineItem }) {
   const box = mediaBox(item.blobId, IMAGE_MAX_H);
 
   return url ? (
-    <span className="relative mt-0.5 inline-block max-w-full">
+    // The box goes on the wrapper, not on the image, and the wrapper is a
+    // block. On an `inline-block` span the `min(100%, …)` width resolves
+    // against a shrink-to-fit container whose own width depends on the image
+    // inside it — so until the bytes decode, the picture is 7×2px and the
+    // archive briefly loses 800px of height (measured). A block wrapper
+    // resolves the percentage against the card, before anything has loaded.
+    <span style={box} className={`relative mt-0.5 ${box ? "block" : "inline-block max-w-full"}`}>
       <img
         src={url}
         alt={item.content?.title ?? "dumped image"}
-        style={box}
-        className="max-h-80 max-w-full cursor-zoom-in rounded-lg border object-contain"
+        className={`cursor-zoom-in rounded-lg border object-contain ${
+          box ? "h-full w-full" : "max-h-80 max-w-full"
+        }`}
         onClick={() => void navigate(openItem(item.id))}
         onLoad={(e) => rememberBlobAspect(item.blobId, e.currentTarget)}
       />

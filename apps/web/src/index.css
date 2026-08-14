@@ -5,7 +5,7 @@
 
 /* Muted mint, anchored at OKLCH hue 168–174.
  *
- * Two rules hold this together:
+ * Three rules hold this together:
  *
  * 1. The chroma budget is lopsided. Surfaces (background, card, popover,
  *    panel, sidebar, muted, secondary, border, input) and ink sit at
@@ -30,6 +30,21 @@
  *    modifiers, so call sites read `bg-overlay/overlay` and
  *    `bg-background/scrim` — a named strength, never a loose `/40`.
  *
+ * 3. The canvas lands in the middle of its 8-bit bucket. `oklch()` is resolved
+ *    per paint, and the browser draws `--background` through more than one
+ *    path on the same screen — the canvas fill propagated from `body`, an
+ *    element that repaints it, a composited layer, the `theme-color` chrome —
+ *    so a value that converts to a channel ending in .5 is a coin flip, and
+ *    the two paths can land on opposite sides of it. `oklch(0.19 0.005 174)`
+ *    converted to 17.589, 20.530, 19.559: every channel within 0.09 of the
+ *    boundary. That is what put a full-width seam across the sign-in screen —
+ *    two greys one unit apart, canvas on one side, canvas on the other. The
+ *    lightness of both canvases is now tuned so all three channels land within
+ *    0.08 of an integer: same #121514 and #f1f3f2, same contrast ratios, no
+ *    longer a coin flip. Everything that paints `--background` over the canvas
+ *    and expects it to disappear — the composer's strip, the settle cover —
+ *    rests on this.
+ *
  * Values were checked for sRGB gamut and WCAG contrast; ratios in
  * SHADCN_PLAN.md §3.2. */
 
@@ -51,7 +66,8 @@
      tracks the controls: change their offset or size and it follows. */
   --timeline-inset-top: calc(0.75rem + 2.25rem + 0.5rem); /* 3.5rem = 56px */
 
-  --background: oklch(0.962 0.003 168); /* #f1f3f2 */
+  /* Bucket-centred (rule 3): 240.931, 242.990, 242.074. */
+  --background: oklch(0.9623 0.0025 168); /* #f1f3f2 */
   --foreground: oklch(0.245 0.01 172); /* #1c2220 */
   --card: oklch(0.997 0.0015 168);
   --card-foreground: oklch(0.245 0.01 172);
@@ -125,7 +141,7 @@
   --chart-5: oklch(0.56 0.08 296);
 
   /* One opaque overlay colour for both themes: the dark canvas
-     (`oklch(0.19 0.005 174)`) taken a step darker, same chroma and hue. Only
+     (`oklch(0.192 0.005 174)`) taken a step darker, same chroma and hue. Only
      the strength differs by theme — `--overlay-alpha`, exposed as the named
      `--opacity-overlay` modifier in the @theme block below so call sites read
      `bg-overlay/overlay` rather than a baked-in alpha. Usually whatever sits on
@@ -159,7 +175,8 @@
 }
 
 .dark {
-  --background: oklch(0.19 0.005 174); /* #121514 */
+  /* Bucket-centred (rule 3): 18.029, 20.976, 20.003. */
+  --background: oklch(0.192 0.005 174); /* #121514 */
   --foreground: oklch(0.935 0.006 168);
   --card: oklch(0.232 0.006 174); /* #1b1e1d */
   --card-foreground: oklch(0.935 0.006 168);

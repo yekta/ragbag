@@ -220,6 +220,18 @@ keep white text legible on it. Instead, dark `--destructive` stays light enough 
 on the canvas (5.10:1 on a card) and takes **dark** ink as a fill — one token pair, no alpha, and
 the contrast caveat from the first pass is gone.
 
+_3. The canvas lands in the middle of its 8-bit bucket._ `oklch()` is resolved per paint, and the
+browser draws `--background` through more than one path on the same screen — the canvas fill
+propagated from `body`, an element that repaints it, a composited layer, the `theme-color` chrome.
+A value whose sRGB channels land near `.5` is a coin flip, and two paths can round it opposite
+ways. `oklch(0.19 0.005 174)` converted to `17.589, 20.530, 19.559` — every channel within 0.09 of
+the boundary — which is what put a full-width seam across the sign-in screen: canvas one side,
+canvas the other, one unit apart. Both canvases are now tuned so all three channels land within
+0.08 of an integer (`0.192 0.005 174` → `18.029, 20.976, 20.003`; `0.9623 0.0025 168` →
+`240.931, 242.990, 242.074`), same `#121514` and `#f1f3f2`, same ratios below. Anything that paints
+`--background` over the canvas expecting it to vanish — the composer's strip, the settle cover —
+rests on this, so does `theme-color` matching the page it tints.
+
 **Shadows carry the hue too.** Tailwind's `--shadow-*` scale is overridden in `@theme inline` to
 `rgb(var(--shadow-tint) / var(--shadow-aN))`, with the tint at `57 84 75` (a dark mint) in light
 and `0 6 4` in dark, plus four strengths the dark theme re-tunes. `inline` is load-bearing: it
@@ -232,7 +244,7 @@ ring.
 
 **The two exceptions**, both physically translucent: `--overlay` (you must see the page through it)
 and the shadow scale (an opaque shadow is a solid block). Both are mint-tinted — the overlay is the
-dark canvas taken a step darker (`oklch(0.14 0.005 174)` against the canvas's `0.19 0.005 174`), so
+dark canvas taken a step darker (`oklch(0.14 0.005 174)` against the canvas's `0.192 0.005 174`), so
 it is a surface value, not a saturated one: a scrim at 40% carries its hue much further than an
 opaque surface does. The shadow scale bakes its alpha into the token, while the overlay keeps an opaque
 colour and names its strength `--opacity-overlay` in the `@theme` block. Tailwind resolves that as

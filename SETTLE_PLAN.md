@@ -141,7 +141,48 @@ moves the scroll offset, and CLS counts neither. Any acceptance criterion for
 this work has to measure the anchor's box directly; CLS would sign off on the
 current behaviour.
 
-### 1.5 The same shape elsewhere
+### 1.5 A fresh load opens in the middle of the archive
+
+Reported after the first round of this work shipped, and the sharpest of the
+lot: _"that's a fresh load, yet I'm not scrolled to the bottom"_. Reproduced by
+putting images in the archive — three of them was enough:
+
+```
+reload #1   scrollY 1975   docHeight 2646   →  671px short of the end
+reload #2   scrollY 1975   docHeight 2646   →  671px short
+reload #3   scrollY 1262   docHeight 2646   →  484px short   ← varies per load
+```
+
+**The document height is already final** when the page is short — nothing grows
+afterwards. The view simply lands in the wrong place and stays there. Two
+mechanisms compound:
+
+**(a) A ratchet in the virtualizer's end-anchoring.** A row grows when its
+picture arrives (a 160px placeholder becomes a 320px image). Each growth below
+the fold pushes the end of the document further from the viewport, and once the
+gap exceeds `scrollEndThreshold` (120px) the virtualizer stops considering the
+reader "at the end" and stops following. Three images ratchet it past that in
+the first second, and nothing ever brings it back.
+
+**(b) The reveal cannot tell a settled layout from a correct one.** `§2.4`
+reveals when the page stops moving — and a list parked 671px short of the end is
+perfectly still. Stability was standing in for correctness, and here they came
+apart.
+
+There was also a third, smaller version of the same thing hiding underneath:
+the reserved image box was applied to the `<img>` inside an `inline-block`
+wrapper, so its `min(100%, …)` width resolved against a shrink-to-fit container
+whose width depended on the image itself. Until the bytes decoded the picture
+measured **7×2px**, and the archive lost 800px of height and got it back:
+
+```
+1768ms  covered   docH 2813   3 placeholders, no images
+1881ms  revealed  docH 2813   images at 7x2, 2x3, 2x2      ← reveal lands here
+2027ms  revealed  docH 2038   images at their real sizes   ← 775px gone
+2088ms  revealed  docH 2834   recovered
+```
+
+### 1.6 The same shape elsewhere
 
 - **`SyncDot`** (`sidebar.tsx:65-79`) starts every load on "Connecting…" because
   that is Zero's initial connection state, then flips to "Synced".
@@ -338,7 +379,40 @@ const shown = items.length === 0 && itemsResult.type === "unknown" ? lastRows.cu
 impossible to reintroduce. A `complete` snapshot with zero rows still clears the
 list (deleting your last item works), and filtering is computed downstream.
 
-### 3.6 Rows are the size they claim to be — `timeline.tsx`
+### 3.6 The newest item stays in view while the archive changes shape — `timeline.tsx`
+
+The fix for §1.5, and the one rule that makes the others hold at the bottom of
+the list:
+
+```tsx
+// Re-pin on every height change until the reader takes over, and after that
+// only while they are still at the end.
+const observer = new ResizeObserver(() => {
+  if (readerScrolled.current && !virtualizer.isAtEnd(AT_END_PX)) return;
+  virtualizer.scrollToEnd();
+});
+observer.observe(list);
+```
+
+It is what a chat does when a photo finishes loading, and it fixes every cause
+of late growth at once — images, fonts, an item finishing ingestion — rather
+than the one that was reported.
+
+The counterweight matters as much as the rule: **once the reader has taken the
+scroll, it is theirs.** So "taking over" is narrowed to the gestures that
+actually mean it — a wheel, a touch drag, a scroll key outside a text field, a
+mousedown on the document itself (a scrollbar drag). A click on a card and a
+keystroke in the composer are explicitly not takeovers: treating them as such
+would hand the scroll back mid-load, which is the failure this exists to
+prevent. Both directions are asserted in §5.
+
+And the smaller version of the same bug: the reserved media box now sits on the
+image's **wrapper**, which is a block, rather than on the `<img>` inside an
+`inline-block`. A percentage width against a shrink-to-fit container whose width
+depends on the image is circular, and resolves to nothing until the bytes land
+(measured: 7×2px, and 775px of archive height gone and back).
+
+### 3.7 Rows are the size they claim to be — `timeline.tsx`
 
 `estimateSize` returns a flat 140px for every item (`timeline.tsx:94`), so the
 document keeps resizing under the reader as real heights land (§1.4c). Replace
@@ -354,21 +428,21 @@ adding it is written down instead: if §5's anchor invariant still shows movemen
 > 4px on a 400-row archive with the estimator in place, persistence is the next
 > step, keyed by `(itemId, updatedAt, columnWidth)`.
 
-### 3.7 The sign-in screen arrives complete — `sign-in.tsx`
+### 3.8 The sign-in screen arrives complete — `sign-in.tsx`
 
 `meta` becomes a required prop: the screen is only reachable once capabilities
 are known, so the "Reaching the server…" branch and its resize are deleted. The
 card renders its buttons — or the "this server has no sign-in configured"
 message — in its first and only paint. `dropLocalData()` on mount is unchanged.
 
-### 3.8 One shared `/api/meta` — `lib/use-meta.ts`
+### 3.9 One shared `/api/meta` — `lib/use-meta.ts`
 
 A module-level singleton: one in-flight request, one cached answer, subscribers
 via `useSyncExternalStore`, existing backoff and `online` retry moved inside.
 The fetch starts at **module import**, so it overlaps React's mount instead of
 following it — worth ~100 ms on the one path that has nothing else to show.
 
-### 3.9 Blobs resolve synchronously when they can — `lib/blobs.tsx`
+### 3.10 Blobs resolve synchronously when they can — `lib/blobs.tsx`
 
 Keep a `Map<blobId, string>` of **resolved** URLs beside the promise cache and
 seed `useBlobUrl`'s state from it (`useState(() => resolved.get(id) ?? null)`).
@@ -376,20 +450,20 @@ A card scrolled back into view, or the detail overlay for an item you were just
 looking at, renders its image on the first frame — no placeholder at all. Also
 remember each blob's natural aspect ratio (written on `load`) for §3.10.
 
-### 3.10 Media reserves its box — `item-card.tsx`, `item-detail.tsx`
+### 3.11 Media reserves its box — `item-card.tsx`, `item-detail.tsx`
 
 The placeholder takes the remembered aspect ratio (falling back to today's box
 when there is none), so the image swap does not change the row's height, does
 not re-trigger measurement, and does not move the rows below it. The pulse only
 runs if the wait is real. Same for the detail hero and the PDF frame.
 
-### 3.11 The detail overlay — `item-detail.tsx`
+### 3.12 The detail overlay — `item-detail.tsx`
 
 The `!item` spinner appears only if the item genuinely has to be fetched; for a
 local hit the panel's content is simply there when the sheet finishes its
 entrance.
 
-### 3.12 What the reveal looks like — motion and a11y
+### 3.13 What the reveal looks like — motion and a11y
 
 - The cover fades out over 160 ms, `ease-out`, **opacity only**. Nothing slides,
   scales or moves: motion is another way of taking a state back.
@@ -402,7 +476,7 @@ entrance.
 - Focus is not moved by the reveal. The composer's autofocus already runs under
   the cover and lands in the right place when it lifts.
 
-### 3.13 A tripwire so this cannot come back — DEV only
+### 3.14 A tripwire so this cannot come back — DEV only
 
 Two invariants asserted in development, where they are free:
 
@@ -457,7 +531,12 @@ Three measurement decisions, each of which changed a verdict:
   "processing" chip and is genuinely a different height. The harness now waits
   for ingestion to finish before the reload cases for the same reason.
 
-Asserted (all passing, 32/32 fresh + 30/30 on a 412-row archive):
+The seeded archive contains **images** — generated in the script, of different
+aspect ratios — because images are what row estimation cannot know in advance
+and were the cause of §1.5. A text-only fixture passed every check while the app
+was opening in the middle of the archive.
+
+Asserted (all passing, 44/44 fresh + 42/42 on the reused profile):
 
 1. **One Zero client per page load** (was five), across session resolution, meta
    arrival and session retries.
@@ -473,7 +552,13 @@ Asserted (all passing, 32/32 fresh + 30/30 on a 412-row archive):
    the archive in a ~90–220ms cross-fade.
 5. **Signed out** with `/api/meta` delayed 600ms: one card box for the lifetime
    of the screen — `226@337`, from first paint to click (was 210@295 → 226@287).
-6. **No console errors**, which is also what proves the §3.13 tripwires stay
+6. **Lands at the newest item**: a fresh load ends ≤24px from the end of the
+   document with images in the archive, and the newest card clears the composer
+   (was 484–671px short, varying per load).
+7. **The reader still owns the scroll**: scrolled up, a new dump does not drag
+   the view (620 → 620); scrolled back to the end, dumps are followed again
+   (0px short).
+8. **No console errors**, which is also what proves the §3.14 tripwires stay
    quiet in normal operation.
 
 Checked by hand alongside it (not in the harness, because they need network
@@ -491,8 +576,8 @@ control rather than page control):
 
 ## 6. What the code says that the plan didn't
 
-Three things only measurement could settle, recorded because the next person
-will otherwise reason their way back to the wrong answer:
+Four things only measurement could settle, recorded because the next person will
+otherwise reason their way back to the wrong answer:
 
 - **Pinning the scroll is not the fix for the unanchored frame.** An early cut of
   this work re-pinned the list to the newest item the moment rows arrived. It is
@@ -506,6 +591,11 @@ will otherwise reason their way back to the wrong answer:
   Cutting to the canvas for ~200ms read as a blink; the cover now fades in over
   the loader and out into the archive, and only on that path (fading in on boot
   would show a frame of the half-built shell).
+- **A settled layout is not a correct one.** The reveal waits for the page to
+  stop moving, and a list parked 671px short of the newest item is perfectly
+  still (§1.5). Stability is necessary and not sufficient: something has to keep
+  the view where it belongs _while_ the archive changes shape, which is §3.6.
+  The acceptance harness now asserts the position, not just the stillness.
 - **`usePatient` on the sync loader is what makes "first run" honest.** With no
   hint the loader appears immediately — the app _knows_ nothing is local — and
   the 400ms floor is what keeps that from being a blink when the answer comes

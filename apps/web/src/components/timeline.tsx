@@ -33,6 +33,9 @@ type Row = { type: "day"; key: string; label: string } | { type: "item"; item: T
 /** How close to the newest item still counts as being at the newest item. */
 const AT_END_PX = 120;
 
+/** Keys that move the page. Any other keystroke is someone typing a dump. */
+const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
+
 function useRows(items: TimelineRows): Row[] {
   const { viewFilter, tagFilter } = useViewStore();
   return useMemo(() => {
@@ -131,6 +134,9 @@ export function Timeline({
   listRef: RefObject<HTMLDivElement | null>;
 }) {
   const rows = useRows(items);
+  // The list element only exists when there is something to draw; effects that
+  // observe it have to re-run when it appears.
+  const hasRows = rows.length > 0;
   const { viewFilter, tagFilter } = useViewStore();
   const [scrollMargin, setScrollMargin] = useState(0);
   const [width, setWidth] = useState(700);
@@ -219,6 +225,69 @@ export function Timeline({
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [virtualizer]);
+
+  // Has the reader taken the scroll for themselves yet? Until they do, the
+  // newest item is where the view belongs, full stop.
+  //
+  // Each of these is narrowed to the gesture that actually means "I'll take it
+  // from here", because a false positive costs the load: it hands the scroll
+  // back while images are still growing, which is the failure this whole block
+  // exists to prevent. Not `scroll` itself — the virtualizer scrolls the window
+  // while it corrects, and that is not the reader deciding anything.
+  const readerScrolled = useRef(false);
+  useEffect(() => {
+    const takeOver = () => {
+      readerScrolled.current = true;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Space in the composer is a space, not a page down.
+      if (target?.closest("input, textarea, [contenteditable]")) return;
+      if (SCROLL_KEYS.has(e.key)) takeOver();
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      // A scrollbar drag lands on the document itself. A click on a card, a
+      // button or the composer does not, and must not be mistaken for one.
+      if (e.target === document.documentElement || e.target === document.body) takeOver();
+    };
+    window.addEventListener("wheel", takeOver, { passive: true });
+    window.addEventListener("touchmove", takeOver, { passive: true });
+    window.addEventListener("mousedown", onMouseDown, { passive: true });
+    window.addEventListener("keydown", onKeyDown, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", takeOver);
+      window.removeEventListener("touchmove", takeOver);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  // Keep the newest item in view while the archive changes shape underneath it.
+  //
+  // Rows grow after they first lay out — an image's bytes arrive and a 160px
+  // placeholder becomes a 320px picture, an item finishes ingesting and drops a
+  // chip — and each growth below the fold pushes the end of the document further
+  // away. The virtualizer's own end-anchoring gives up once the gap exceeds
+  // `scrollEndThreshold`, so a handful of images was enough to ratchet the view
+  // hundreds of pixels short of the newest card and leave it there: a fresh load
+  // that opens in the middle of the archive (measured: 484–671px short, varying
+  // per load, on an archive with three images). Stability is not the same as
+  // correctness — the layout had stopped moving, it had just stopped in the
+  // wrong place.
+  //
+  // So: re-pin on every height change until the reader takes over, and after
+  // that only while they are still at the end — which is exactly how a chat
+  // behaves when a photo finishes loading.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const observer = new ResizeObserver(() => {
+      if (readerScrolled.current && !virtualizer.isAtEnd(AT_END_PX)) return;
+      virtualizer.scrollToEnd();
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [virtualizer, listRef, hasRows]);
 
   // Every viewport change moves the end of the document: the keyboard opening,
   // a rotation, a window being dragged, the URL bar sliding away. Someone who

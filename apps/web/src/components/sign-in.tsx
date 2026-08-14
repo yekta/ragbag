@@ -26,7 +26,11 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
   }, []);
 
   return (
-    <main className="flex h-dvh items-center justify-center bg-background p-4">
+    // No `bg-background` here: `body` already paints the canvas, and this box
+    // is `h-dvh` rather than the full canvas — so repainting the same token
+    // draws a second copy of it over part of the screen, and the seam shows the
+    // moment the two paints quantise differently (index.css rule 3).
+    <main className="flex h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm shadow-float">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
           <span className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">

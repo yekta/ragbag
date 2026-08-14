@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
-import { rmSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
+import { deflateSync } from "node:zlib";
 
 // Acceptance harness for SETTLE_PLAN.md — "nothing paints until it is the final
 // answer". Run it against the local dev stack (`pnpm dev` + `pnpm dev:zero-cache`)
@@ -18,6 +19,49 @@ import { rmSync } from "node:fs";
 // neither. It reported 0.0000 for a frame in which the reader was looking at
 // empty space 55 000px from the archive. The anchor invariant below is what
 // actually catches that.
+
+/**
+ * A solid-colour PNG of a given shape. Images are what break row estimation —
+ * a placeholder becomes a picture and the row doubles in height — so the
+ * archive under test has to contain some, and they have to differ in aspect.
+ */
+function writePng(path, w, h, rgb) {
+  const raw = Buffer.concat(
+    Array.from({ length: h }, () =>
+      Buffer.concat([Buffer.from([0]), Buffer.alloc(w * 3, Buffer.from(rgb))]),
+    ),
+  );
+  const chunk = (type, data) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body) >>> 0);
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  writeFileSync(
+    path,
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", ihdr),
+      chunk("IDAT", deflateSync(raw)),
+      chunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+function crc32(buf) {
+  let c = ~0;
+  for (const byte of buf) {
+    c ^= byte;
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return ~c;
+}
 
 const BASE = process.env.RAGBAG_WEB ?? "http://localhost:5173";
 const PROFILE = "/tmp/ragbag-settle-proof";
@@ -208,6 +252,20 @@ if (seeded < 12) {
   await page.waitForTimeout(2_000);
 }
 
+// Images: the thing row estimation cannot know in advance, and the reason a
+// fresh load used to open in the middle of the archive.
+if ((await page.locator("article img").count()) < 2) {
+  writePng("/tmp/settle-proof-wide.png", 1400, 400, [120, 180, 160]);
+  writePng("/tmp/settle-proof-tall.png", 640, 960, [180, 140, 120]);
+  for (const file of ["/tmp/settle-proof-wide.png", "/tmp/settle-proof-tall.png"]) {
+    await page.locator("input[type=file]").setInputFiles(file);
+    await page.waitForTimeout(1_200);
+    await page.locator("textarea").press("Enter");
+    await page.waitForTimeout(2_500);
+  }
+  await page.waitForTimeout(4_000);
+}
+
 // Ingestion has to have finished before the reload cases mean anything: a card
 // whose "queued" chip disappears mid-run is genuinely a different height, and
 // that is news arriving rather than the boot flashing. (The anchor invariant
@@ -240,6 +298,33 @@ for (const round of [1, 2, 3, 4, 5]) {
   const first = withCards[0];
   const last = withCards.at(-1);
 
+  const rest = await page.evaluate(() => {
+    const cards = document.querySelectorAll("article");
+    const newest = cards[cards.length - 1]?.getBoundingClientRect();
+    const composer = document
+      .querySelector("textarea")
+      ?.closest("[class*='rounded-3xl']")
+      ?.getBoundingClientRect();
+    return {
+      short: Math.round(document.documentElement.scrollHeight - (scrollY + innerHeight)),
+      under: newest && composer ? Math.round(newest.bottom - composer.top) : 0,
+      imgs: document.querySelectorAll("article img").length,
+    };
+  });
+  // The one the user reported: a fresh load that opens in the middle of the
+  // archive. Images are what caused it — each one that grew after its row was
+  // laid out pushed the end further away until the virtualizer stopped
+  // following (measured 484–671px short, varying per load).
+  check(
+    `warm reload #${round}: lands at the newest item`,
+    rest.short <= 24,
+    `${rest.short}px short of the end, ${rest.imgs} images`,
+  );
+  check(
+    `warm reload #${round}: newest card clears the composer`,
+    rest.under <= 0,
+    rest.under > 0 ? `${rest.under}px underneath it` : "clear",
+  );
   check(
     `warm reload #${round}: canvas → cards, nothing between`,
     ["blank>cards", "blank>canvas>cards"].includes(seq.join(">")),
@@ -321,6 +406,41 @@ await page.waitForTimeout(25_000);
     `${handover}ms covered`,
   );
 }
+
+// ─── 4. The reader owns the scroll once they have used it ────────────────────
+// The counterweight to keeping the view pinned: a chat that yanks you back to
+// the bottom while you are reading is worse than one that opens in the wrong
+// place. Scroll up, then make the archive grow underneath.
+await page.reload({ waitUntil: "domcontentloaded" });
+await page.waitForSelector("article", { timeout: 20_000 });
+await page.waitForTimeout(3_000);
+await page.mouse.move(640, 450);
+await page.mouse.wheel(0, -900);
+await page.waitForTimeout(600);
+const parked = await page.evaluate(() => Math.round(scrollY));
+await page.locator("textarea").fill("a dump made while reading older items");
+await page.locator("textarea").press("Enter");
+await page.waitForTimeout(2_500);
+const afterDump = await page.evaluate(() => Math.round(scrollY));
+check(
+  "a reader who scrolled up is not dragged to the newest item",
+  Math.abs(afterDump - parked) <= 8,
+  `${parked} → ${afterDump}`,
+);
+
+// …and scrolling back to the bottom makes it follow again. (Scrolled with the
+// wheel, not the End key: the composer has focus after a dump, where End moves
+// the caret and nothing else.)
+await page.mouse.move(640, 450);
+await page.mouse.wheel(0, 4_000);
+await page.waitForTimeout(800);
+await page.locator("textarea").fill("and one after coming back to the end");
+await page.locator("textarea").press("Enter");
+await page.waitForTimeout(2_500);
+const followed = await page.evaluate(() =>
+  Math.round(document.documentElement.scrollHeight - (scrollY + innerHeight)),
+);
+check("back at the end, new dumps are followed again", followed <= 24, `${followed}px short`);
 
 check("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
 
