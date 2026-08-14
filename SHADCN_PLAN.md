@@ -190,7 +190,7 @@ _1. The chroma budget is lopsided_ — this is what makes it read as _subtle_ mi
 | highlight      | accent, sidebar-accent                                                     | 0.018 – 0.024      |
 | working colour | primary, ring, destructive, warning, success, `--kind-*`, `--ai`           | 0.03 – 0.18        |
 
-At those surface values a light canvas is `#f8fbfa` against a neutral `#fafafa`, and a dark canvas
+At those surface values a light canvas is `#f4f6f5` against a neutral `#f6f6f6`, and a dark canvas
 `#121514` against `#141414` — a max channel delta of ~2/255. The tint is present when you look for
 it and invisible when you don't, while `primary` (`#2d6956`), the active nav row and the kind
 tokens stay unmistakably mint. Raising surface chroma back toward 0.015+ is what made the first
@@ -231,13 +231,14 @@ and shadow into a single `box-shadow` — which would have silently killed the c
 ring.
 
 **The two exceptions**, both physically translucent: `--overlay` (you must see the page through it)
-and the shadow scale (an opaque shadow is a solid block). Both are mint-tinted; the shadow scale
-bakes its alpha into the token, while the overlay keeps an opaque colour and names its strengths as
-`--opacity-overlay` / `--opacity-overlay-strong` in the `@theme` block. Tailwind resolves those as
-named opacity modifiers, so call sites read `bg-overlay/overlay` (dialogs, sheets) and
-`bg-overlay/overlay-strong` (the full-screen drop target) — never a loose `/65`. One overlay colour
-serves both themes and carries no ink tokens of its own, because everything shown over it (dialog,
-sheet, the drop card) brings its own surface.
+and the shadow scale (an opaque shadow is a solid block). Both are mint-tinted — the overlay is the
+dark canvas taken a step darker (`oklch(0.14 0.005 174)` against the canvas's `0.19 0.005 174`), so
+it is a surface value, not a saturated one: a scrim at 40% carries its hue much further than an
+opaque surface does. The shadow scale bakes its alpha into the token, while the overlay keeps an opaque
+colour and names its strength `--opacity-overlay` in the `@theme` block. Tailwind resolves that as
+a named opacity modifier, so call sites read `bg-overlay/overlay` (dialogs, sheets) — never a loose
+`/40`. One overlay colour serves both themes and carries no ink tokens of its own, because
+everything shown over it (dialog, sheet) brings its own surface.
 
 `color-scheme: light` / `dark` in `@layer base` matters more than it looks: it fixes native
 scrollbars, `<input>` chrome and the PDF `<iframe>` in `item-detail` so they don't stay white in

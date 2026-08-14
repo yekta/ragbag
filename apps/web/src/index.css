@@ -27,7 +27,7 @@
  *    shadow scale (a shadow that isn't translucent is a solid block). Both are
  *    mint-tinted. The overlay's colour is opaque like everything else and its
  *    strengths are named `--opacity-overlay*` modifiers, so call sites read
- *    `bg-overlay/overlay-strong` — a named strength, never a loose `/65`.
+ *    `bg-overlay/overlay` — a named strength, never a loose `/40`.
  *
  * Values were checked for sRGB gamut and WCAG contrast; ratios in
  * SHADCN_PLAN.md §3.2. */
@@ -50,7 +50,7 @@
      tracks the controls: change their offset or size and it follows. */
   --timeline-inset-top: calc(0.75rem + 2.25rem + 0.5rem); /* 3.5rem = 56px */
 
-  --background: oklch(0.985 0.003 168); /* #f8fbfa */
+  --background: oklch(0.972 0.003 168); /* #f4f6f5 */
   --foreground: oklch(0.245 0.01 172); /* #1c2220 */
   --card: oklch(0.997 0.0015 168);
   --card-foreground: oklch(0.245 0.01 172);
@@ -123,11 +123,18 @@
   --chart-4: oklch(0.66 0.09 84);
   --chart-5: oklch(0.56 0.08 296);
 
-  /* One opaque overlay colour for both themes. Its strengths are named opacity
-     modifiers in the @theme block below (`bg-overlay/overlay-strong`), not
-     baked-in alphas. Whatever sits on top brings its own surface — the overlay
-     never carries text. */
-  --overlay: oklch(0.2 0.018 172);
+  /* One opaque overlay colour for both themes: the dark canvas
+     (`oklch(0.19 0.005 174)`) taken a step darker, same chroma and hue. Only
+     the strength differs by theme — `--overlay-alpha`, exposed as the named
+     `--opacity-overlay` modifier in the @theme block below so call sites read
+     `bg-overlay/overlay` rather than a baked-in alpha. Whatever sits on top
+     brings its own surface — the overlay never carries text. */
+  --overlay: oklch(0.14 0.005 174);
+  /* A percentage, not a 0–1 alpha: Tailwind compiles the modifier to
+     `color-mix(in oklab, var(--overlay) var(--overlay-alpha), transparent)`,
+     and color-mix only takes percentages. A bare `0.4` makes the declaration
+     invalid, which silently drops it back to the opaque fallback. */
+  --overlay-alpha: 40%;
 
   /* Shadows are mint-tinted, never neutral black. Split into a colour and four
      strengths so the dark theme can re-tune both without touching the scale. */
@@ -206,6 +213,10 @@
   --chart-3: oklch(0.75 0.075 132);
   --chart-4: oklch(0.76 0.09 84);
   --chart-5: oklch(0.68 0.08 296);
+
+  /* The overlay colour is shared with light; only its strength changes — the
+     same scrim that dims a light page barely registers on a dark one. */
+  --overlay-alpha: 60%;
 
   /* Near-black, still mint-hued; a dark canvas needs much more of it. */
   --shadow-tint: 0 6 4;
@@ -291,9 +302,10 @@
   --color-ai-soft: var(--ai-soft);
 
   --color-overlay: var(--overlay);
-  /* Named opacity modifiers: `bg-overlay/overlay`, `bg-overlay/overlay-strong`. */
-  --opacity-overlay: 0.4;
-  --opacity-overlay-strong: 0.65;
+  /* Named opacity modifier: `bg-overlay/overlay`. Points at `--overlay-alpha`
+     so `.dark` can re-tune the strength at runtime — the scrim needs more of
+     itself to register against a dark canvas than against a light one. */
+  --opacity-overlay: var(--overlay-alpha);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -319,8 +331,8 @@
     0 8px 12px -4px rgb(var(--shadow-tint) / var(--shadow-a2)),
     0 20px 32px -8px rgb(var(--shadow-tint) / var(--shadow-a3));
   --shadow-2xl: 0 24px 48px -12px rgb(var(--shadow-tint) / var(--shadow-a4));
-  /* The floating-card shadow the composer set as the app's visual language,
-     defined once. A `@utility` writing `box-shadow` directly would have
+  /* The floating-card shadow, defined once — now only the sign-in card lifts
+     off the canvas. A `@utility` writing `box-shadow` directly would have
      clobbered any `ring-*` on the same element (Tailwind composes both into one
      box-shadow) — as a `--shadow-*` key it composes correctly instead. */
   --shadow-float:

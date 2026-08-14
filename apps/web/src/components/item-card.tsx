@@ -281,7 +281,7 @@ function UploadBadge({
         e.stopPropagation();
         if (failing) void queue.retryBlob(blobId);
       }}
-      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm ${
+      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium backdrop-blur-sm ${
         side === "left" ? "left-1.5" : "right-1.5"
       } ${
         failing
@@ -363,7 +363,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // borrows the card tokens directly.
     <article
-      className="group relative rounded-2xl bg-card p-3.5 text-card-foreground shadow-sm transition hover:shadow-md"
+      className="group relative rounded-2xl bg-card p-3.5 text-card-foreground"
       // Touch has no hover actions, so tapping the card body opens the detail
       // view instead; links and buttons inside keep their own behavior.
       onClick={(e) => {
@@ -374,7 +374,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
     >
       {/* hover actions. A Tooltip supplies the description, not the name — these
           are icon-only, so each still needs its own aria-label. */}
-      <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border bg-card px-1 py-0.5 shadow-sm group-hover:flex">
+      <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border bg-card px-1 py-0.5 group-hover:flex">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

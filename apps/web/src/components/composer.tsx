@@ -353,7 +353,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
             ref={cardRef}
-            className={`rounded-3xl border bg-card shadow-float transition ${
+            className={`rounded-3xl border bg-card transition ${
               dragZone === "composer" ? "border-primary ring-4 ring-accent" : ""
             }`}
           >
@@ -554,7 +554,7 @@ function AttachmentChip({
       <Button
         variant="outline"
         size="icon-xs"
-        className="absolute -right-1.5 -top-1.5 hidden rounded-full text-muted-foreground shadow-sm hover:text-destructive group-hover/att:flex max-md:flex"
+        className="absolute -right-1.5 -top-1.5 hidden rounded-full text-muted-foreground hover:text-destructive group-hover/att:flex max-md:flex"
         title="Remove"
         onClick={onRemove}
       >
@@ -594,16 +594,13 @@ function ProgressRing({ value }: { value: number }) {
  */
 function DropOverlay() {
   return (
-    // Dimmed, not a takeover: the page stays visible underneath, and the
-    // message rides on a card so its contrast comes from the card, not the
-    // overlay.
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-overlay/overlay-strong p-4 backdrop-blur-xs">
-      <div className="flex flex-col items-center gap-2 rounded-2xl border bg-card px-8 py-6 text-center shadow-float">
-        <Icon name="plus" className="size-8 text-primary" />
-        <p className="font-semibold">Drop to add to your ragbag</p>
-        <p className="text-sm text-muted-foreground">
-          Images, PDFs, anything — release anywhere on this page
-        </p>
+    // No scrim: the page is left exactly as it was, and only the one sentence
+    // rides in on a card — which is what keeps it legible over whatever
+    // happens to be underneath it.
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="flex items-center gap-2.5 rounded-2xl border bg-card px-5 py-3.5 text-center font-medium">
+        <Icon name="filePlus" className="size-5 text-primary" />
+        Drop the files to add to your message
       </div>
     </div>
   );
