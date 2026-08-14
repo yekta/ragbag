@@ -190,7 +190,7 @@ _1. The chroma budget is lopsided_ — this is what makes it read as _subtle_ mi
 | highlight      | accent, sidebar-accent                                                     | 0.018 – 0.024      |
 | working colour | primary, ring, destructive, warning, success, `--kind-*`, `--ai`           | 0.03 – 0.18        |
 
-At those surface values a light canvas is `#f4f6f5` against a neutral `#f6f6f6`, and a dark canvas
+At those surface values a light canvas is `#f1f3f2` against a neutral `#f2f2f2`, and a dark canvas
 `#121514` against `#141414` — a max channel delta of ~2/255. The tint is present when you look for
 it and invisible when you don't, while `primary` (`#2d6956`), the active nav row and the kind
 tokens stay unmistakably mint. Raising surface chroma back toward 0.015+ is what made the first
@@ -246,17 +246,18 @@ dark mode.
 
 ### 3.2 Verified numbers
 
-Light / dark, recomputed after the 2026-08-13 desaturation:
+Light / dark, recomputed after the 2026-08-13 desaturation; the two `background` rows again after
+the 2026-08-14 canvas step (light `--background` 0.985 → 0.972 → 0.962):
 
 | pair                                 | ratio                     |
 | ------------------------------------ | ------------------------- |
-| foreground / background              | 15.50 / 15.27             |
+| foreground / background              | 14.50 / 15.27             |
 | foreground / card                    | 16.04 / 13.89             |
 | muted-foreground / card              | 5.79 / 6.59               |
 | primary-foreground / primary         | 6.19 / 9.23               |
 | accent-foreground / accent           | 11.21 / 10.33             |
 | foreground / sidebar-accent (active) | 13.94 / —                 |
-| ring / background                    | 3.98 / 6.59               |
+| ring / background                    | 3.72 / 6.59               |
 | every `--kind-*` on card             | 4.59 – 5.37 / 7.01 – 8.76 |
 | warning-foreground / warning         | 7.67 / 9.13               |
 
