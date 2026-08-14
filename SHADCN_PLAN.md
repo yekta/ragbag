@@ -369,6 +369,47 @@ against.
 `color-mix(in oklab, var(--background) …)` keeps the stops derived from the theme rather than
 restating the canvas colour twice per theme.
 
+### 3.7 Radius ladder and nesting (added 2026-08-14)
+
+All seven rungs are declared in `@theme inline`, derived from `--radius` (0.75rem):
+
+| utility | value | typical use |
+| --- | --- | --- |
+| `rounded-xs` | 4px | checkbox, favicon, `kbd` |
+| `rounded-sm` | 6px | todo checkbox, attachment thumbnail |
+| `rounded-md` | 8px | buttons, inputs, icon tiles, menu rows |
+| `rounded-lg` | 12px | blocks nested inside a card |
+| `rounded-xl` | 16px | top-level blocks on a flat panel (item detail) |
+| `rounded-2xl` | 20px | floating cards, dialogs, the sidebar |
+| `rounded-3xl` | 24px | the composer |
+
+Declaring all seven is the point. An undeclared rung doesn't disappear — it falls back to
+Tailwind's stock value, and stock `2xl` is `1rem`, the same 16px our `xl` resolves to. With `xs`,
+`2xl` and `3xl` left out, `ItemCard` (`rounded-2xl`) and every block inside it (`rounded-xl`) drew
+identical corners, so the inner curves bulged past the outer ones instead of nesting inside them.
+
+Nesting rule:
+
+1. **Concentric.** A child flush against its parent's padding is `parent radius − padding`, snapped
+   to the nearest rung.
+2. **Isolated.** Once the padding reaches the parent's radius the two curves no longer interact;
+   size the child by its own scale, but never rounder than its parent.
+3. **Pills are exempt.** `rounded-full` badges, chips, avatars and icon buttons sit outside the
+   ladder and never step down.
+
+The item card's cascade is `20 → 12 → 8 → 4`: card, then the address/link/image/file block, then
+the icon tile or thumbnail inside it, then the favicon. Strict rule 1 would put the blocks at
+20 − 14 (`p-3.5`) = 6px, which reads as a slab under an 80px photo; 12px is the deliberate
+deviation — two rungs down, unmistakably nested, still generous. The composer follows rule 1
+exactly: 24 → 12 (`px-3`) → 6 (`p-1.5`).
+
+Item detail is the exception that proves the rule: its `Sheet` is a full-height edge panel with no
+radius, so the blocks inside it are top-level surfaces, not nested ones, and stay at `rounded-xl`.
+
+`rounded-[2px]` on the tooltip arrow is the only literal radius left in the app — it's a rotated
+decorative square, not a surface. `grep -rn 'rounded-\[' apps/web/src` should return that one line
+and nothing else.
+
 ---
 
 ## 4. Phase 2 — rename + primitive adoption

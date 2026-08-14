@@ -21,7 +21,7 @@ export function SignIn() {
     <main className="flex h-dvh items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-float">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <span className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Icon name="inbox" className="size-6" />
           </span>
           <div>

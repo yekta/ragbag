@@ -571,11 +571,11 @@ function AttachmentChip({
 
   return (
     <span
-      className={`group/att relative flex items-center gap-2 rounded-xl border bg-muted p-1.5 pr-2.5 ${
+      className={`group/att relative flex items-center gap-2 rounded-lg border bg-muted p-1.5 pr-2.5 ${
         failedReason ? "border-destructive/60" : ""
       }`}
     >
-      <span className="relative size-10 shrink-0 overflow-hidden rounded-lg">
+      <span className="relative size-10 shrink-0 overflow-hidden rounded-sm">
         {a.previewUrl ? (
           <img src={a.previewUrl} alt="" className="size-full object-cover" />
         ) : (

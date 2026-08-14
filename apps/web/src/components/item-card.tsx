@@ -111,9 +111,7 @@ export function TodoBody({ item, size = "sm" }: { item: TimelineItem; size?: "sm
         aria-checked={done}
         aria-label={done ? "Mark as not done" : "Mark as done"}
         title={done ? "Mark as not done" : "Mark as done"}
-        // Explicit radius: --radius is 0.75rem for the app's big cards, and
-        // `rounded-md` off that turns a 20px box into a circle.
-        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring ${
+        className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm border transition focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring ${
           done
             ? "border-kind-todo bg-kind-todo text-background"
             : "border-input text-transparent hover:border-kind-todo hover:text-kind-todo"
@@ -179,8 +177,8 @@ export function AddressActions({ address }: { address: string }) {
 export function AddressBody({ item }: { item: TimelineItem }) {
   const address = item.text ?? "";
   return (
-    <div className="mt-0.5 flex gap-3 rounded-xl border bg-panel p-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-kind-address-soft text-kind-address">
+    <div className="mt-0.5 flex gap-3 rounded-lg border bg-panel p-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-kind-address-soft text-kind-address">
         <Icon name="address" className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
@@ -204,12 +202,12 @@ function LinkBody({ item }: { item: TimelineItem }) {
       href={item.url ?? "#"}
       target="_blank"
       rel="noreferrer"
-      className="group/link mt-0.5 flex gap-3 rounded-xl border bg-panel p-3 transition hover:bg-accent"
+      className="group/link mt-0.5 flex gap-3 rounded-lg border bg-panel p-3 transition hover:bg-accent"
     >
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           {c?.faviconUrl && (
-            <img src={c.faviconUrl} alt="" className="size-3.5 rounded-sm" loading="lazy" />
+            <img src={c.faviconUrl} alt="" className="size-3.5 rounded-xs" loading="lazy" />
           )}
           <span className="truncate">{c?.siteName ?? host ?? item.url}</span>
         </span>
@@ -227,7 +225,7 @@ function LinkBody({ item }: { item: TimelineItem }) {
           src={c.imageUrl}
           alt=""
           loading="lazy"
-          className="hidden size-20 shrink-0 rounded-lg object-cover sm:block"
+          className="hidden size-20 shrink-0 rounded-md object-cover sm:block"
         />
       )}
     </a>
@@ -306,13 +304,13 @@ function ImageBody({ item }: { item: TimelineItem }) {
       <img
         src={url}
         alt={item.content?.title ?? "dumped image"}
-        className="max-h-80 max-w-full cursor-zoom-in rounded-xl border object-contain"
+        className="max-h-80 max-w-full cursor-zoom-in rounded-lg border object-contain"
         onClick={() => void navigate({ to: "/item/$id", params: { id: item.id } })}
       />
       <UploadBadge blobId={item.blobId} />
     </span>
   ) : (
-    <div className="mt-0.5 flex h-40 w-64 max-w-full animate-pulse items-center justify-center rounded-xl border bg-muted text-muted-foreground">
+    <div className="mt-0.5 flex h-40 w-64 max-w-full animate-pulse items-center justify-center rounded-lg border bg-muted text-muted-foreground">
       <Icon name="image" className="size-6" />
     </div>
   );
@@ -324,10 +322,10 @@ function FileBody({ item }: { item: TimelineItem }) {
     <Link
       to="/item/$id"
       params={{ id: item.id }}
-      className="relative mt-0.5 flex items-center gap-3 rounded-xl border bg-panel p-3 transition hover:bg-accent"
+      className="relative mt-0.5 flex items-center gap-3 rounded-lg border bg-panel p-3 transition hover:bg-accent"
     >
       <span
-        className={`flex size-10 items-center justify-center rounded-lg ${
+        className={`flex size-10 items-center justify-center rounded-md ${
           item.kind === "pdf"
             ? "bg-kind-pdf-soft text-kind-pdf"
             : "bg-kind-file-soft text-kind-file"

@@ -208,10 +208,23 @@
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* All seven rungs are declared. Leaving any of them out doesn't disable it —
+     it falls back to Tailwind's stock value, and stock `2xl` is 1rem, the same
+     16px as our `xl`. That collision is why cards and the blocks inside them
+     used to carry identical corners.
+
+     Nesting rule (SHADCN_PLAN.md §3.7): a child flush against its parent's
+     padding is `parent radius - padding`, snapped to the nearest rung; once the
+     padding reaches the parent's radius the curves no longer interact, so the
+     child is sized by its own scale but never rounder than its parent;
+     `rounded-full` pills sit outside the ladder entirely. */
+  --radius-xs: calc(var(--radius) - 8px); /* 4px */
+  --radius-sm: calc(var(--radius) - 6px); /* 6px */
+  --radius-md: calc(var(--radius) - 4px); /* 8px */
+  --radius-lg: var(--radius); /* 12px */
+  --radius-xl: calc(var(--radius) + 4px); /* 16px */
+  --radius-2xl: calc(var(--radius) + 8px); /* 20px */
+  --radius-3xl: calc(var(--radius) + 12px); /* 24px */
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

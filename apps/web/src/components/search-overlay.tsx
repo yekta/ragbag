@@ -25,7 +25,7 @@ function ResultRow({ item, onPick }: { item: TimelineItem; onPick: () => void })
   const title = item.content?.title ?? item.text?.split("\n")[0] ?? item.url ?? `(${item.kind})`;
   const context = item.content?.aiSummary ?? item.content?.description ?? hostOf(item.url) ?? "";
   return (
-    <CommandItem value={item.id} onSelect={onPick} className="gap-3 rounded-xl px-3 py-2.5">
+    <CommandItem value={item.id} onSelect={onPick} className="gap-3 rounded-lg px-3 py-2.5">
       <KindDot kind={item.kind} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{title}</span>
