@@ -43,6 +43,13 @@
      off the card. */
   --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
 
+  /* The timeline's top runway, the twin of --composer-inset at the other end.
+     The floating menu/search controls sit `top-3` and are `size-9`, so their
+     band ends 3rem down; the runway clears that band plus the same 0.75rem gap
+     the controls keep from the edge. Defined here because two things depend on
+     the same number — change the controls' offset or size and this follows. */
+  --timeline-inset-top: calc(0.75rem + 2.25rem + 0.75rem); /* 3.75rem = 60px */
+
   --background: oklch(0.985 0.003 168); /* #f8fbfa */
   --foreground: oklch(0.245 0.01 172); /* #1c2220 */
   --card: oklch(0.997 0.0015 168);

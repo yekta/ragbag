@@ -87,9 +87,11 @@ export function Timeline({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        // pb-36 clears the floating composer so the newest card isn't hidden
-        // behind it when scrolled to the bottom.
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-36"
+        // Both ends are inset for the chrome that floats over them: the menu
+        // and search controls at the top, the composer at the bottom. Content
+        // may pass behind them while scrolling; it may never come to rest
+        // under them.
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-(--timeline-inset-top) pb-36"
         onScroll={() => {
           const el = scrollRef.current;
           if (!el) return;
