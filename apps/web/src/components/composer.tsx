@@ -1,20 +1,11 @@
 import type { CapturedBlob } from "@ragbag/client-runtime";
 import { MAX_BLOB_BYTES, mutators } from "@ragbag/contracts";
 import { kindForMime, newId, normalizeUrl, parseTextCapture } from "@ragbag/shared";
-import type { TextItemKind } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Icon } from "@/components/icon";
-import type { IconName } from "@/components/icon";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useBlobQueue, useBlobQueueState, useBlobUploadState } from "@/lib/blobs";
 import { useDictation } from "@/lib/dictation";
@@ -33,25 +24,12 @@ import { isTouch } from "@/lib/touch";
 // classified reason and a retry). Nothing here waits silently: every async
 // stage has a deadline, and a failure is a state on the chip, not a mystery.
 //
-// Floats over the timeline: "+" bottom-left opens the file picker, the type
-// button next to it forces a kind when the guess would be wrong, and the
+// Floats over the timeline: "+" bottom-left opens the file picker, and the
 // bottom-right control is a mic while the box is empty, becoming send as soon
-// as there is something to dump.
+// as there is something to dump. The kind is always guessed — there is no
+// type picker to get in the way.
 
-type CaptureType = "auto" | TextItemKind;
-
-const CAPTURE_TYPES: { value: CaptureType; label: string; icon: IconName; placeholder: string }[] =
-  [
-    {
-      value: "auto",
-      label: "Auto",
-      icon: "sparkles",
-      placeholder: "Dump anything — a thought, a link, a file…",
-    },
-    { value: "note", label: "Note", icon: "note", placeholder: "Write a note…" },
-    { value: "todo", label: "Todo", icon: "todo", placeholder: "What needs doing?" },
-    { value: "address", label: "Address", icon: "address", placeholder: "Street, city…" },
-  ];
+const PLACEHOLDER = "Dump anything — a thought, a link, a file…";
 
 type Attachment = {
   /** Chip identity from the moment of pick — before any blobId exists. */
@@ -109,9 +87,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     attachmentsRef.current = update(attachmentsRef.current);
     setAttachmentsState(attachmentsRef.current);
   }, []);
-  // Sticky within the session: someone adding five todos shouldn't re-pick the
-  // type five times. "auto" is the default and the common case.
-  const [captureType, setCaptureType] = useState<CaptureType>("auto");
   // Where the dragged files currently hover: over the composer (it highlights
   // itself, as before) or anywhere else (the whole viewport reports it).
   const [dragZone, setDragZone] = useState<"composer" | "window" | null>(null);
@@ -334,10 +309,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         );
         void queue.linkItem(captured.blobId, id);
       });
-    } else if (captureType !== "auto") {
-      // An explicit pick wins over every guess — including "this looks like a
-      // URL": someone typing an address into the Address box means it.
-      watchServer(zero.mutate(mutators.item.create({ id: newId(), kind: captureType, text })));
     } else {
       const parsed = parseTextCapture(text);
       watchServer(
@@ -359,7 +330,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   };
 
   const showSend = hasContent || !dictation.supported;
-  const selected = CAPTURE_TYPES.find((t) => t.value === captureType)!;
 
   return (
     <>
@@ -403,7 +373,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               // opens.
               autoFocus={!isTouch}
               className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base dark:bg-transparent"
-              placeholder={dictation.listening ? "Listening…" : selected.placeholder}
+              placeholder={dictation.listening ? "Listening…" : PLACEHOLDER}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -415,58 +385,16 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
             />
 
             <div className="flex items-center justify-between px-2.5 pb-2.5">
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="rounded-full text-muted-foreground"
-                  title={
-                    canAttach ? "Attach files" : "Blob storage is not configured on the server"
-                  }
-                  disabled={!canAttach}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Icon name="plus" className="size-5" />
-                </Button>
-
-                {/* Type override. Auto is the default — this is for the dumps
-                    the guess would get wrong (an address, a task without a
-                    marker), not the everyday path. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={`h-9 gap-1.5 rounded-full px-2.5 ${
-                        captureType === "auto"
-                          ? "text-muted-foreground"
-                          : "border-primary text-primary"
-                      }`}
-                      title={`Dump as: ${selected.label}`}
-                    >
-                      <Icon name={selected.icon} className="size-4" />
-                      {captureType !== "auto" && (
-                        <span className="text-xs font-medium">{selected.label}</span>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="top" className="w-44">
-                    <DropdownMenuRadioGroup
-                      value={captureType}
-                      onValueChange={(value) => {
-                        setCaptureType(value as CaptureType);
-                        textareaRef.current?.focus();
-                      }}
-                    >
-                      {CAPTURE_TYPES.map((type) => (
-                        <DropdownMenuRadioItem key={type.value} value={type.value}>
-                          <Icon name={type.icon} className="size-4" />
-                          {type.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full text-muted-foreground"
+                title={canAttach ? "Attach files" : "Blob storage is not configured on the server"}
+                disabled={!canAttach}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Icon name="plus" className="size-5" />
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
