@@ -344,12 +344,11 @@ the loading spinner on the way out.
 Measured on the production bundle (dev numbers are inflated by StrictMode's double render): mobile
 drawer click → fully settled in **217–265ms**, of which 24–51ms is React mounting the portal.
 
-### 3.6 Canvas fade behind the composer (added 2026-08-13)
+### 3.6 Canvas strip behind the composer (added 2026-08-13, made solid 2026-08-14)
 
-`fade-to-canvas` in `index.css`, applied to a `pointer-events-none absolute inset-x-0 bottom-0` div
-**inside the composer's own wrapper** in `composer.tsx`. Positioning it against `SidebarInset`
-instead makes it a fraction of the _page_ and washes out half the timeline; it belongs to the
-composer.
+A `pointer-events-none absolute inset-x-0 bottom-0 bg-background` div **inside the composer's own
+wrapper** in `composer.tsx`. Positioning it against `SidebarInset` instead makes it a fraction of
+the _page_ and washes out half the timeline; it belongs to the composer.
 
 Its height is `calc(var(--composer-inset) + 1rem)` — the gap between the card and the bottom of the
 column, plus 1rem that tucks in behind the card. Sized off the gap rather than the card because the
@@ -357,17 +356,17 @@ card grows with its content (the textarea autosizes to 200px) while the gap is f
 height would drift with the draft. `--composer-inset` is declared once in `index.css` and feeds both
 the wrapper's `pb-(--composer-inset)` and this height, so the two can't disagree.
 
-`inset-x-0` resolves against the wrapper's padding box, so the fade is full-bleed and covers the
-safe-area strip. The card wrapper gets `relative` so it keeps painting above the fade — both live in
-the same stacking context, and an unpositioned block falls behind a positioned sibling.
+`inset-x-0` resolves against the wrapper's padding box, so the strip is full-bleed and covers the
+safe-area strip. The card wrapper gets `relative` so it keeps painting above it — both live in the
+same stacking context, and an unpositioned block falls behind a positioned sibling.
 
-Stops: `--background` at the bottom, 75% at the top. It doesn't need to reach transparent because
-the top edge sits behind the composer card — that's what the `+ 1rem` on the height buys — and
-either side of the card it's background over background, so there's nothing for a step to show
-against.
-
-`color-mix(in oklab, var(--background) …)` keeps the stops derived from the theme rather than
-restating the canvas colour twice per theme.
+Solid `--background`, not a gradient. The first version was a `fade-to-canvas` `@utility` ramping
+from the canvas colour to 75% of it, which meant a translucent stop — a third exception to §3.2's
+"every colour is an opaque token", for a ramp that read as haze over the bottom of the timeline. A
+flat fill has no visible top edge to hide anyway: in the middle it sits behind the composer card
+(what the `+ 1rem` on the height buys), and either side of the card it's background over background,
+because the timeline column (`max-w-3xl px-4`) is inset further than the composer card
+(`max-w-3xl` inside the wrapper's `px-3`/`md:px-4`), so no scrolling card ever reaches that band.
 
 ### 3.7 Radius ladder and nesting (added 2026-08-14)
 

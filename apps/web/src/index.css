@@ -38,8 +38,9 @@
 
   /* The composer's constant distance from the bottom of the column. Defined
      once because two things depend on it: the composer's own bottom padding,
-     and the height of the fade behind it — the card grows with its content but
-     this gap never does, so the fade is sized off the gap, not off the card. */
+     and the height of the canvas strip behind it — the card grows with its
+     content but this gap never does, so the strip is sized off the gap, not
+     off the card. */
   --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
 
   --background: oklch(0.985 0.003 168); /* #f8fbfa */
@@ -359,29 +360,4 @@
       scroll-behavior: auto !important;
     }
   }
-}
-
-/* The canvas fade behind the floating composer: timeline cards dissolve into
- * the background as they scroll toward the bottom instead of sliding under a
- * hard edge.
- *
- * Solid at the very bottom, 75% at the top. The top edge doesn't need to reach
- * transparent because it sits behind the composer card (that's what the +1rem
- * on the height buys), and either side of the card it's background over
- * background — so there's nothing for a step to show against.
- *
- * A gradient stop is translucent by definition, so this is the same accepted
- * exception as `--overlay` and the shadow scale: the alpha lives in the token and
- * the call site stays a plain class. */
-@utility fade-to-canvas {
-  /* color-mix so the stops stay derived from --background instead of restating
-     the colour per theme. It's inside this project's floor anyway: every token
-     in this file is oklch(), which needs a newer engine than color-mix does.
-     (Lightning CSS emits a no-color-mix fallback that degrades to a solid band,
-     but nothing able to render the rest of the palette will reach it.) */
-  background-image: linear-gradient(
-    to top,
-    var(--background) 0%,
-    color-mix(in oklab, var(--background) 75%, transparent) 100%
-  );
 }

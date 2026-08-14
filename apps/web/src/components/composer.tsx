@@ -365,14 +365,17 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     <>
       {dragZone === "window" && <DropOverlay />}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-(--composer-inset) md:px-4">
-        {/* Fade scoped to this container, not the shell column. It covers the
-            gap between the card and the bottom of the column — the only strip
-            where a scrolling card would otherwise be cut off by the viewport
-            edge — plus 1rem that tucks behind the card. Sized off the gap
-            rather than the card because the card grows with its content while
-            the gap is constant. `relative` on the card below keeps it painting
-            on top. */}
-        <div className="fade-to-canvas pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--composer-inset)_+_1rem)]" />
+        {/* Canvas strip scoped to this container, not the shell column. It
+            covers the gap between the card and the bottom of the column — the
+            only strip where a scrolling card would otherwise be cut off by the
+            viewport edge — plus 1rem that tucks behind the card. Solid
+            `--background`, not a gradient: nothing translucent, and its top
+            edge is invisible anyway (behind the card in the middle, background
+            over background either side, since the timeline column is inset
+            further than this card). Sized off the gap rather than the card
+            because the card grows with its content while the gap is constant.
+            `relative` on the card below keeps it painting on top. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--composer-inset)_+_1rem)] bg-background" />
         <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
             ref={cardRef}
