@@ -127,14 +127,21 @@
      (`oklch(0.19 0.005 174)`) taken a step darker, same chroma and hue. Only
      the strength differs by theme — `--overlay-alpha`, exposed as the named
      `--opacity-overlay` modifier in the @theme block below so call sites read
-     `bg-overlay/overlay` rather than a baked-in alpha. Whatever sits on top
-     brings its own surface — the overlay never carries text. */
+     `bg-overlay/overlay` rather than a baked-in alpha. Usually whatever sits on
+     top brings its own surface; where it doesn't, the overlay goes to the
+     stronger strength below so it can carry text itself. */
   --overlay: oklch(0.14 0.005 174);
   /* A percentage, not a 0–1 alpha: Tailwind compiles the modifier to
      `color-mix(in oklab, var(--overlay) var(--overlay-alpha), transparent)`,
      and color-mix only takes percentages. A bare `0.4` makes the declaration
      invalid, which silently drops it back to the opaque fallback. */
   --overlay-alpha: 40%;
+  /* The strength for an overlay that carries its own content rather than
+     something with its own surface — the drop state, which puts an icon and a
+     line of text straight on it. Needs no dark-theme re-tune, unlike the base:
+     at 80% the overlay is close enough to opaque that the canvas underneath
+     barely moves the result either way. */
+  --overlay-alpha-strong: 80%;
 
   /* Shadows are mint-tinted, never neutral black. Split into a colour and four
      strengths so the dark theme can re-tune both without touching the scale. */
@@ -302,10 +309,13 @@
   --color-ai-soft: var(--ai-soft);
 
   --color-overlay: var(--overlay);
-  /* Named opacity modifier: `bg-overlay/overlay`. Points at `--overlay-alpha`
-     so `.dark` can re-tune the strength at runtime — the scrim needs more of
-     itself to register against a dark canvas than against a light one. */
+  /* Named opacity modifiers: `bg-overlay/overlay` under something that brings
+     its own surface, `bg-overlay/overlay-strong` when the overlay itself is the
+     surface. The first points at `--overlay-alpha` so `.dark` can re-tune the
+     strength at runtime — the overlay needs more of itself to register against
+     a dark canvas than against a light one. */
   --opacity-overlay: var(--overlay-alpha);
+  --opacity-overlay-strong: var(--overlay-alpha-strong);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

@@ -589,19 +589,18 @@ function ProgressRing({ value }: { value: number }) {
 /**
  * Full-viewport drop state, shown while files hover anywhere but the composer.
  * pointer-events-none throughout: the window-level handlers own the drop, and
- * an overlay that swallowed events would break it — so this stays a plain div
+ * a scrim that swallowed events would break it — so this stays a plain div
  * rather than a Radix dialog.
  */
 function DropOverlay() {
   return (
-    // No scrim: the page is left exactly as it was, and only the one sentence
-    // rides in on a card — which is what keeps it legible over whatever
-    // happens to be underneath it.
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="flex items-center gap-2.5 rounded-2xl border bg-card px-5 py-3.5 text-center font-medium">
-        <Icon name="filePlus" className="size-5 text-primary" />
-        Drop the files to add to your message
-      </div>
+    // The overlay is the surface: it dims the whole page, and the icon and
+    // label sit straight on it — no card. Hence the strong strength, and hence
+    // light ink under both themes: `--overlay` is the same dark colour either
+    // way, so the light theme's ink would disappear into it.
+    <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-overlay/overlay-strong p-6 text-center text-background dark:text-foreground">
+      <Icon name="filePlus" className="size-12" />
+      <p className="text-lg font-medium">Drop the files to add to your message</p>
     </div>
   );
 }
