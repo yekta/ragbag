@@ -4,9 +4,11 @@ Status: planned (root causes measured in a headless browser, 2026-08-14).
 
 Trigger: a cold load of the web app shows "Syncing your archive…", then the
 cards, then "Syncing your archive…" again, then the cards — several times over.
-The sign-in screen has its own version: a spinner, then a card saying "Reaching
-the server…", then the same card 16px taller with the actual buttons in it.
-Both are the same defect wearing different clothes.
+The cards themselves arrive in waves, and each wave scrolls the page to the
+bottom again: a fast, jarring staircase. The sign-in screen has its own version:
+a spinner, then a card saying "Reaching the server…", then the same card 16px
+taller with the actual buttons in it. All of it is the same defect wearing
+different clothes.
 
 The rule, everywhere in the app:
 
@@ -16,9 +18,11 @@ The rule, everywhere in the app:
 > long enough to be read. The finished screen then arrives complete: no
 > second-guessing, no reflow, no swap.
 
-Three ingredients: **settle** (don't paint an unsettled state), **patience**
-(a status that hasn't held for N ms isn't a status yet), **reserve** (whatever
-arrives late is allotted its space in advance).
+Four ingredients: **settle** (don't paint an unsettled state), **quiet** (one
+wave of rows is not the archive — wait for the stream to stop), **patience** (a
+status that hasn't held for N ms isn't a status yet), **reserve** (whatever
+arrives late is allotted its space in advance, so nothing it does moves anything
+else).
 
 ---
 
@@ -263,18 +267,17 @@ workspace immediately from localStorage without waiting for the session probe.
 
 ```tsx
 // Non-empty is not enough: the first wave of a cold sync is a complete, wrong
-// archive (§1.4b). The row set has to have stopped moving.
-const arrived = items.length > 0 && useQuiet(items, SETTLE.quiet);
-const known = arrived || itemsResult.type === "complete" || syncPaused;
+// archive (§1.4b). The row set has to have stopped moving. Fingerprinted by
+// length and the two ends rather than by array identity — waves land at the
+// far end of the list, and this holds whether or not Zero hands back a fresh
+// array for every delivery.
+const shape = `${items.length}:${items[0]?.id ?? ""}:${items.at(-1)?.id ?? ""}`;
+const quiet = useQuiet(shape, SETTLE.quiet);
+const known = (items.length > 0 && quiet) || itemsResult.type === "complete" || syncPaused;
 const settled = useLatch(known || useElapsed(SETTLE.reveal));
 …
 <SettleCover show={!settled} message="Syncing your archive…" />   // message only once patient
 ```
-
-`useQuiet(items, …)` compares the snapshot by reference, which is exactly right
-here: Zero hands back a new array for every delivery and the identical one when
-nothing has changed, so "quiet" means "no wave for 150 ms" without hashing
-anything.
 
 `Timeline` takes `settled` and stops guessing:
 
@@ -289,7 +292,45 @@ anything.
 The in-place loader is wrapped in `usePatient` so it cannot blink, and the
 empty state renders only from a settled, complete truth — never as a way-station.
 
-### 3.4 The sign-in screen arrives complete — `sign-in.tsx`
+### 3.4 The list never goes backwards — `timeline.tsx`
+
+The collapse half of §1.4a is what makes the staircase violent: _N_ rows → 0 rows
+→ _N_ rows takes the document from 58 000px to 800px and back, and the scroll
+position with it. §3.1 removes the cause, but the rule is worth enforcing where
+the damage happens, because any future re-materialisation would do it again:
+
+```tsx
+// An empty, unknown snapshot is "we don't know yet", not "the archive is
+// empty" — keep painting the rows we have until something authoritative
+// (complete, or a filter change) says otherwise.
+const shown = items.length === 0 && itemsResult.type === "unknown" ? lastRows.current : items;
+```
+
+A `complete` snapshot with zero rows still clears the list (deleting your last
+item works), and filtering is computed downstream of this, so filters are
+unaffected.
+
+### 3.5 Rows are the size they were last time — `lib/row-heights.ts` (new)
+
+§1.4c: the virtualizer estimates 140px for anything it has not measured, so the
+document keeps resizing under the reader as real heights land. Two changes, both
+inside `estimateSize`:
+
+1. **A content-aware estimate** for rows never seen before — kind and text length
+   are known before layout (an image card is not a one-line todo), which turns a
+   flat guess into a close one.
+2. **Remembered heights.** Measured sizes are written to a `Map` keyed by item id
+   and persisted (debounced, capped, keyed by viewport width — wrapping is
+   width-dependent, so a different width falls back to the heuristic). On the
+   next load every row the device has already rendered estimates to its exact
+   height, the total is right on the first pass, and there is nothing left to
+   correct.
+
+With §3.3 revealing only after the row set is quiet, both the arrival waves and
+the measurement corrections happen behind the cover; what the reader sees is a
+document that is the right height from the first frame it exists.
+
+### 3.6 The sign-in screen arrives complete — `sign-in.tsx`
 
 `meta` becomes a prop (required, non-undefined): the screen is only reachable
 once the capabilities are known, so the "Reaching the server…" branch and its
@@ -297,7 +338,7 @@ attendant resize are deleted outright. The card renders its buttons, or the
 "this server has no sign-in configured" message, in its first and only paint.
 `dropLocalData()` on mount is unchanged.
 
-### 3.5 One shared `/api/meta` — `lib/use-meta.ts`
+### 3.7 One shared `/api/meta` — `lib/use-meta.ts`
 
 Turn the hook into a module-level singleton: one in-flight request, one cached
 answer, subscribers via `useSyncExternalStore`; the existing backoff and
@@ -305,7 +346,7 @@ answer, subscribers via `useSyncExternalStore`; the existing backoff and
 so it overlaps React's mount instead of following it — worth ~100 ms on the
 sign-in path, which is precisely the path that has nothing else to show.
 
-### 3.6 Patient status — `app.tsx` (`SyncBanner`), `sidebar.tsx` (`SyncDot`)
+### 3.8 Patient status — `app.tsx` (`SyncBanner`), `sidebar.tsx` (`SyncDot`)
 
 Both go through `usePatient(…, { delay: SETTLE.status })`: the offline strip
 only appears once the app has really been offline for a second (no more
@@ -313,7 +354,7 @@ one-frame band shoving the timeline down), and the sync dot shows "Connecting…
 only if connecting is actually taking time. Neither ever changes the height of
 anything: the dot's row keeps its size, the strip is either there or not.
 
-### 3.7 Blobs resolve synchronously when they can — `lib/blobs.tsx`
+### 3.9 Blobs resolve synchronously when they can — `lib/blobs.tsx`
 
 - Keep a `Map<blobId, string | null>` of **resolved** URLs beside the existing
   promise cache, and have `useBlobUrl` seed its state from it
@@ -323,7 +364,7 @@ anything: the dot's row keeps its size, the strip is either there or not.
 - Remember each blob's natural aspect ratio (`Map` + `localStorage`, written on
   the image's `load`), exposed as `useBlobAspect(blobId)`.
 
-### 3.8 Media reserves its box — `item-card.tsx`, `item-detail.tsx`
+### 3.10 Media reserves its box — `item-card.tsx`, `item-detail.tsx`
 
 `ImageBody`'s placeholder takes the remembered aspect ratio (falling back to
 today's box when there is none), so the image swap does not change the row's
@@ -331,7 +372,7 @@ height, does not re-trigger the virtualizer's measurement, and does not move the
 rows below it. The pulse is `usePatient`-gated, so a fast local blob never
 pulses. Same treatment for the detail view's hero image and PDF frame.
 
-### 3.9 The detail overlay — `item-detail.tsx`
+### 3.11 The detail overlay — `item-detail.tsx`
 
 The `!item` spinner becomes patient: for a local hit (the normal case) the
 panel's content is simply there when the sheet finishes its entrance; the
@@ -341,14 +382,16 @@ spinner appears only if the item genuinely has to be fetched.
 
 ## 4. What each path looks like afterwards
 
-| path                         | before                                                    | after                                                         |
-| ---------------------------- | --------------------------------------------------------- | ------------------------------------------------------------- |
-| warm load, archive on device | spinner → cards → spinner → cards ×N                      | canvas → the archive, complete, once                          |
-| warm load, slow local store  | same, plus a 570 ms lying spinner                         | canvas → loader (≥450 ms) → the archive                       |
-| new device, real first sync  | spinner → cards → spinner → cards                         | canvas → loader → shell with the in-place sync loader → cards |
-| empty archive                | spinner → empty state                                     | canvas → empty state                                          |
-| offline, nothing on device   | spinner → empty state                                     | canvas → empty state ("…syncs once the connection is back")   |
-| signed out                   | spinner → card "Reaching…" → card with buttons (8px jump) | canvas → the card, complete, once                             |
+| path                          | before                                                               | after                                                                     |
+| ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| warm load, archive on device  | spinner → cards → spinner → cards ×N, each pass re-pinned to the end | canvas → the archive, complete, at its final height, once                 |
+| warm load, slow local store   | same, plus a 570 ms lying spinner                                    | canvas → loader (≥450 ms) → the archive                                   |
+| new device, first sync        | 5 local rows pinned to the bottom → +57 311px of document → re-pin   | canvas → loader → the whole archive, once, already at the newest item     |
+| first sync longer than 1.5 s  | the same staircase, in the open                                      | shell revealed with the in-place sync loader; waves land in an empty list |
+| archive still growing on-view | document resizes under the reader                                    | rows estimate to their remembered heights; the newest item stays put      |
+| empty archive                 | spinner → empty state                                                | canvas → empty state                                                      |
+| offline, nothing on device    | spinner → empty state                                                | canvas → empty state ("…syncs once the connection is back")               |
+| signed out                    | spinner → card "Reaching…" → card with buttons (8px jump)            | canvas → the card, complete, once                                         |
 
 ---
 
@@ -369,7 +412,15 @@ that logs Zero constructions. Acceptance:
 5. Cumulative layout shift over a warm load ≈ 0 (measure with a
    `PerformanceObserver` on `layout-shift`), including a scroll pass over image
    cards, which today shift on every remount.
-6. `pnpm lint` and `pnpm turbo run typecheck test build` clean.
+6. **No staircase**, sampled every animation frame from the moment the shell is
+   revealed (405-item archive, warm and cold, cold also at 400 kbit/s):
+   - the document height never decreases, and reaches its final value on the
+     first frame the list exists (within 1%, vs. the 841px → 58 152px → 58 111px
+     sequence measured today);
+   - no scroll jump at all after reveal — today's warm load still drags the view
+     87px half a second in;
+   - the newest card's box is identical in the first revealed frame and the last.
+7. `pnpm lint` and `pnpm turbo run typecheck test build` clean.
 
 ---
 

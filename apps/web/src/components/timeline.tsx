@@ -192,9 +192,13 @@ export function Timeline({
   return (
     // The top inset is the band the floating controls occupy: content may pass
     // behind them while scrolling, it may never come to rest under them
-    // (INSET_PLAN.md). The bottom end needs no such padding any more — the
-    // composer sits in the flow below this column and takes real space.
-    <div className="relative flex flex-1 flex-col pt-(--timeline-inset-top)">
+    // (INSET_PLAN.md). The bottom is not an inset — the composer sits in the
+    // flow below this column and takes real space — but coming to rest one row
+    // gap from it read as cramped. This padding lands on top of the last row's
+    // own `pb-3`, so the newest card settles 4.5rem clear of the composer: the
+    // breathing room a chat UI leaves between what was said and what you are
+    // typing.
+    <div className="relative flex flex-1 flex-col pt-(--timeline-inset-top) pb-15">
       {empty ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
           {synced || syncPaused ? (
