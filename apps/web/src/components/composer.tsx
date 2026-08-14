@@ -17,12 +17,12 @@ import { isTouch } from "@/lib/touch";
 // the persistent blob queue — capture is local-only, so dumping works offline
 // and uploads follow later.
 //
-// Attachments behave like a chat composer's: the chip (with its image
-// preview) appears the instant a file is picked — hashing, local persistence
-// and the upload all happen behind it, each stage visible ON the chip
-// (reading spinner → upload progress ring → done, or a red state with the
+// Attachments behave like a chat composer's: a fixed square tile (with its
+// image preview) appears the instant a file is picked — hashing, local
+// persistence and the upload all happen behind it, each stage visible ON the
+// tile (reading spinner → upload progress ring → done, or a red state with the
 // classified reason and a retry). Nothing here waits silently: every async
-// stage has a deadline, and a failure is a state on the chip, not a mystery.
+// stage has a deadline, and a failure is a state on the tile, not a mystery.
 //
 // Floats over the timeline: "+" bottom-left opens the file picker, and the
 // bottom-right control is a mic while the box is empty, becoming send as soon
@@ -448,10 +448,19 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
 }
 
 /**
- * One attachment chip: thumbnail (instant), name/size, and the live stage of
- * this file — reading, uploading (with progress), done, or a red state with
- * the classified reason. The overlay doubles as the retry button when a
- * retry makes sense.
+ * The tile's edge, fixed for every attachment in every state. Progress used to
+ * be a caption ("Uploading 7%" → "Uploading 100%"), which re-measured the chip
+ * on each XHR progress event and walked the composer — and the timeline above
+ * it — sideways a dozen times per upload. Nothing inside a tile may size it:
+ * state shows as a ring and a scrim over a square that never moves.
+ */
+const TILE = "size-28";
+
+/**
+ * One attachment tile: the picture (instant, from an object URL) or a file
+ * face, with the live stage of this file painted over it — reading, uploading,
+ * done, or a red state with the classified reason. The scrim doubles as the
+ * retry button when a retry makes sense.
  */
 function AttachmentChip({
   attachment: a,
@@ -465,37 +474,35 @@ function AttachmentChip({
   const queue = useBlobQueue();
   const queueState = useBlobQueueState();
   const upload = useBlobUploadState(a.captured?.blobId);
+  // An `image/*` type the decoder then refuses (a .ico is the usual one) —
+  // fall back to the file face rather than leave a broken-image glyph.
+  const [undecodable, setUndecodable] = useState(false);
 
-  // Collapse the two lifecycles (local capture, then upload) into one badge.
+  // Collapse the two lifecycles (local capture, then upload) into one overlay.
   let overlay: ReactNode = null;
-  let subtitle: React.ReactNode = formatBytes(a.size);
+  let stage: string | null = null;
   let failedReason: string | null = null;
 
   if (a.status === "reading") {
-    overlay = <Icon name="spinner" className="size-4 animate-spin [animation-duration:2s]" />;
+    overlay = <ProgressRing />;
+    stage = "Reading…";
   } else if (a.status === "error") {
     failedReason = a.error ?? "Couldn't read this file";
   } else if (queueState.blocked === "auth" && upload && upload.stage !== "done") {
-    overlay = <Icon name="pause" className="size-4" />;
-    subtitle = "Waiting for sign-in";
+    overlay = <Icon name="pause" className="size-6" />;
+    stage = "Waiting for sign-in";
   } else if (upload?.stage === "inflight") {
-    overlay =
-      upload.progress !== null ? (
-        <ProgressRing value={upload.progress} />
-      ) : (
-        <Icon name="spinner" className="size-4 animate-spin [animation-duration:2s]" />
-      );
-    subtitle =
-      upload.progress !== null ? `Uploading ${Math.round(upload.progress * 100)}%` : "Uploading…";
+    overlay = <ProgressRing value={upload.progress ?? undefined} />;
+    stage = "Uploading…";
   } else if (upload?.stage === "waiting") {
     if (upload.lastError) {
       failedReason = upload.lastError;
     } else {
-      overlay = <Icon name="spinner" className="size-4 animate-spin [animation-duration:2s]" />;
-      subtitle = "Queued";
+      overlay = <ProgressRing />;
+      stage = "Queued";
     }
   }
-  // upload absent or done → plain chip; the timeline shows the item next.
+  // upload absent or done → bare tile; the timeline shows the item next.
 
   const retry =
     a.status === "error" && a.retryable !== false
@@ -504,52 +511,53 @@ function AttachmentChip({
         ? () => void queue.retryBlob(a.captured!.blobId)
         : null;
 
+  // The name is gone from the face of a picture (you can see which file it is),
+  // so the hover text carries it — along with the size and whatever this file
+  // is doing right now.
+  const title = failedReason
+    ? `${a.name} — ${failedReason}${retry ? " (click to retry)" : ""}`
+    : `${a.name} · ${formatBytes(a.size)}${stage ? ` · ${stage}` : ""}`;
+
+  const scrim = `absolute inset-0 flex items-center justify-center ${
+    failedReason ? "bg-destructive/15 text-destructive" : "bg-card/70 text-foreground"
+  }`;
+
   return (
-    <span
-      className={`group/att relative flex items-center gap-2 rounded-lg border bg-muted p-1.5 pr-2.5 ${
-        failedReason ? "border-destructive/60" : ""
-      }`}
-    >
-      <span className="relative size-10 shrink-0 overflow-hidden rounded-sm">
-        {a.previewUrl ? (
-          <img src={a.previewUrl} alt="" className="size-full object-cover" />
+    // Overflow is clipped one level in, so the remove button can still hang off
+    // the corner.
+    <span className={`group/att relative shrink-0 ${TILE}`}>
+      <span
+        className={`block size-full overflow-hidden rounded-xl border bg-muted ${
+          failedReason ? "border-destructive/60" : ""
+        }`}
+        title={title}
+      >
+        {a.previewUrl && !undecodable ? (
+          <>
+            {/* No alt text: a fallback string would spill out of a tile this
+                size when the bytes fail to decode, and the picture is only half
+                the story anyway — the sr-only line below carries the rest. */}
+            <img
+              src={a.previewUrl}
+              alt=""
+              className="size-full object-cover"
+              onError={() => setUndecodable(true)}
+            />
+            <span className="sr-only">{title}</span>
+          </>
         ) : (
-          <span className="flex size-full items-center justify-center bg-card text-muted-foreground">
-            <Icon name={a.kind === "pdf" ? "pdf" : "file"} className="size-5" />
-          </span>
+          <FileFace attachment={a} />
         )}
         {(overlay || failedReason) &&
           (retry ? (
-            <button
-              type="button"
-              className={`absolute inset-0 flex items-center justify-center ${
-                failedReason ? "bg-destructive/15 text-destructive" : "bg-card/60 text-foreground"
-              }`}
-              title={failedReason ? `${failedReason} — click to retry` : undefined}
-              onClick={retry}
-            >
-              {failedReason ? <Icon name="retry" className="size-4" /> : overlay}
+            <button type="button" className={scrim} title={title} onClick={retry}>
+              {failedReason ? <Icon name="retry" className="size-6" /> : overlay}
             </button>
           ) : (
-            <span
-              className={`absolute inset-0 flex items-center justify-center ${
-                failedReason ? "bg-destructive/15 text-destructive" : "bg-card/60 text-foreground"
-              }`}
-              title={failedReason ?? undefined}
-            >
-              {failedReason ? <Icon name="alert" className="size-4" /> : overlay}
+            <span className={scrim}>
+              {failedReason ? <Icon name="alert" className="size-6" /> : overlay}
             </span>
           ))}
-      </span>
-      <span className="max-w-40">
-        <span className="block truncate text-xs font-medium">{a.name}</span>
-        {failedReason ? (
-          <span className="block truncate text-[11px] text-destructive" title={failedReason}>
-            {failedReason}
-          </span>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">{subtitle}</span>
-        )}
       </span>
       <Button
         variant="outline"
@@ -564,23 +572,50 @@ function AttachmentChip({
   );
 }
 
-/** Tiny determinate progress ring for the chip thumbnail overlay. */
-function ProgressRing({ value }: { value: number }) {
-  const r = 7;
-  const c = 2 * Math.PI * r;
+/**
+ * The face of a file with nothing to show: name and type, laid out inside the
+ * tile. Two PDFs are otherwise the same grey square — and text in here is free,
+ * since the box it sits in is a fixed size no matter what it says.
+ */
+function FileFace({ attachment: a }: { attachment: Attachment }) {
+  const ext = /\.([a-z0-9]{1,8})$/i.exec(a.name)?.[1];
   return (
-    <svg viewBox="0 0 18 18" className="size-[18px] -rotate-90">
-      <circle cx="9" cy="9" r={r} fill="none" strokeWidth="2.5" className="stroke-border" />
+    <span className="flex size-full flex-col justify-between bg-card p-2.5 text-left">
+      <span className="line-clamp-2 break-all text-[11px] font-medium leading-tight">{a.name}</span>
+      <span className="flex items-center gap-1 text-muted-foreground">
+        <Icon name={a.kind === "pdf" ? "pdf" : "file"} className="size-3.5 shrink-0" />
+        {ext && <span className="truncate text-[10px] font-medium uppercase">{ext}</span>}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The whole of the progress feedback on a tile: an arc that fills with `value`,
+ * or spins when there is no number yet (reading, queued, a server that sends no
+ * upload progress). No percentage — the arc says as much, and a caption would
+ * be one more thing changing shape on a file that hasn't finished arriving.
+ */
+function ProgressRing({ value }: { value?: number }) {
+  const r = 9;
+  const c = 2 * Math.PI * r;
+  const arc = value === undefined ? 0.25 : Math.min(1, Math.max(0, value));
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`size-7 -rotate-90 ${value === undefined ? "animate-spin [animation-duration:1.2s]" : ""}`}
+    >
+      <circle cx="12" cy="12" r={r} fill="none" strokeWidth="2.5" className="stroke-border" />
       <circle
-        cx="9"
-        cy="9"
+        cx="12"
+        cy="12"
         r={r}
         fill="none"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeDasharray={c}
-        strokeDashoffset={c * (1 - Math.min(1, Math.max(0, value)))}
-        className="stroke-primary transition-[stroke-dashoffset] duration-200"
+        strokeDashoffset={c * (1 - arc)}
+        className={`stroke-primary ${value === undefined ? "" : "transition-[stroke-dashoffset] duration-200"}`}
       />
     </svg>
   );

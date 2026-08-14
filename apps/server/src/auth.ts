@@ -19,6 +19,17 @@ export const auth = betterAuth({
     schema: { user, session, account, verification },
   }),
   trustedOrigins: [env.WEB_ORIGIN],
+  // Where a failed auth round trip lands the browser. Without this, better-auth
+  // falls back to `Location: /?error=...` — a *relative* redirect, resolved
+  // against baseURL, which is the API host. api.ragbag.app serves no web app,
+  // so every sign-in failure dead-ended on a 404 there.
+  //
+  // This is the fallback arm. The client also sends a per-flow
+  // `errorCallbackURL` (lib/auth-client.ts), but that one rides inside the
+  // signed OAuth state, so it is unreadable in exactly the cases that need it
+  // most: a state cookie that expired or never arrived. Both arms have to point
+  // home for the dead end to be closed.
+  onAPIError: { errorURL: `${env.WEB_ORIGIN.replace(/\/$/, "")}/` },
   // zero-cache authenticates by forwarding the browser's session cookie
   // (ZERO_*_FORWARD_COOKIES), so the cookie has to be visible on its origin
   // too. Scoping it to the parent domain covers app./api./zero. — all

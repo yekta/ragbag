@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { authClient, signInWithGoogle } from "@/lib/auth-client";
+import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-client";
 import { dropLocalData } from "@/lib/identity";
 
 /**
@@ -16,7 +16,9 @@ import { dropLocalData } from "@/lib/identity";
  * a state to explain rather than a wait to hide.
  */
 export function SignIn({ meta }: { meta: MetaResponse | null }) {
-  const [error, setError] = useState<string>();
+  // Seeded, not empty: arriving here straight off a failed Google round trip is
+  // indistinguishable from a first visit unless the error survives the redirect.
+  const [error, setError] = useState<string | undefined>(OAUTH_REDIRECT_ERROR);
 
   // This screen only shows when no device identity exists — first visit, or
   // right after an explicit sign-out. Clearing local stores here (not during

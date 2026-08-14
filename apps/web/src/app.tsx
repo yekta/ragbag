@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
-import { authClient, signInWithGoogle } from "@/lib/auth-client";
+import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-client";
 import { useArchiveHintWriter, useArchiveState, useStableRows } from "@/lib/archive-state";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
@@ -240,7 +240,9 @@ const BANNER_BUTTON =
 
 function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaResponse | undefined }) {
   const zero = useZero();
-  const [error, setError] = useState<string>();
+  // Seeded so a re-auth that failed mid-round-trip explains itself here rather
+  // than silently restoring the generic "Signed out" copy below.
+  const [error, setError] = useState<string | undefined>(OAUTH_REDIRECT_ERROR);
 
   // `sync` is already settled (lib/sync-status.ts): a blip between reconnects
   // never reaches this point, so a banner appearing is always news. That
