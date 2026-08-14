@@ -263,6 +263,9 @@ export function Sidebar({
                   <SidebarMenuItem key={tag.id}>
                     <SidebarMenuButton
                       size="sm"
+                      // Half of this list's `gap-px`, so the rows' hit areas
+                      // tile the gap exactly instead of overlapping it.
+                      className="after:-inset-y-[0.5px]"
                       isActive={tagFilter === tag.id}
                       title={`${tag.kind} tag`}
                       onClick={() => {
