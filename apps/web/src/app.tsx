@@ -2,7 +2,7 @@ import { ragbagZeroOptions } from "@ragbag/client-runtime";
 import { queries, type Schema } from "@ragbag/contracts";
 import { useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
 import { Outlet } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Composer } from "@/components/composer";
 import { Icon } from "@/components/icon";
 import { SearchOverlay } from "@/components/search-overlay";
@@ -358,23 +358,6 @@ function Shell({
 }
 
 /** Inside the provider, so the floating controls can reach `useSidebar()`. */
-/**
- * When the sidebar panel has *visually* left, which is not when its transition
- * ends. `--ease-panel` front-loads the distance: solving it for the 450ms in
- * ui/sidebar.tsx gives 96% of the travel done by here, 97.5% by 250ms and 99%
- * by 300ms, so everything past this point is a tail nobody can see. Waiting out
- * the full duration spent that tail on an empty corner, which reads as the
- * button being late rather than as the panel still arriving.
- *
- * Past the point where the panel has fully arrived: ~17px of its 288px is still
- * on screen here, off at the far edge, and the two never touch anyway because
- * the inset the button sits in is travelling on the same curve, keeping it 20px
- * clear throughout. What is left to tune is the 450ms itself: this offset can
- * only be taken further by making the panel leave faster. Re-derive both if the
- * curve changes.
- */
-const SIDEBAR_CLEARED_MS = 200;
-
 function ShellBody({
   email,
   meta,
@@ -407,16 +390,24 @@ function ShellBody({
   const searchIndex = useTimelineSearch(items);
   const { setSearchOpen } = useViewStore();
   const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
-  // The control that reopens the sidebar belongs to the closed state, and the
-  // app is not in the closed state until the panel has finished leaving: the
-  // panel slides across exactly where this button sits, so showing it on the
-  // click means watching it sit under a moving sheet of sidebar. Opening is the
-  // other way round and needs no wait: it goes at once, ahead of the panel that
-  // is about to cover it. Booting straight into a closed sidebar is neither:
-  // nothing has moved, so there is nothing to wait for.
-  const sidebarUsed = useLatch(open);
-  const sidebarGone = useHeld(!open, SIDEBAR_CLEARED_MS);
-  const showSidebarButton = !open && (!sidebarUsed || sidebarGone);
+  // The reopen button is pinned to the viewport rather than to this column, so
+  // that the closing panel passes over it (the panel outranks this chrome now:
+  // ui/sidebar.tsx) and it is uncovered in place instead of arriving from
+  // somewhere. Being fixed, it does not inherit the banner's slot in the flow
+  // the way the rest of the floating chrome does, so its offset is measured off
+  // the banner rather than assumed. Sticky, and therefore always at the top of
+  // the viewport, so one number holds while scrolling.
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const [bannerHeight, setBannerHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+    const measure = () => setBannerHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
@@ -458,7 +449,9 @@ function ShellBody({
             zero-height when no banner is showing, and a zero-height sticky box
             still sticks, so the controls float exactly as they did. */}
         <div className="sticky top-0 z-30">
-          <SyncBanner sync={sync} meta={meta} />
+          <div ref={bannerRef}>
+            <SyncBanner sync={sync} meta={meta} />
+          </div>
           {/* Zero-height anchor: the floating controls land below the sync
               banner without covering it. */}
           <div className="relative">
@@ -490,9 +483,21 @@ function ShellBody({
                 </FloatingButton>
               </>
             ) : (
-              showSidebarButton && (
+              !open && (
                 <FloatingButton
-                  className="left-3 top-3"
+                  // Mounted the moment the state is "closed", which is while
+                  // the panel is still covering this exact spot, and revealed
+                  // by the panel travelling off it. No animation of its own:
+                  // the movement the eye follows is the sidebar's, and the
+                  // button is simply what was under it. Nothing renders it
+                  // while the sidebar is open either, so it is not sitting in
+                  // the tab order behind a panel that already exists.
+                  //
+                  // `fixed`, not absolute in the column: the column's left edge
+                  // travels with the panel, so a button pinned to it would ride
+                  // out from under the panel instead of being uncovered.
+                  className="fixed left-3"
+                  style={{ top: bannerHeight + 12 }}
                   title="Show sidebar (⌘\)"
                   onClick={() => setOpen(true)}
                 >
