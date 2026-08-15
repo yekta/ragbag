@@ -337,7 +337,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
       {/* Sticky, not fixed: the card keeps its place in the column, so it
           inherits the width the sidebar leaves it with no offset arithmetic —
           and its slot at the end of the flow means the last card can never come
-          to rest under it (WINDOW_SCROLL_PLAN.md §3.3). */}
+          to rest under it. */}
       <div className="pointer-events-none sticky bottom-0 z-20 px-3 pb-(--composer-inset) md:px-4">
         {/* Canvas strip scoped to this container, not the shell column. It
             covers the gap between the card and the bottom of the column — the

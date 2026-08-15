@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-// Timing discipline for everything that arrives asynchronously (SETTLE_PLAN.md).
+// Timing discipline for everything that arrives asynchronously.
 //
 // The rule: a screen may not show a state it is about to take back. Every
 // transition here is caused by an *event* — data arriving, the layout coming to
@@ -93,7 +93,7 @@ const MAX_SETTLE_FRAMES = 120;
  * anchored". A virtualized list lays out at estimated positions, corrects the
  * scroll offset to re-pin the newest item, then corrects again as real
  * measurements land — and in the frame between the first two, the reader is
- * looking at empty space where the archive should be (SETTLE_PLAN.md §1.4c).
+ * looking at empty space where the archive should be.
  * Waiting for a fixed number of milliseconds would be a guess about a machine
  * we cannot see; this measures the actual quantity, so a fast device reveals in
  * ~2 frames and a slow one takes what it needs.

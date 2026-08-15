@@ -1,4 +1,4 @@
-// What this device knew last time (SETTLE_PLAN.md §2.2).
+// What this device knew last time.
 //
 // Zero has no "the local store has finished opening" event — measured: both
 // forms of `zero.run()` answer in milliseconds with zero rows against a store

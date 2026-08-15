@@ -45,8 +45,13 @@
  *    and expects it to disappear — the composer's strip, the settle cover —
  *    rests on this.
  *
- * Values were checked for sRGB gamut and WCAG contrast; ratios in
- * SHADCN_PLAN.md §3.2. */
+ * Values were checked for sRGB gamut and WCAG contrast — every text pair
+ * clears AA and focus rings clear 3:1. The measured ratios, light / dark:
+ * foreground on background 14.50 / 15.27, foreground on card 16.04 / 13.89,
+ * muted-foreground on card 5.79 / 6.59, primary-foreground on primary
+ * 6.19 / 9.23, accent-foreground on accent 11.21 / 10.33, warning-foreground
+ * on warning 7.67 / 9.13, every `--kind-*` on card 4.59–5.37 / 7.01–8.76,
+ * ring on background 3.72 / 6.59. Recheck these when a token moves. */
 
 :root {
   /* The app's language is already rounded-2xl floating cards. */
@@ -273,7 +278,7 @@
      16px as our `xl`. That collision is why cards and the blocks inside them
      used to carry identical corners.
 
-     Nesting rule (SHADCN_PLAN.md §3.7): a child flush against its parent's
+     Nesting rule: a child flush against its parent's
      padding is `parent radius - padding`, snapped to the nearest rung; once the
      padding reaches the parent's radius the curves no longer interact, so the
      child is sized by its own scale but never rounder than its parent;

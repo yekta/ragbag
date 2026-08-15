@@ -4,10 +4,10 @@ import { BUDGET, useHeld, useLayoutSettled } from "@/lib/settle";
 import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
 import type { Timeline } from "@/lib/types";
 
-// What the workspace is doing, in one word, with a reason for each
-// (SETTLE_PLAN.md §2.3). Readiness used to be four booleans spread across the
-// app shell, the timeline and the sidebar, each deciding for itself what an
-// empty-and-unknown query result meant.
+// What the workspace is doing, in one word, with a reason for each. Readiness
+// used to be four booleans spread across the app shell, the timeline and the
+// sidebar, each deciding for itself what an empty-and-unknown query result
+// meant.
 
 export type ArchiveState =
   /** Rows are expected and not here yet — show nothing at all. */
@@ -68,7 +68,7 @@ export function useArchiveHintWriter(state: ArchiveState, count: number): void {
  * An empty, `unknown` snapshot means "we don't know yet" — it is what Zero
  * hands over before its local store answers, and treating it as "the archive is
  * empty" is what let the timeline collapse from thousands of pixels to one
- * screen and back (SETTLE_PLAN.md §1.4a). A `complete` empty result still
+ * screen and back. A `complete` empty result still
  * clears the list, so deleting your last item works.
  */
 export function useStableRows(items: Timeline, resultType: "unknown" | "complete" | "error") {
@@ -82,7 +82,7 @@ export function useStableRows(items: Timeline, resultType: "unknown" | "complete
     warned.current = true;
     console.warn(
       `[settle] the timeline query went from ${last.current.length} rows to 0 while still "unknown" — ` +
-        `holding the last rows (SETTLE_PLAN.md §3.5). A rebuilt Zero client is the usual cause.`,
+        `holding the last rows. A rebuilt Zero client is the usual cause.`,
     );
   }
 

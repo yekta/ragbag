@@ -2,8 +2,9 @@ import { chromium } from "playwright";
 import { rmSync, writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
-// Acceptance harness for SETTLE_PLAN.md — "nothing paints until it is the final
-// answer". Run it against the local dev stack (`pnpm dev` + `pnpm dev:zero-cache`)
+// Acceptance harness for the settle rule (src/lib/settle.ts) — "nothing paints
+// until it is the final answer". Run it against the local dev stack
+// (`pnpm dev` + `pnpm dev:zero-cache`)
 // with an archive of a few hundred items:
 //
 //   node apps/web/scripts/settle-proof.mjs            # all cases

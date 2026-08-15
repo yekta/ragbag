@@ -38,7 +38,7 @@ declare module "@tanstack/react-router" {
   }
 }
 
-// The document is the app's scroller now (WINDOW_SCROLL_PLAN.md), and the
+// The document is the app's scroller now (see components/timeline.tsx), and the
 // timeline always opens at the newest item — so an offset restored from the
 // last visit is never where we want to be. It would also be restored against a
 // page whose height Zero has not filled in yet.

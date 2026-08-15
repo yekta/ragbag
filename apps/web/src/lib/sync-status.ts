@@ -2,7 +2,7 @@ import { useConnectionState } from "@rocicorp/zero/react";
 import { useEffect, useRef, useState } from "react";
 import { STATUS_HOLD_MS } from "@/lib/settle";
 
-// One derived answer to "how is syncing going?" (SETTLE_PLAN.md §3.2).
+// One derived answer to "how is syncing going?"
 //
 // Three places used to interpret `useConnectionState()` their own way — the
 // sidebar dot, the banner, and the timeline's empty state — which is how a

@@ -9,8 +9,8 @@ import { dropLocalData } from "@/lib/identity";
 /**
  * `meta` is passed in, not fetched here: which buttons exist is a server
  * capability, so a card drawn before the answer arrives is a card that changes
- * shape under the cursor. The app shell holds the canvas until it knows
- * (SETTLE_PLAN.md §3.7), and this screen paints once, complete.
+ * shape under the cursor. The app shell holds the canvas until it knows, and
+ * this screen paints once, complete.
  *
  * `null` means the shell gave up waiting — the server is unreachable, which is
  * a state to explain rather than a wait to hide.

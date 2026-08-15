@@ -33,7 +33,7 @@ import type { Zero } from "@rocicorp/zero";
 // pending, expired, or fully offline — and a banner nudges when sync needs a
 // sign-in. Only an explicit sign-out clears the identity (and local data).
 //
-// Nothing here paints a state it is about to take back (SETTLE_PLAN.md): the
+// Nothing here paints a state it is about to take back (lib/settle.ts): the
 // boot screen is the bare canvas until it knows which screen it owes you.
 
 type SessionStatus = "checking" | "ok" | "expired" | "offline";
@@ -149,7 +149,7 @@ export function App() {
  * effect's cleanup is `zero.close()`. An inline callback here rebuilt the Zero
  * client on *every render of `Workspace`* (five clients per page load, measured),
  * which reset every query view to empty and made the timeline flash the sync
- * spinner over and over. See SETTLE_PLAN.md §1.1.
+ * spinner over and over.
  */
 const preloadArchive = (zero: Zero<Schema>) => {
   if (import.meta.env.DEV) {
@@ -157,7 +157,7 @@ const preloadArchive = (zero: Zero<Schema>) => {
     if (inits > 2) {
       console.error(
         `[settle] the Zero client has been built ${inits} times this page load — something ` +
-          `passed ZeroProvider an unstable prop (SETTLE_PLAN.md §1.1). Two is StrictMode's double mount.`,
+          `passed ZeroProvider an unstable prop. Two is StrictMode's double mount.`,
       );
     }
   }
@@ -339,7 +339,7 @@ function Shell({
     // mobile drawer through the underlying Sheet.
     //
     // A *minimum* height, not a fixed one: the shell grows with the archive so
-    // the document itself is what scrolls (WINDOW_SCROLL_PLAN.md). `dvh` over
+    // the document itself is what scrolls (components/timeline.tsx). `dvh` over
     // shadcn's own `svh` so a short archive still puts the composer at the
     // bottom of what is actually visible.
     <SidebarProvider
@@ -367,7 +367,7 @@ function ShellBody({
   const [rawItems, itemsResult] = useQuery(queries.timeline());
   const [tags] = useQuery(queries.tags());
   const sync = useSyncStatus(status === "expired");
-  // Never fewer rows than we have already painted (SETTLE_PLAN.md §3.5).
+  // Never fewer rows than we have already painted (lib/archive-state.ts).
   const items = useStableRows(rawItems, itemsResult.type);
   // The list element, watched to know when the page has come to rest — the
   // reveal waits for that, not for a stopwatch.
@@ -409,9 +409,9 @@ function ShellBody({
 
       {/* No `overflow` here, ever: it would make this column a scroll container,
           and the sticky chrome inside it would then stick to *that* — which
-          never scrolls — instead of to the viewport (WINDOW_SCROLL_PLAN.md
-          §2). `overflow-x-clip` is the safe one if clipping is ever needed:
-          `clip` is not a scroll container. */}
+          never scrolls — instead of to the viewport. `overflow-x-clip` is the
+          safe one if clipping is ever needed: `clip` is not a scroll
+          container. */}
       <SidebarInset className="relative min-w-0">
         {/* What the column's fixed height used to pin, the viewport pins now.
             Sticky rather than fixed so the banner keeps its slot in the flow:

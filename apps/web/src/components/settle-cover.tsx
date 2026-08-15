@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { BUDGET, useHeld } from "@/lib/settle";
 
-// The canvas the app settles behind (SETTLE_PLAN.md §3.3).
+// The canvas the app settles behind (lib/settle.ts).
 //
 // A cover over a *mounted* shell, not a screen shown instead of one: the
 // timeline lays out, measures its rows and anchors itself to the newest item

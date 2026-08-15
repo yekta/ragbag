@@ -15,7 +15,7 @@ import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 // bottom like a messenger. Virtualized (plan §10) — the full personal archive
 // is in memory via Zero, only visible cards are in the DOM.
 //
-// The *window* is the scroller (WINDOW_SCROLL_PLAN.md). The list is ordinary
+// The *window* is the scroller. The list is ordinary
 // flow content, so the browser sees a real document scroll and every native
 // affordance that hangs off one — Safari collapsing its URL bar first among
 // them. Two rules come with that: nothing between <body> and this list may set
@@ -26,7 +26,7 @@ import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 // What to show when there is no stream is decided upstream, in one place
 // (lib/archive-state.ts): nothing here infers "the archive is empty" from an
 // empty query result, which is what used to make it flash a sync spinner at a
-// device that had every row on disk (SETTLE_PLAN.md §1.2).
+// device that had every row on disk.
 
 type Row = { type: "day"; key: string; label: string } | { type: "item"; item: TimelineItem };
 
@@ -65,9 +65,9 @@ function useRows(items: TimelineRows): Row[] {
 // This used to be a flat 140px for every item, which is wrong in both
 // directions at once — a one-line todo against an image card — and the
 // virtualizer pays for the error by resizing the document under the reader as
-// real measurements land, dragging the scroll offset with it (SETTLE_PLAN.md
-// §1.4c). None of this has to be exact. It has to be close enough that the
-// corrections are gossip rather than news.
+// real measurements land, dragging the scroll offset with it. None of this has
+// to be exact. It has to be close enough that the corrections are gossip rather
+// than news.
 
 const DAY_ROW = 46;
 /** Card chrome: vertical padding, the footer row, and the gap below the card. */
@@ -209,7 +209,7 @@ export function Timeline({
   // 60 000px from where it belongs until the measurement pass corrects it
   // (~500ms for 400 rows on a dev box). That correction is the reason the shell
   // is revealed on a settled layout rather than on the arrival of data
-  // (lib/settle.ts, SETTLE_PLAN.md §2.4).
+  // (lib/settle.ts).
   useLayoutEffect(() => {
     virtualizer.scrollToEnd();
   }, [viewFilter, tagFilter, virtualizer]);
@@ -340,13 +340,12 @@ export function Timeline({
 
   return (
     // The top inset is the band the floating controls occupy: content may pass
-    // behind them while scrolling, it may never come to rest under them
-    // (INSET_PLAN.md). The bottom is not an inset — the composer sits in the
-    // flow below this column and takes real space — but coming to rest one row
-    // gap from it read as cramped. This padding lands on top of the last row's
-    // own `pb-3`, so the newest card settles 3.75rem clear of the composer: the
-    // breathing room a chat UI leaves between what was said and what you are
-    // typing.
+    // behind them while scrolling, it may never come to rest under them. The
+    // bottom is not an inset — the composer sits in the flow below this column
+    // and takes real space — but coming to rest one row gap from it read as
+    // cramped. This padding lands on top of the last row's own `pb-3`, so the
+    // newest card settles 3.75rem clear of the composer: the breathing room a
+    // chat UI leaves between what was said and what you are typing.
     <div className="relative flex flex-1 flex-col pt-(--timeline-inset-top) pb-12">
       {rows.length > 0 ? (
         <div

@@ -102,7 +102,7 @@ export function useBlobQueueToasts(): void {
 // value is what lets a re-mounted card render its image on its first frame.
 // The timeline is virtualized, so scrolling an image out of view and back is a
 // re-mount — going through the promise every time meant a pulsing grey box and
-// a height change on every pass (SETTLE_PLAN.md §1.5).
+// a height change on every pass.
 const urlCache = new Map<string, Promise<string | null>>();
 const resolvedUrls = new Map<string, string>();
 
