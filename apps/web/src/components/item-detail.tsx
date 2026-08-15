@@ -69,8 +69,29 @@ export function ItemDetail() {
   // So hand it a real false → true. `useLayoutEffect`, not `useEffect`: the
   // flip is flushed before paint, so the closed frame is never drawn: the
   // entrance starts from the first frame anyone sees.
+  //
+  // Keyed on `id`, not on mount. The router keeps this component mounted across
+  // a param change, so a mount-only effect opens the drawer for whichever item
+  // happened to mount it and never again. Anything that left the panel closed
+  // with the route still on an item (see `opened` below) was therefore
+  // permanent: every later click changed the URL and nothing appeared, for the
+  // rest of the session.
   const [open, setOpen] = useState(false);
-  useLayoutEffect(() => setOpen(true), []);
+  // Set when the open is *requested*, which is what makes the exit below safe
+  // to act on. It used to be set when the entrance *completed*, and an entrance
+  // that never completes is exactly what happens when the drawer is dismissed
+  // while it is still sliding in: Base UI drops the pending completion, the
+  // exit reports `false` to a gate that was never opened, and the navigation
+  // home never runs. That is how the route got stranded on an item with no
+  // panel on screen.
+  const opened = useRef(false);
+  useLayoutEffect(() => {
+    // Undefined while the router transitions off this route; the component is
+    // on its way out, not opening.
+    if (!id) return;
+    opened.current = true;
+    setOpen(true);
+  }, [id]);
 
   // Closing has to outlive the route change. Navigating to "/" unmounts this
   // component on the spot, which meant the panel disappeared in a single frame
@@ -84,9 +105,10 @@ export function ItemDetail() {
   // faster it leaves.
   //
   // `opened` gates it: the drawer now starts closed, and a `false` completion
-  // that arrives before it has ever been open would navigate away from the
-  // screen we are in the middle of opening.
-  const opened = useRef(false);
+  // that arrives before it has ever been asked to open would navigate away from
+  // the screen we are in the middle of opening. The gate is set in the layout
+  // effect above, which runs after Base UI's own mount effects, so a completion
+  // fired at mount still finds it shut.
   const close = () => setOpen(false);
 
   // Deleting from here drops the row from the local store immediately, so
@@ -118,11 +140,7 @@ export function ItemDetail() {
       open={open}
       onOpenChange={(next) => !next && close()}
       onOpenChangeComplete={(nowOpen) => {
-        if (nowOpen) {
-          opened.current = true;
-        } else if (opened.current) {
-          void navigate({ to: "/", resetScroll: false });
-        }
+        if (!nowOpen && opened.current) void navigate({ to: "/", resetScroll: false });
       }}
       // Bottom sheet on a phone, right-hand panel on a desktop, and the handle
       // only where there is a thumb to drag it with.

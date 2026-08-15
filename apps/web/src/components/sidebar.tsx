@@ -203,7 +203,13 @@ export function Sidebar({
 
   return (
     <SidebarRoot variant="floating" collapsible="offcanvas">
-      <SidebarHeader className="gap-0 pt-4">
+      {/* No top override: the header's own 0.5rem on all three sides, so the
+          masthead sits the same distance from the top as from either edge. The
+          `pt-4` that was here made the corner it lives in asymmetric for no
+          reason the rest of the panel could explain. (The base keeps
+          `env(safe-area-inset-top)` as a floor, which is the one case where
+          more is correct: a phone with a notch.) */}
+      <SidebarHeader className="gap-0">
         {/* The masthead rides the same rail as the search field below and the
             row pills under that, no inset of its own, because unlike those
             rows it is not a control and has no box of its own to pad.
@@ -244,7 +250,10 @@ export function Sidebar({
         </Button>
       </SidebarHeader>
 
-      <SidebarContent>
+      {/* This is the scroller. Its last row otherwise comes to rest hard
+          against the footer's rule, which reads as the list being cut off
+          rather than ended. */}
+      <SidebarContent className="pb-4">
         <SidebarGroup className="py-1">
           <SidebarGroupContent>
             <SidebarMenu>
