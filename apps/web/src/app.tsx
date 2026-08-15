@@ -366,13 +366,14 @@ function Shell({
  * the full duration spent that tail on an empty corner, which reads as the
  * button being late rather than as the panel still arriving.
  *
- * This is close to the floor. ~11px of the 288px panel is still on screen here,
- * off at the far edge, and the button lands 20px clear of it because the inset
- * it sits in is travelling too. Take much more off and the panel is visibly
- * moving while the button is already home. Re-derive if the curve or the
- * duration changes.
+ * Past the point where the panel has fully arrived: ~17px of its 288px is still
+ * on screen here, off at the far edge, and the two never touch anyway because
+ * the inset the button sits in is travelling on the same curve, keeping it 20px
+ * clear throughout. What is left to tune is the 450ms itself: this offset can
+ * only be taken further by making the panel leave faster. Re-derive both if the
+ * curve changes.
  */
-const SIDEBAR_CLEARED_MS = 225;
+const SIDEBAR_CLEARED_MS = 200;
 
 function ShellBody({
   email,
