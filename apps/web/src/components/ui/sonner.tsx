@@ -1,16 +1,17 @@
+import { Toaster as Sonner, type ToasterProps } from "sonner";
 import {
   CircleCheckIcon,
   InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
   TriangleAlertIcon,
+  OctagonXIcon,
+  Loader2Icon,
 } from "lucide-react";
-import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { useViewStore } from "@/lib/store";
 
-// Local edit to the generated component: `useTheme` from next-themes swapped
-// for our own view store, so the app has a single theme source (lib/theme.ts).
-// Re-apply this if `sonner` is ever pulled again.
+// Local edit to the generated component (re-apply on a re-pull): `useTheme`
+// from next-themes swapped for our own view store, so the app has a single
+// theme source (lib/theme.ts). Pulling this component installs next-themes as
+// a dependency; it is uninstalled again once this edit is back in place.
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const theme = useViewStore((s) => s.theme);
@@ -34,6 +35,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
+      toastOptions={{
+        classNames: {
+          toast: "cn-toast",
+        },
+      }}
       {...props}
     />
   );
