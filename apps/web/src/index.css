@@ -423,6 +423,13 @@
      crawls at the start, which is what reads as slow. */
   --ease-enter: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* The exception to the split above, and the reason it is a token: a panel
+     that slides in from an edge — the item drawer, the sidebar — is a physical
+     object, and an object does not arrive on one curve and leave on another.
+     Both directions ride this one, for the same 450ms, which is what the drawer
+     was already doing inline. Anything that only fades keeps the pair above. */
+  --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {

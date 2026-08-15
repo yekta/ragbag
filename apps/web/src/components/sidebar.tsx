@@ -198,9 +198,14 @@ export function Sidebar({
           <SidebarTrigger className="ml-auto text-muted-foreground" title="Hide sidebar (⌘\)" />
         </div>
 
+        {/* Flush with the menu rows below, outside and in: no margin of its
+            own, so its box matches theirs (both sit on their parent's 0.5rem
+            inset), and the same inner padding a menu button has, so the
+            magnifier lands on the column the row icons are in and the shortcut
+            ends where the counts do. */}
         <Button
           variant="outline"
-          className="mx-1 cursor-text justify-start gap-2 font-normal text-muted-foreground"
+          className="cursor-text justify-start gap-2 px-2 font-normal text-muted-foreground"
           onClick={() => {
             setSearchOpen(true);
             setOpenMobile(false);

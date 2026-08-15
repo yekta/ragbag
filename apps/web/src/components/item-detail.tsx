@@ -251,14 +251,17 @@ export function ItemDetail() {
             </div>
 
             {/* The scroller. DrawerContent is `overflow-hidden` by
-                construction, so this is what actually scrolls. `scroll-fade`
-                (a mask, not a wrapper — safe here) softens both edges.
+                construction, so this is what actually scrolls. The bottom-only
+                fade (a mask, not a wrapper — safe here) says "there is more
+                below"; the top edge stays hard, because it butts against the
+                header rather than against the panel's own rounding, and fading
+                content out into a solid bar reads as a rendering fault.
                 `overflow-x-hidden` is not redundant: asking for `overflow-y`
                 alone computes the other axis from `visible` to `auto`, so this
                 was a sideways scroller too, and anything that outgrew the
                 column — a filename with no spaces in it, before `body` learned
                 to break words — could drag the whole panel off its own edge. */}
-            <div className="min-h-0 flex-1 space-y-5 scroll-fade overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               {/* hero */}
               {item.kind === "image" &&
                 (blobUrl ? (

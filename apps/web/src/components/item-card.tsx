@@ -413,8 +413,10 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       }}
     >
       {/* hover actions. A Tooltip supplies the description, not the name — these
-          are icon-only, so each still needs its own aria-label. */}
-      <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border bg-card px-1 py-0.5 group-hover:flex">
+          are icon-only, so each still needs its own aria-label. z-10 because the
+          media bodies below are `relative` (they pin an upload badge) and so
+          paint over an auto-z-index sibling that precedes them in the DOM. */}
+      <div className="absolute -top-3 right-3 z-10 hidden items-center gap-0.5 rounded-full border bg-card p-1 group-hover:flex">
         <Tooltip>
           <TooltipTrigger
             render={

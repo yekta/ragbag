@@ -369,7 +369,15 @@ export function Timeline({
               >
                 {row.type === "day" ? (
                   <div className="flex justify-center py-3">
-                    <Badge variant="secondary" className="px-3 text-[11px] text-muted-foreground">
+                    {/* The card surface, like the rows it separates — one fill
+                        for everything sitting on the canvas. The variant stays
+                        for its ink; its own fill is overridden, and its hover
+                        is anchor-only, so nothing here reacts to a pointer
+                        passing over. */}
+                    <Badge
+                      variant="secondary"
+                      className="bg-card px-3 text-[11px] text-muted-foreground"
+                    >
                       {row.label}
                     </Badge>
                   </div>

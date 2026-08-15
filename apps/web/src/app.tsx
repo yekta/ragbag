@@ -353,6 +353,9 @@ function Shell({
 }
 
 /** Inside the provider, so the floating controls can reach `useSidebar()`. */
+/** Keep in step with the sidebar panel's `duration-450` in ui/sidebar.tsx. */
+const SIDEBAR_TRAVEL_MS = 450;
+
 function ShellBody({
   name,
   meta,
@@ -385,6 +388,16 @@ function ShellBody({
   const searchIndex = useTimelineSearch(items);
   const { setSearchOpen } = useViewStore();
   const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
+  // The control that reopens the sidebar belongs to the closed state, and the
+  // app is not in the closed state until the panel has finished leaving — the
+  // panel slides across exactly where this button sits, so showing it on the
+  // click means watching it sit under a moving sheet of sidebar. Opening is the
+  // other way round and needs no wait: it goes at once, ahead of the panel that
+  // is about to cover it. Booting straight into a closed sidebar is neither —
+  // nothing has moved, so there is nothing to wait for.
+  const sidebarUsed = useLatch(open);
+  const sidebarGone = useHeld(!open, SIDEBAR_TRAVEL_MS);
+  const showSidebarButton = !open && (!sidebarUsed || sidebarGone);
 
   return (
     <>
@@ -458,7 +471,7 @@ function ShellBody({
                 </FloatingButton>
               </>
             ) : (
-              !open && (
+              showSidebarButton && (
                 <FloatingButton
                   className="left-3 top-3"
                   title="Show sidebar (⌘\)"
@@ -484,31 +497,25 @@ function ShellBody({
 /**
  * Round button for the controls that sit over the timeline.
  *
- * `secondary`, not `outline` + `bg-card`, and the reason is what these float
- * over: `--card` rows on the `--background` canvas. That combination failed
- * both ways round.
+ * One chrome surface: the composer and the sidebar are both `--card`, and so is
+ * this. `--secondary` was here before, on the argument that a card-coloured
+ * button dissolves into the card rows passing under it — but the border and
+ * `shadow-float` (the token that exists for exactly this lift off the canvas)
+ * are what separate it, and a second surface only for these three buttons read
+ * as an odd one out.
  *
- * In dark it never took. The `outline` variant carried a theme-prefixed
- * background of its own, and twMerge keeps those — a prefixed background is a
- * different group from an unprefixed one, so it does not read as a conflict —
- * after which the prefixed rule outranks a bare `.bg-card` on specificity.
- * The fill here was decorative. (That whole class of bug is gone now: rule 2
- * in index.css took the theme prefix out of the app.)
- *
- * In light it *did* take, which was worse: `--card` is the exact surface of
- * the cards these sit on top of, so the button dissolved into whatever row was
- * passing under it and that row's text read as running straight through the
- * glyph — the "partially transparent" look. `--secondary` is the one surface
- * that stays a step away from both the canvas and the cards in both themes,
- * and `shadow-float` (the token that already exists for lifting off the
- * canvas) carries the separation where the fills are closest.
+ * `ghost` rather than a variant that brings its own fill, so the surface set
+ * here has no variant background to out-specify. That fight used to be worth
+ * avoiding for real: a theme-prefixed background is a different twMerge group
+ * from an unprefixed one, so it does not read as a conflict and wins on
+ * specificity. Gone from the app now — rule 2 in index.css has the argument.
  */
 function FloatingButton({ className, ...props }: ComponentProps<typeof Button>) {
   return (
     <Button
-      variant="secondary"
+      variant="ghost"
       size="icon"
-      className={`absolute rounded-full border text-muted-foreground shadow-float ${className ?? ""}`}
+      className={`absolute rounded-full border bg-card text-muted-foreground shadow-float hover:bg-panel ${className ?? ""}`}
       {...props}
     />
   );

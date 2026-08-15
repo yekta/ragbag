@@ -527,7 +527,11 @@ function AttachmentChip({
     // the corner.
     <span className={`group/att relative shrink-0 ${TILE}`}>
       <span
-        className={`block size-full overflow-hidden rounded-xl border bg-muted ${
+        // `relative` is what makes the clip mean anything: the scrim below is
+        // `inset-0`, and without a containing block here it resolves against the
+        // outer span instead — escaping the rounding, and painting over the
+        // failed tile's red border.
+        className={`relative block size-full overflow-hidden rounded-xl border bg-muted ${
           failedReason ? "border-destructive" : ""
         }`}
         title={title}
