@@ -357,6 +357,17 @@ function Shell({
   );
 }
 
+/**
+ * How long the reopen button outlives the click that opens the sidebar.
+ *
+ * The panel enters from `-18rem` and the button sits at `0.75rem` with a
+ * `2.25rem` body, so the panel's leading edge is past it once it has covered
+ * 19% of its travel. `--ease-panel` front-loads that hard: 19% of the distance
+ * is gone in ~20ms of the 450ms. This is that with margin, and short enough
+ * that the button is never something the eye watches leave.
+ */
+const SIDEBAR_COVER_MS = 50;
+
 /** Inside the provider, so the floating controls can reach `useSidebar()`. */
 function ShellBody({
   email,
@@ -408,6 +419,12 @@ function ShellBody({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+  // Leaves the same way it arrived: under the panel. Unmounting on the click
+  // took it off screen a beat before the panel reached the spot, which reads as
+  // the button quitting and the sidebar then opening, two events instead of
+  // one. Held until the panel is over it, and gone by the time it could ever be
+  // seen through it.
+  const covered = useHeld(open, SIDEBAR_COVER_MS);
 
   return (
     <>
@@ -483,7 +500,7 @@ function ShellBody({
                 </FloatingButton>
               </>
             ) : (
-              !open && (
+              !covered && (
                 <FloatingButton
                   // Mounted the moment the state is "closed", which is while
                   // the panel is still covering this exact spot, and revealed
