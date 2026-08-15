@@ -3,7 +3,7 @@ import { TEXT_ITEM_KINDS, isTextKind } from "@ragbag/shared";
 import type { ItemKind, TextItemKind } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { DeleteItemDialog } from "@/components/delete-item-dialog";
 import { Icon } from "@/components/icon";
 import { AddressActions, KindDot } from "@/components/item-card";
@@ -11,10 +11,11 @@ import { TagEditor } from "@/components/tag-editor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { mediaBox, rememberBlobAspect, useBlobUrl } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
 import { useHeld } from "@/lib/settle";
@@ -24,13 +25,16 @@ import { useMeta } from "@/lib/use-meta";
 // lightbox (plan §10), plus the tag editor and favorite/delete/retry actions.
 // Rendered above the timeline so scroll position survives.
 //
-// A Sheet rather than a hand-rolled overlay: focus trap, scroll lock, Esc and
-// the slide animation all come from Radix. The route decides whether this
-// screen exists; local `open` state decides whether the panel is on screen, so
-// that closing can animate before the route change tears the component down.
-
-/** Keep in step with `data-[state=closed]:duration-150` on SheetContent. */
-const SHEET_EXIT_MS = 150;
+// A Drawer rather than a hand-rolled overlay: focus trap, scroll lock, Esc,
+// swipe-to-dismiss and the slide animation all come from Base UI. One
+// component covers both form factors — it opens from the bottom on a phone
+// (with a swipe handle) and from the right as an inset floating card at `md`+,
+// which is the same floating-card language the sidebar uses at that
+// breakpoint.
+//
+// The route decides whether this screen exists; local `open` state decides
+// whether the panel is on screen, so that closing can animate before the route
+// change tears the component down.
 
 const TEXT_SECTION_LABEL: Partial<Record<ItemKind, string>> = {
   note: "Note",
@@ -45,22 +49,22 @@ export function ItemDetail() {
   const [liveItem] = useQuery(queries.item({ id }));
   const [allTags] = useQuery(queries.tags());
   const meta = useMeta();
+  const isMobile = useIsMobile();
   const [editing, setEditing] = useState(false);
   const [textDraft, setTextDraft] = useState("");
   const [open, setOpen] = useState(true);
 
   // Closing has to outlive the route change. Navigating to "/" unmounts this
   // component on the spot, which meant the panel disappeared in a single frame
-  // while its overlay was still there — no exit animation at all, unlike the
-  // mobile drawer (which is state-driven and slides out properly). So flip
-  // `open` first and leave the route once the panel is gone.
+  // while its overlay was still there — no exit animation at all. So flip
+  // `open` first and leave the route once the panel is actually gone.
+  //
+  // "Actually gone" is `onOpenChangeComplete`, not a timer. This used to be a
+  // setTimeout hand-synced to the Sheet's exit duration; under Base UI there is
+  // no constant to sync to, because a flicked drawer exits in
+  // `calc(var(--drawer-swipe-strength) * 400ms)` — the harder the swipe, the
+  // faster it leaves.
   const close = () => setOpen(false);
-  useEffect(() => {
-    if (open) return;
-    // Matches the exit duration on SheetContent in ui/sheet.tsx.
-    const t = setTimeout(() => void navigate({ to: "/", resetScroll: false }), SHEET_EXIT_MS);
-    return () => clearTimeout(t);
-  }, [open, navigate]);
 
   // Deleting from here drops the row from the local store immediately, so
   // while the panel slides out there is nothing left to render. Keep painting
@@ -87,18 +91,39 @@ export function ItemDetail() {
   };
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && close()}>
-      <SheetContent
-        side="right"
-        showCloseButton={false}
-        className="w-full gap-0 overflow-y-auto p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-2xl"
+    <Drawer
+      open={open}
+      onOpenChange={(next) => !next && close()}
+      onOpenChangeComplete={(nowOpen) => {
+        if (!nowOpen) void navigate({ to: "/", resetScroll: false });
+      }}
+      // Bottom sheet on a phone, right-hand panel on a desktop — and the handle
+      // only where there is a thumb to drag it with.
+      showSwipeHandle={isMobile}
+      swipeDirection={isMobile ? "down" : "right"}
+    >
+      <DrawerContent
+        className={
+          // Desktop: an inset floating card rather than a panel welded to the
+          // edge. `--drawer-inset` becomes the popup's margin and is already
+          // folded into its closed transform, so it still slides fully
+          // off-screen. 42rem is the reading column this view has always had.
+          //
+          // The compound `data-[swipe-axis=x]:md:` shape matches the width rule
+          // it overrides — the vendored component sets 24rem at `sm:`, and a
+          // bare `md:` would be racing it on source order rather than beating
+          // it. Rounding is additive: the popup rounds only its leading edge
+          // for a flush panel, `md:rounded-xl md:border` closes the other three.
+          "data-[swipe-axis=x]:md:[--drawer-content-width:min(42rem,calc(100vw-1rem))] " +
+          "md:[--drawer-inset:0.5rem] md:rounded-xl md:border"
+        }
       >
-        {/* The visible header below carries the heading; Radix still needs an
-            accessible name and description for the dialog itself. */}
-        <SheetTitle className="sr-only">{c?.title ?? item?.text ?? "Item"}</SheetTitle>
-        <SheetDescription className="sr-only">
+        {/* The visible header below carries the heading; the dialog still needs
+            an accessible name and description of its own. */}
+        <DrawerTitle className="sr-only">{c?.title ?? item?.text ?? "Item"}</DrawerTitle>
+        <DrawerDescription className="sr-only">
           Details, tags and actions for this item.
-        </SheetDescription>
+        </DrawerDescription>
 
         {!item ? (
           stillLoading && (
@@ -111,8 +136,10 @@ export function ItemDetail() {
           )
         ) : (
           <>
-            {/* header */}
-            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card px-5 py-3">
+            {/* Header. Was `sticky top-0` when the whole panel was one scroll
+                box; the drawer is a flex column with its own scrolling body
+                below, so the header simply doesn't scroll. */}
+            <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
               <KindDot kind={item.kind} />
               <span className="text-sm font-medium capitalize">{item.kind}</span>
               {item.kind === "todo" && (
@@ -135,10 +162,13 @@ export function ItemDetail() {
               </time>
               <span className="ml-auto flex items-center gap-1">
                 {item.url && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={item.url} target="_blank" rel="noreferrer">
-                      <Icon name="external" className="size-3.5" /> Open original
-                    </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<a href={item.url} target="_blank" rel="noreferrer" />}
+                  >
+                    <Icon name="external" className="size-3.5" /> Open original
                   </Button>
                 )}
                 <Button
@@ -181,7 +211,10 @@ export function ItemDetail() {
               </span>
             </div>
 
-            <div className="space-y-5 px-5 py-5">
+            {/* The scroller. DrawerContent is `overflow-hidden` by
+                construction, so this is what actually scrolls. `scroll-fade`
+                (a mask, not a wrapper — safe here) softens both edges. */}
+            <div className="min-h-0 flex-1 space-y-5 scroll-fade overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               {/* hero */}
               {item.kind === "image" &&
                 (blobUrl ? (
@@ -224,10 +257,13 @@ export function ItemDetail() {
                     <p className="text-xs text-muted-foreground">Stored in your ragbag</p>
                   </div>
                   {blobUrl && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={blobUrl} download={c?.title ?? "file"}>
-                        Download
-                      </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      nativeButton={false}
+                      render={<a href={blobUrl} download={c?.title ?? "file"} />}
+                    >
+                      Download
                     </Button>
                   )}
                 </div>
@@ -320,17 +356,16 @@ export function ItemDetail() {
                 <section>
                   <SectionLabel>Type</SectionLabel>
                   <ToggleGroup
-                    type="single"
                     variant="outline"
                     size="sm"
-                    value={item.kind}
-                    onValueChange={(kind) => {
-                      // Radix emits "" when the active item is clicked again;
-                      // an item always has a kind, so ignore it.
+                    value={[item.kind]}
+                    onValueChange={(kinds) => {
+                      // Base UI has no `type="single"`: the value is always an
+                      // array, and clicking the active item empties it. An item
+                      // always has a kind, so ignore that.
+                      const kind = kinds[0] as TextItemKind | undefined;
                       if (kind && kind !== item.kind) {
-                        void zero.mutate(
-                          mutators.item.setKind({ id: item.id, kind: kind as TextItemKind }),
-                        );
+                        void zero.mutate(mutators.item.setKind({ id: item.id, kind }));
                       }
                     }}
                   >
@@ -449,8 +484,8 @@ export function ItemDetail() {
             </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

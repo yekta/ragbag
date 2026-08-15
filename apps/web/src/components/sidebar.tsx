@@ -91,15 +91,17 @@ function ThemeToggle() {
   const { theme, setTheme } = useViewStore();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground"
-          title={`Theme: ${THEME_LABEL[theme]}`}
-        >
-          <Icon name={theme === "dark" ? "moon" : theme === "light" ? "sun" : "monitor"} />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            title={`Theme: ${THEME_LABEL[theme]}`}
+          />
+        }
+      >
+        <Icon name={theme === "dark" ? "moon" : theme === "light" ? "sun" : "monitor"} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top">
         <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
