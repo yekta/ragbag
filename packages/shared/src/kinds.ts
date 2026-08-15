@@ -1,7 +1,7 @@
-// Order is the sidebar's order: the text kinds a user writes first, then the
-// things they dump. `todo`/`address` are notes with a purpose: same capture
-// path, different body and actions.
-export const ITEM_KINDS = ["note", "todo", "address", "link", "image", "pdf", "file"] as const;
+// Order is the sidebar's order: notes first, then the things a user dumps,
+// then the two special-purpose text kinds. `todo`/`address` are notes with a
+// purpose: same capture path, different body and actions.
+export const ITEM_KINDS = ["note", "image", "link", "pdf", "file", "address", "todo"] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 /** Kinds whose content is the user's own text, freely convertible between. */
