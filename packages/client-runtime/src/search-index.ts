@@ -2,7 +2,7 @@ import MiniSearch from "minisearch";
 
 // Tier-1 search (plan §8): keyword/prefix matching over titles, tags, AI
 // summaries, the user's text, and truncated extracted text. Runs on-device
-// against this in-memory index, kept live from Zero's query results —
+// against this in-memory index, kept live from Zero's query results,
 // instant, search-as-you-type, fully offline. It punches above its weight
 // because ingestion did semantic work at write time: AI tags + summaries are
 // part of the corpus, so "sleep caffeine" hits the caffeine article even when
@@ -19,7 +19,7 @@ export type SearchDoc = {
   tags: string;
   site: string;
   url: string;
-  /** Extracted article/PDF/OCR text — already truncated for sync. */
+  /** Extracted article/PDF/OCR text, already truncated for sync. */
   extracted: string;
 };
 

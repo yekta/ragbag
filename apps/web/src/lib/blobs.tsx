@@ -43,7 +43,7 @@ export function useBlobQueueState(): BlobQueueState {
 }
 
 /**
- * One blob's upload lifecycle, or null when the queue no longer tracks it —
+ * One blob's upload lifecycle, or null when the queue no longer tracks it:
  * which for anything this device captured means "uploaded". Entry identity is
  * stable between queue notifications, so this is safe for useSyncExternalStore.
  */
@@ -75,14 +75,14 @@ export function useBlobQueueToasts(): void {
     }
 
     // While parked for sign-in or fully offline, the banners already explain
-    // the situation — per-blob toasts would just pile on.
+    // the situation; per-blob toasts would just pile on.
     if (state.blocked === "auth" || !navigator.onLine) return;
 
     for (const [blobId, entry] of Object.entries(state.blobs)) {
       if (entry.stage !== "waiting" || !entry.lastError) continue;
       if (toasted.current.get(blobId) === entry.lastError) continue;
       toasted.current.set(blobId, entry.lastError);
-      toast.error("Upload failed — retrying automatically", {
+      toast.error("Upload failed, retrying automatically", {
         description: entry.lastError,
         action: { label: "Retry now", onClick: () => void queue.retryBlob(blobId) },
       });
@@ -101,7 +101,7 @@ export function useBlobQueueToasts(): void {
 // the promise is what de-duplicates concurrent callers, and the *resolved*
 // value is what lets a re-mounted card render its image on its first frame.
 // The timeline is virtualized, so scrolling an image out of view and back is a
-// re-mount — going through the promise every time meant a pulsing grey box and
+// re-mount: going through the promise every time meant a pulsing grey box and
 // a height change on every pass.
 const urlCache = new Map<string, Promise<string | null>>();
 const resolvedUrls = new Map<string, string>();
@@ -152,7 +152,7 @@ export function useBlobUrl(blobId: string | null | undefined): string | null {
 }
 
 // Remembered image shapes, so a picture's box is the right size before the
-// picture is there — including on the next visit, before its bytes have been
+// picture is there, including on the next visit, before its bytes have been
 // read back out of IndexedDB. Without it, every image card grows from a fixed
 // placeholder to its real height as it loads, which re-flows the rows below and
 // makes the virtualizer re-measure the document under the reader.
@@ -182,7 +182,7 @@ function persistAspects(): void {
     try {
       localStorage.setItem(ASPECT_KEY, JSON.stringify(Object.fromEntries(aspects)));
     } catch {
-      // Quota or private mode — the ratios just don't survive the session.
+      // Quota or private mode: the ratios just don't survive the session.
     }
   }, 1_000);
 }
@@ -205,7 +205,7 @@ export function rememberBlobAspect(blobId: string | null | undefined, img: HTMLI
 
 /**
  * The exact box an image will occupy, for the placeholder that stands in for it
- * and for the image itself — so the swap changes nothing. `min()` rather than
+ * and for the image itself, so the swap changes nothing. `min()` rather than
  * arithmetic on a measured width: the browser resolves it against whatever the
  * column happens to be, at any viewport, without React measuring anything.
  */

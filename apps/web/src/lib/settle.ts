@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 // Timing discipline for everything that arrives asynchronously.
 //
 // The rule: a screen may not show a state it is about to take back. Every
-// transition here is caused by an *event* — data arriving, the layout coming to
+// transition here is caused by an *event*: data arriving, the layout coming to
 // rest, the connection changing. The three numbers below are budgets for when
 // an expected event never arrives, never the mechanism by which the UI decides
 // what is true.
@@ -49,7 +49,7 @@ export function useHeld(active: boolean, ms: number): boolean {
 }
 
 /**
- * `active`, but once true it stays true for at least `ms` — a loader that
+ * `active`, but once true it stays true for at least `ms`: a loader that
  * appears for one frame is worse than no loader at all.
  */
 export function usePatient(active: boolean, ms: number): boolean {
@@ -92,7 +92,7 @@ const MAX_SETTLE_FRAMES = 120;
  * This exists because "the rows are here" is not the same as "the list is
  * anchored". A virtualized list lays out at estimated positions, corrects the
  * scroll offset to re-pin the newest item, then corrects again as real
- * measurements land — and in the frame between the first two, the reader is
+ * measurements land, and in the frame between the first two, the reader is
  * looking at empty space where the archive should be.
  * Waiting for a fixed number of milliseconds would be a guess about a machine
  * we cannot see; this measures the actual quantity, so a fast device reveals in

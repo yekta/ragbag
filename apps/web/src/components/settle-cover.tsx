@@ -7,7 +7,7 @@ import { BUDGET, useHeld } from "@/lib/settle";
 // A cover over a *mounted* shell, not a screen shown instead of one: the
 // timeline lays out, measures its rows and anchors itself to the newest item
 // while nobody is looking, so the first frame the user sees is the finished
-// one. It earns its keep at scale — on a 400-row archive the newest card spends
+// one. It earns its keep at scale: on a 400-row archive the newest card spends
 // ~500ms sixty thousand pixels from where it belongs, and none of that is seen.
 //
 // Deliberately not `opacity` on the shell itself: an ancestor with
@@ -28,7 +28,7 @@ export function SettleCover({
   /**
    * Arrive by fading rather than by cutting.
    *
-   * Only ever set once something real is already on screen — the handover from
+   * Only ever set once something real is already on screen: the handover from
    * the sync loader to the finished archive, which is a transition between two
    * correct states and should read as one. On the boot path this must stay off:
    * fading in from transparent there would show a frame of the half-built shell

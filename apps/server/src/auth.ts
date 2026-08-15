@@ -20,7 +20,7 @@ export const auth = betterAuth({
   }),
   trustedOrigins: [env.WEB_ORIGIN],
   // Where a failed auth round trip lands the browser. Without this, better-auth
-  // falls back to `Location: /?error=...` — a *relative* redirect, resolved
+  // falls back to `Location: /?error=...`, a *relative* redirect, resolved
   // against baseURL, which is the API host. api.ragbag.app serves no web app,
   // so every sign-in failure dead-ended on a 404 there.
   //
@@ -32,7 +32,7 @@ export const auth = betterAuth({
   onAPIError: { errorURL: `${env.WEB_ORIGIN.replace(/\/$/, "")}/` },
   // zero-cache authenticates by forwarding the browser's session cookie
   // (ZERO_*_FORWARD_COOKIES), so the cookie has to be visible on its origin
-  // too. Scoping it to the parent domain covers app./api./zero. — all
+  // too. Scoping it to the parent domain covers app./api./zero. All three are
   // same-site, so the default SameSite=Lax still applies and nothing needs
   // SameSite=None. Everything else (httpOnly, secure) is unchanged.
   advanced: {
@@ -51,7 +51,7 @@ export const auth = betterAuth({
   rateLimit: {
     customRules: {
       // better-auth caps /sign-in/* at 3 requests per 10s. That rule exists to
-      // slow password guessing, and it keys on the client IP — but when no IP
+      // slow password guessing, and it keys on the client IP, but when no IP
       // resolves it degrades to ONE bucket shared by every visitor, so three
       // clicks anywhere on the internet lock out sign-in for everyone. Google
       // is our only provider, so this endpoint just mints an OAuth state and

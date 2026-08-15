@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BlobQueue } from "./blob-queue.js";
 
-// Node has no IndexedDB, so these tests exercise the memory-backend path —
+// Node has no IndexedDB, so these tests exercise the memory-backend path:
 // which is also exactly what a browser with a wedged IndexedDB falls back to.
 // The upload transport is the fetch fallback (no XMLHttpRequest in Node);
 // state-machine behavior is identical either way.
@@ -55,7 +55,7 @@ describe("BlobQueue", () => {
     const captured = await queue.capture(file("hello"), "photo.png");
     expect(captured.kind).toBe("image");
     expect(captured.reused).toBe(false);
-    // No IndexedDB here — the queue must say so rather than pretend.
+    // No IndexedDB here: the queue must say so rather than pretend.
     expect(queue.state.ephemeral).toBe(true);
 
     await waitFor(() => queue.state.blobs[captured.blobId]?.stage === "done");

@@ -13,7 +13,7 @@ import { getAuthData } from "../session.js";
 // carries the client IP behind whatever CDN/router sits in front of us, and
 // what better-auth makes of it. `resolvedIp: null` means rate limiting has no
 // per-client key and collapses onto one shared bucket. Only IP-bearing headers
-// are echoed — never cookies or Authorization.
+// are echoed, never cookies or Authorization.
 
 const IP_HEADERS = [
   "cf-connecting-ip",
@@ -25,7 +25,7 @@ const IP_HEADERS = [
   "forwarded",
 ];
 
-/** Last /storage probe, held for 60s — see that route's comment. */
+/** Last /storage probe, held for 60s; see that route's comment. */
 let storageProbe: { at: number; body: Record<string, unknown> } | null = null;
 
 export const debugRoutes = new Hono()
@@ -38,7 +38,7 @@ export const debugRoutes = new Hono()
   // Splits the three ways a session can fail to reach us, which the 401 alone
   // can't distinguish: the cookie never arrived (domain/SameSite), it arrived
   // but resolves to no session (wrong value, expired row, stale duplicate), or
-  // the database is unreachable. Cookie NAMES only — values stay secret. A name
+  // the database is unreachable. Cookie NAMES only; values stay secret. A name
   // appearing twice means a leftover host-only cookie is shadowing the new
   // parent-domain one. Open it in the browser, and via zero-cache's own path.
   .get("/session", async (c) => {
@@ -73,7 +73,7 @@ export const debugRoutes = new Hono()
   // Answers "is blob storage actually usable?" from the server's side: a
   // put→exists→get roundtrip on a 1-byte diagnostic object, with timings.
   // The crucial nuance is in `note`: a PASSING roundtrip plus FAILING browser
-  // uploads means the bucket's CORS policy is the problem — the exact split
+  // uploads means the bucket's CORS policy is the problem; the exact split
   // this endpoint exists to make visible. Results are cached for 60s so the
   // (unauthenticated, like /session) route can't be spammed into R2 traffic.
   .get("/storage", async (c) => {
@@ -86,7 +86,7 @@ export const debugRoutes = new Hono()
     if (!store || !driver) {
       const body = {
         driver: null,
-        note: "No blob storage configured (neither R2_* nor LOCAL_BLOB_DIR) — attachments are disabled.",
+        note: "No blob storage configured (neither R2_* nor LOCAL_BLOB_DIR), so attachments are disabled.",
       };
       storageProbe = { at: Date.now(), body };
       return c.json(body);
@@ -135,7 +135,7 @@ export const debugRoutes = new Hono()
       note:
         driver === "r2"
           ? "This roundtrip proves the server's credentials and bucket. Browser uploads ALSO need " +
-            `the bucket CORS policy to allow ${env.WEB_ORIGIN} — if this passes while uploads ` +
+            `the bucket CORS policy to allow ${env.WEB_ORIGIN}. If this passes while uploads ` +
             "fail in the browser, that policy is what's missing (see bucketCors above and DEPLOY.md)."
           : "Local-disk driver: browser uploads go through this API's own CORS middleware; no bucket policy involved.",
     };
@@ -144,7 +144,7 @@ export const debugRoutes = new Hono()
   })
   // Answers "why is nothing getting enriched?" without psql: is the worker
   // alive, what's queued/failed and why, and is AI actually configured. The
-  // per-user spend appears only when the request carries a session — the rest
+  // per-user spend appears only when the request carries a session; the rest
   // is aggregate/config state, unauthenticated like its siblings above.
   .get("/ingest", async (c) => {
     const heartbeat = ingestHeartbeat();
@@ -193,13 +193,13 @@ export const debugRoutes = new Hono()
         enrichModel: env.AI_ENRICH_MODEL,
         embedModel: env.AI_EMBED_MODEL,
         vectorColumn: await hasVectorColumn().catch(() => false),
-        // Reporting only — spend is metered, never capped.
+        // Reporting only: spend is metered, never capped.
         ...(authData
           ? { yourSpendLast24hUsd: await spentLast24h(authData.userID).catch(() => null) }
           : {}),
       },
       note: env.OPENAI_API_KEY
         ? "AI is configured. If items still lack summaries, check recentErrors above and each item's detail view."
-        : "AI is NOT configured (no OPENAI_API_KEY) — every job completes extraction-only: no summaries, no tags.",
+        : "AI is NOT configured (no OPENAI_API_KEY), so every job completes extraction-only: no summaries, no tags.",
     });
   });

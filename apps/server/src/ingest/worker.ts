@@ -95,7 +95,7 @@ async function runJob(job: ClaimedJob): Promise<void> {
         await failJob(job, "the file upload never arrived");
         return;
       }
-      // Not the job's fault — reschedule without burning an attempt.
+      // Not the job's fault: reschedule without burning an attempt.
       await sql`update ingest_job
                 set status = 'queued', attempts = ${job.attempts - 1},
                     run_after = now() + interval '5 minutes',
@@ -171,7 +171,7 @@ export function startIngestWorker(): () => Promise<void> {
           await runJob(job);
         } catch (err) {
           // runJob handles its own failures; reaching here means the failure
-          // HANDLING itself threw. Never let that take down the API server —
+          // HANDLING itself threw. Never let that take down the API server:
           // release the job so it isn't stranded in 'running' and carry on.
           const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
           log.error("ingest handler crashed; releasing job", { itemId: job.itemId, err: message });

@@ -20,7 +20,7 @@ if (env.MIGRATE_ON_START) {
 }
 
 // Browser uploads PUT straight to the bucket, so the bucket must allow the
-// web origin — the server sets that up itself when its token can. When it
+// web origin: the server sets that up itself when its token can. When it
 // can't, say exactly what to paste where: this misconfiguration used to
 // surface only as uploads silently dying in the browser.
 {
@@ -28,7 +28,7 @@ if (env.MIGRATE_ON_START) {
   if (bucketCors.state === "ok") log.info("bucket CORS ready", { detail: bucketCors.detail });
   if (bucketCors.state === "manual-needed") {
     log.warn(
-      "bucket CORS could not be configured — browser uploads WILL FAIL until the policy below " +
+      "bucket CORS could not be configured, so browser uploads WILL FAIL until the policy below " +
         "is added manually (Cloudflare dashboard → R2 → bucket → Settings → CORS policy), or " +
         "the R2 API token is given bucket-admin rights",
       { error: bucketCors.detail, requiredPolicy: JSON.stringify([requiredCorsRule()]) },
@@ -46,7 +46,7 @@ if (env.OPENAI_API_KEY) {
   });
 } else {
   log.warn(
-    "AI enrichment DISABLED — no OPENAI_API_KEY: items get no summaries, tags or semantic search",
+    "AI enrichment DISABLED, no OPENAI_API_KEY: items get no summaries, tags or semantic search",
   );
 }
 

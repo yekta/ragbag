@@ -102,7 +102,7 @@ export const blob = pgTable(
   },
   // NOT unique on (user_id, sha256): bytes are deduplicated by the storage
   // key (<user_id>/<sha256>), so several rows may point at one object. That
-  // lets every client keep the blob id it minted offline — a row whose id the
+  // lets every client keep the blob id it minted offline: a row whose id the
   // server reassigned would orphan the item that already referenced it.
   (t) => [index("blob_user_sha256_idx").on(t.userId, t.sha256)],
 );
@@ -130,7 +130,7 @@ export const item = pgTable(
   (t) => [index("item_user_created_idx").on(t.userId, t.createdAt.desc())],
 );
 
-// Derived, written by ingestion — separate from user-authored data.
+// Derived, written by ingestion, separate from user-authored data.
 export const itemContent = pgTable("item_content", {
   itemId: text("item_id")
     .primaryKey()
@@ -201,7 +201,7 @@ export const collectionItem = pgTable(
   (t) => [primaryKey({ columns: [t.collectionId, t.itemId] })],
 );
 
-// Chunked extracted text for search (plan §4/§8) — server-only, never in the
+// Chunked extracted text for search (plan §4/§8): server-only, never in the
 // Zero schema. Two extra columns live outside drizzle's model and are managed
 // by raw SQL in migration 0002: a generated tsvector ("tsv") and, when
 // pgvector is installed, "embedding vector(1536)" with an HNSW index.
@@ -219,7 +219,7 @@ export const itemChunk = pgTable(
   (t) => [primaryKey({ columns: [t.itemId, t.idx] }), index("item_chunk_user_idx").on(t.userId)],
 );
 
-// Per-call AI spend metering (plan §7/§11: per-user caps from day one — AI
+// Per-call AI spend metering (plan §7/§11: per-user caps from day one; AI
 // ingestion is the COGS of the SaaS).
 export const aiUsage = pgTable(
   "ai_usage",

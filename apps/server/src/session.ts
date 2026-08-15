@@ -6,8 +6,8 @@ import { auth } from "./auth.js";
  *
  * Web/desktop send the better-auth session cookie (zero-cache forwards it via
  * ZERO_*_FORWARD_COOKIES). Native shells without cookie jars send the stored
- * session cookie as `Authorization: Bearer <cookie>` — the Zero client's
- * `auth` option — which we translate back into a Cookie header here.
+ * session cookie as `Authorization: Bearer <cookie>` (the Zero client's
+ * `auth` option), which we translate back into a Cookie header here.
  */
 export async function getAuthData(req: Request): Promise<AuthData | undefined> {
   const headers = new Headers(req.headers);

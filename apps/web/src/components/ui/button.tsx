@@ -4,9 +4,9 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 // Local edit, applied across every file in this directory (re-apply on a
-// re-pull): the generated components lean on alpha modifiers — a ring token at
+// re-pull): the generated components lean on alpha modifiers: a ring token at
 // half strength, an input fill at 30%, a destructive tint at 10%, a black wash
-// at 10% — each paired with a dark-only twin, because an alpha composites
+// at 10%, each paired with a dark-only twin, because an alpha composites
 // differently depending on what happens to be behind it. They now point at
 // opaque tokens (the -hover, -soft, panel and overlay families) that re-declare
 // themselves for the dark theme, so one class name is correct either way and
@@ -20,22 +20,22 @@ import { cn } from "@/lib/utils";
 //
 // Motion was retimed at the same time (dialog / alert-dialog / sidebar, which
 // ran on `ease-linear`): those use `--ease-enter` / `--ease-exit` from
-// index.css, with exits shorter than entrances. Sheet is the exception — it
+// index.css, with exits shorter than entrances. Sheet is the exception: it
 // was retimed too, the drawer stopped reading as motion, and it is back on
 // stock shadcn's 500/300 `ease-in-out`. See the note in ui/sheet.tsx.
 //
 // The `before:` strip in the base is the hit area, not the button: every size
 // here tops out at 40px, and 44 is the floor every touch platform asks for
 // (iOS 44pt, WCAG 2.5.5). `size-full` + `min-*-11` means it is
-// `max(the button, 44px)` — a text button keeps its own bounds, an icon button
-// grows symmetrically around itself — so nothing moves on screen.
+// `max(the button, 44px)` (a text button keeps its own bounds, an icon button
+// grows symmetrically around itself), so nothing moves on screen.
 //
 // Same rule as the `after:` strip in ui/sidebar.tsx: an expanded hit area may
 // tile the gap to its neighbour but must never cross into what the neighbour
 // shows. Every cluster in this app was measured against that (the bleed is
 // `(44 - button) / 2 - gap`, and it has to stay inside the neighbour's icon
-// padding); the one that failed — the tag chips in tag-editor.tsx, where a
-// wrapped row sits 6px away — clamps itself down. A call site that must not
+// padding); the one that failed (the tag chips in tag-editor.tsx, where a
+// wrapped row sits 6px away) clamps itself down. A call site that must not
 // expand at all passes `before:hidden`.
 //
 // `relative` is here for that strip. Call sites that position the button

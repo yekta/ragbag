@@ -2,7 +2,7 @@
 // `dark` custom variant in index.css keys off).
 //
 // Like `sidebarCollapsed`, this is a *device* preference rather than data, so
-// it lives in localStorage and not in Zero — a deliberate exception to "view
+// it lives in localStorage and not in Zero, a deliberate exception to "view
 // state never survives a reload" (plan §10). index.html applies the stored
 // value before first paint; everything here keeps it in sync afterwards.
 

@@ -5,10 +5,10 @@ import "./context.js";
 
 // Shared synced queries. The same definitions run on the client (against the
 // local store) and on the server (/api/zero/query), where ctx comes from the
-// authenticated session — the userId filters below ARE the access control.
+// authenticated session; the userId filters below ARE the access control.
 
 export const queries = defineQueries({
-  // The whole-timeline query — preloaded on startup so the full archive is
+  // The whole-timeline query, preloaded on startup so the full archive is
   // available offline (plan §6).
   timeline: defineQuery(({ ctx }) =>
     zql.item

@@ -23,14 +23,14 @@ ALTER TABLE "item_chunk" ADD CONSTRAINT "item_chunk_item_id_item_id_fk" FOREIGN 
 CREATE INDEX "ai_usage_user_created_idx" ON "ai_usage" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "item_chunk_user_idx" ON "item_chunk" USING btree ("user_id");--> statement-breakpoint
 -- Everything below is managed outside drizzle's model (raw-SQL access only).
--- Keyword search column: language-agnostic 'simple' config — the corpus is
+-- Keyword search column: language-agnostic 'simple' config: the corpus is
 -- multilingual and tags/summaries do the semantic lifting (plan §8).
 ALTER TABLE "item_chunk" ADD COLUMN "tsv" tsvector
   GENERATED ALWAYS AS (to_tsvector('simple', "content")) STORED;--> statement-breakpoint
 CREATE INDEX "item_chunk_tsv_idx" ON "item_chunk" USING gin ("tsv");--> statement-breakpoint
 -- Embedding column + HNSW index only where pgvector is installed (migration
 -- 0001 creates the extension when available; compose/Railway images ship it,
--- bare local Postgres may not — the worker checks at runtime and skips
+-- bare local Postgres may not; the worker checks at runtime and skips
 -- embedding writes, which are backfillable via the Batch API later).
 DO $$
 BEGIN

@@ -4,12 +4,12 @@ import { apiUrl } from "@/lib/api";
 
 /**
  * Server capabilities from /api/meta (google configured? dev login? blobs? ai?).
- * Stays undefined while loading AND when the server is unreachable — callers
+ * Stays undefined while loading AND when the server is unreachable; callers
  * must not treat "unknown" as "off" (offline capture still works).
  *
  * One request per page load, shared by every caller, started at module import
  * rather than on mount: three components used to ask separately, and none of
- * them started asking until React had mounted — on the sign-in screen, the one
+ * them started asking until React had mounted: on the sign-in screen, the one
  * path with nothing else to show, that round trip *is* the wait.
  *
  * Retries on failure, because one unreachable moment is not a verdict: without
@@ -31,7 +31,7 @@ function load(): void {
       for (const listener of listeners) listener();
     })
     .catch(() => {
-      // Unreachable — the app runs local-first regardless, so just keep asking
+      // Unreachable: the app runs local-first regardless, so just keep asking
       // on a backoff rather than giving up.
       timer = setTimeout(load, Math.min(1_000 * 2 ** attempt++, 30_000));
     });

@@ -9,7 +9,7 @@ export const MAX_BLOB_BYTES = 100 * 1024 * 1024;
 export const presignUploadRequest = z.object({
   // Client-minted ULID (offline capture creates the item before the server
   // ever hears about the blob). The server uses it for the new blob row; on a
-  // content-address hit it returns the existing row's id instead — see
+  // content-address hit it returns the existing row's id instead; see
   // presignUploadResponse.blobId.
   blobId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, "blobId must be a ULID"),
   sha256: z
@@ -34,12 +34,12 @@ export const downloadUrlResponse = z.object({
 });
 export type DownloadUrlResponse = z.infer<typeof downloadUrlResponse>;
 
-/** GET /api/meta — lets clients adapt to server capabilities. */
+/** GET /api/meta: lets clients adapt to server capabilities. */
 export const metaResponse = z.object({
   googleAuth: z.boolean(),
   devLogin: z.boolean(),
   blobs: z.boolean(),
-  /** AI enrichment configured (always true in production — boot requires it). */
+  /** AI enrichment configured (always true in production; boot requires it). */
   ai: z.boolean(),
 });
 export type MetaResponse = z.infer<typeof metaResponse>;

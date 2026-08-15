@@ -1,5 +1,5 @@
 // Minimal structured logger: one JSON object per line, ready for log drains.
-// Deliberately tiny — swap for OpenTelemetry-aware logging in M8.
+// Deliberately tiny: swap for OpenTelemetry-aware logging in M8.
 type Level = "debug" | "info" | "warn" | "error";
 
 function write(level: Level, msg: string, fields?: Record<string, unknown>) {

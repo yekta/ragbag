@@ -10,8 +10,8 @@ import { openai } from "./openai.js";
 import { recordUsage } from "./usage.js";
 
 // Stage 3 (plan §7): one OpenAI call per item, structured outputs via the
-// SDK's Zod helper. Generous, multi-dimensional tagging — several `type`
-// tags, 3–15 lowercase `topic` tags, `entity` tags — plus a 1–3 sentence
+// SDK's Zod helper. Generous, multi-dimensional tagging (several `type`
+// tags, 3–15 lowercase `topic` tags, `entity` tags) plus a 1–3 sentence
 // summary. The prompt includes the user's existing topic vocabulary so tags
 // converge instead of fragmenting ("js" vs "javascript").
 
@@ -55,7 +55,7 @@ export const Enrichment = z.object({
   lang: z.string(),
   // What the dump actually *is*, for notes captured without a marker. Only
   // ever promotes a note (see promoteNoteKind); required (not optional) so
-  // OpenAI's strict structured outputs accept the schema — "note" means
+  // OpenAI's strict structured outputs accept the schema: "note" means
   // "leave it alone".
   suggestedKind: z.enum(["note", "todo", "address"]),
 });
@@ -68,7 +68,7 @@ export type EnrichmentInput = {
   title?: string | null;
   siteName?: string | null;
   description?: string | null;
-  /** The user's own words — strongest signal for intent. */
+  /** The user's own words, strongest signal for intent. */
   userText?: string | null;
   extractedText?: string | null;
   existingTopics: readonly string[];
@@ -90,7 +90,7 @@ export function buildEnrichmentPrompt(input: EnrichmentInput): string {
     "- lang: BCP-47 tag of the item's content language (e.g. en, de, pt-BR).",
     "- suggestedKind: 'todo' when the owner wrote something they intend to DO (a task, an errand, a reminder); " +
       "'address' when the item is essentially a postal address or a place to go; otherwise 'note'. " +
-      "When in doubt, answer 'note' — a wrong promotion is more annoying than a missed one.",
+      "When in doubt, answer 'note'. A wrong promotion is more annoying than a missed one.",
   ];
   if (input.isVideo) {
     lines.push(
@@ -144,14 +144,14 @@ export async function enrichItem(
 export type PlannedTag = { kind: "type" | "topic" | "entity"; name: string };
 
 /**
- * The tag rows an enrichment should produce — deduped by NAME, across kinds.
+ * The tag rows an enrichment should produce, deduped by NAME, across kinds.
  *
  * The model routinely returns the same word in two dimensions (a note about
  * "realkey" comes back as topic *and* entity; a video link as type *and*
  * topic). Those are separate rows in `tag` (the key is user+kind+name), so
  * both used to be attached and the item showed the same word twice. One badge
- * per word: the most specific kind wins — type (a controlled vocabulary),
- * then topic, then entity — and the loser is dropped before it ever reaches
+ * per word: the most specific kind wins: type (a controlled vocabulary),
+ * then topic, then entity, and the loser is dropped before it ever reaches
  * the database.
  */
 export function plannedTags(enrichment: EnrichmentResult): PlannedTag[] {
@@ -223,7 +223,7 @@ export async function applyAiTags(
  *
  * This is ingestion's one write to a user-authored row, and it is fenced: the
  * UPDATE only matches `kind = 'note'`, so an explicit choice by the owner (the
- * composer's type picker, or `item.setKind`) always wins — including on a
+ * composer's type picker, or `item.setKind`) always wins, including on a
  * re-run of ingestion over an item they reclassified by hand.
  */
 export async function promoteNoteKind(

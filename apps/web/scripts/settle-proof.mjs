@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import { rmSync, writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
-// Acceptance harness for the settle rule (src/lib/settle.ts) — "nothing paints
+// Acceptance harness for the settle rule (src/lib/settle.ts): "nothing paints
 // until it is the final answer". Run it against the local dev stack
 // (`pnpm dev` + `pnpm dev:zero-cache`)
 // with an archive of a few hundred items:
@@ -22,8 +22,8 @@ import { deflateSync } from "node:zlib";
 // actually catches that.
 
 /**
- * A solid-colour PNG of a given shape. Images are what break row estimation —
- * a placeholder becomes a picture and the row doubles in height — so the
+ * A solid-colour PNG of a given shape. Images are what break row estimation:
+ * a placeholder becomes a picture and the row doubles in height, so the
  * archive under test has to contain some, and they have to differ in aspect.
  */
 function writePng(path, w, h, rgb) {
@@ -71,7 +71,7 @@ const keep = process.argv.includes("--keep");
 /**
  * Installed before any app code runs: labels the screen on every frame.
  *
- * Everything this needs lives inside it — the function is serialised whole and
+ * Everything this needs lives inside it: the function is serialised whole and
  * evaluated in the page, so it cannot reference anything from this module.
  */
 // oxlint-disable-next-line unicorn/consistent-function-scoping
@@ -149,7 +149,7 @@ const SAMPLER = () => {
 const results = [];
 const check = (name, ok, detail) => {
   results.push({ name, ok, detail });
-  console.log(`${ok ? "  ok  " : "FAIL  "}${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "  ok  " : "FAIL  "}${name}${detail ? `: ${detail}` : ""}`);
 };
 
 const read = (page) =>
@@ -175,11 +175,11 @@ const heldFor = (frames, state) => {
 /**
  * The window the plan is about: from the first frame the archive is *visible*
  * to a second later. Two exclusions, both deliberate. Covered frames don't
- * count — the list laying itself out and anchoring behind the cover is the
+ * count: the list laying itself out and anchoring behind the cover is the
  * mechanism working, not a defect (measured: the newest card is 60 000px out of
  * place for ~500ms there, and nobody sees it). And anything after the window is
- * the app reacting to news — an item finishing ingestion drops its "processing"
- * chip and is genuinely a different height — which is not what "nothing flashes
+ * the app reacting to news (an item finishing ingestion drops its "processing"
+ * chip and is genuinely a different height), which is not what "nothing flashes
  * on load" means.
  */
 const SETTLE_WINDOW_MS = 1_000;
@@ -245,7 +245,7 @@ if (seeded < 12) {
     await textarea.fill(
       i % 3 === 0
         ? `todo: settle proof item ${i}`
-        : `Settle proof item ${i} — a line of archive text that wraps differently per row, so the estimator has something to be wrong about.`,
+        : `Settle proof item ${i}, a line of archive text that wraps differently per row, so the estimator has something to be wrong about.`,
     );
     await textarea.press("Enter");
     await page.waitForTimeout(250);
@@ -270,7 +270,7 @@ if ((await page.locator("article img").count()) < 2) {
 // Ingestion has to have finished before the reload cases mean anything: a card
 // whose "queued" chip disappears mid-run is genuinely a different height, and
 // that is news arriving rather than the boot flashing. (The anchor invariant
-// holds either way — it is the document total that moves.)
+// holds either way; it is the document total that moves.)
 const ingested = await page
   .waitForFunction(
     () => !/\b(queued|processing)\b/.test(document.body.innerText || ""),
@@ -285,7 +285,7 @@ const ingested = await page
     () => false,
   );
 if (!ingested) {
-  console.log("  ..  warning: items are still ingesting — height checks may see real edits");
+  console.log("  ..  warning: items are still ingesting; height checks may see real edits");
 }
 await page.waitForTimeout(1_000);
 
@@ -313,7 +313,7 @@ for (const round of [1, 2, 3, 4, 5]) {
     };
   });
   // The one the user reported: a fresh load that opens in the middle of the
-  // archive. Images are what caused it — each one that grew after its row was
+  // archive. Images are what caused it: each one that grew after its row was
   // laid out pushed the end further away until the virtualizer stopped
   // following (measured 484–671px short, varying per load).
   check(
@@ -347,7 +347,7 @@ for (const round of [1, 2, 3, 4, 5]) {
       `${first.docH} vs ${last.docH}`,
     );
   }
-  if (round === 1) console.log(`        (cls ${cls.toFixed(4)} — recorded, not asserted)`);
+  if (round === 1) console.log(`        (cls ${cls.toFixed(4)}, recorded, not asserted)`);
 }
 
 // ─── 3. First sync on this device: the loader is the first thing, and the only one ──
@@ -394,7 +394,7 @@ await page.waitForTimeout(25_000);
   check("first sync: the loader is readable (≥400ms)", visible >= 400, `${visible}ms`);
   // The handover from the sync loader to the finished archive goes behind the
   // cover, so a 400-row list can anchor itself unseen (~500ms of it). That is a
-  // cross-fade between two correct states, and it is allowed to take a beat —
+  // cross-fade between two correct states, and it is allowed to take a beat,
   // what it may not do is drag on, or the app looks like it lost the archive it
   // had just told you it was fetching.
   const handover =

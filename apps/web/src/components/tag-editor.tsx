@@ -5,7 +5,7 @@ import { Icon } from "@/components/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-// Edits the user's own topic tags on an item (full-replacement set — the
+// Edits the user's own topic tags on an item (full-replacement set: the
 // tag.setForItem mutator). AI tags are not editable here; ingestion owns them.
 
 export function TagEditor({
@@ -38,7 +38,7 @@ export function TagEditor({
           {name}
           {/* The one button in the app that can't take the base's 44px hit
               area. This is 16px inside a chip in a wrapping row, so 44 would
-              reach ~11px past the badge — five of those into the row above,
+              reach ~11px past the badge: five of those into the row above,
               over *its* remove button, and the row above loses because it
               paints first. 24px bleeds 4px against this row's 6px gap, so the
               hit areas tile the gap without ever crossing, which is the same

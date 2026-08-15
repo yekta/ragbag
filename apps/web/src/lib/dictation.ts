@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Voice capture for the composer, via the browser's own SpeechRecognition —
+// Voice capture for the composer, via the browser's own SpeechRecognition:
 // no server round-trip, no API cost. Support is uneven (Chrome/Edge yes,
 // Safari behind a prefix, Firefox no), so `supported` is reported and the UI
 // falls back to hiding the mic rather than offering a dead button.
@@ -10,7 +10,7 @@ type RecognitionEvent = {
 };
 
 // SpeechRecognition is an EventTarget, so its events are subscribed to rather
-// than assigned — but `result` isn't in the DOM event map, hence the cast.
+// than assigned, but `result` isn't in the DOM event map, hence the cast.
 type Recognition = EventTarget & {
   lang: string;
   continuous: boolean;

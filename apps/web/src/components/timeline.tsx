@@ -12,12 +12,12 @@ import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
 import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
-// bottom like a messenger. Virtualized (plan §10) — the full personal archive
+// bottom like a messenger. Virtualized (plan §10): the full personal archive
 // is in memory via Zero, only visible cards are in the DOM.
 //
 // The *window* is the scroller. The list is ordinary
 // flow content, so the browser sees a real document scroll and every native
-// affordance that hangs off one — Safari collapsing its URL bar first among
+// affordance that hangs off one, Safari collapsing its URL bar first among
 // them. Two rules come with that: nothing between <body> and this list may set
 // `overflow` (it would capture the sticky chrome above and below), and the
 // virtualizer needs `scrollMargin` to know where in the document the list
@@ -63,7 +63,7 @@ function useRows(items: TimelineRows): Row[] {
 // Row geometry, estimated from what is known before layout.
 //
 // This used to be a flat 140px for every item, which is wrong in both
-// directions at once — a one-line todo against an image card — and the
+// directions at once (a one-line todo against an image card) and the
 // virtualizer pays for the error by resizing the document under the reader as
 // real measurements land, dragging the scroll offset with it. None of this has
 // to be exact. It has to be close enough that the corrections are gossip rather
@@ -184,13 +184,13 @@ export function Timeline({
     // already at the end. The threshold is deliberately generous: the
     // end-of-document arithmetic uses `innerHeight`, which on iOS tracks the
     // visual viewport, so a tight one reads as "not at the end" while the URL
-    // bar is expanded — and new dumps would quietly stop following.
+    // bar is expanded, and new dumps would quietly stop following.
     anchorTo: "end",
     followOnAppend: true,
     scrollEndThreshold: AT_END_PX,
     // The end-anchoring above corrects the scroll offset from inside the ref
     // callback that measures a freshly mounted row, and asks React to flush the
-    // resulting render synchronously — from inside a commit, which React
+    // resulting render synchronously, from inside a commit, which React
     // refuses with a console error (once per dump, since a dump is what mounts
     // a row while you are at the end). Re-rendering on the next tick instead
     // costs nothing here: `overscan: 10` is ~1000px of rows either side, so
@@ -204,7 +204,7 @@ export function Timeline({
   // change.
   //
   // Pinning the *scroll* is not the whole job, and measurement showed why:
-  // when the archive lands, the offset is already right and the rows are not —
+  // when the archive lands, the offset is already right and the rows are not:
   // they are laid out at estimated positions, so the newest card can be
   // 60 000px from where it belongs until the measurement pass corrects it
   // (~500ms for 400 rows on a dev box). That correction is the reason the shell
@@ -232,7 +232,7 @@ export function Timeline({
   // Each of these is narrowed to the gesture that actually means "I'll take it
   // from here", because a false positive costs the load: it hands the scroll
   // back while images are still growing, which is the failure this whole block
-  // exists to prevent. Not `scroll` itself — the virtualizer scrolls the window
+  // exists to prevent. Not `scroll` itself: the virtualizer scrolls the window
   // while it corrects, and that is not the reader deciding anything.
   const readerScrolled = useRef(false);
   useEffect(() => {
@@ -264,19 +264,19 @@ export function Timeline({
 
   // Keep the newest item in view while the archive changes shape underneath it.
   //
-  // Rows grow after they first lay out — an image's bytes arrive and a 160px
+  // Rows grow after they first lay out (an image's bytes arrive and a 160px
   // placeholder becomes a 320px picture, an item finishes ingesting and drops a
-  // chip — and each growth below the fold pushes the end of the document further
+  // chip) and each growth below the fold pushes the end of the document further
   // away. The virtualizer's own end-anchoring gives up once the gap exceeds
   // `scrollEndThreshold`, so a handful of images was enough to ratchet the view
   // hundreds of pixels short of the newest card and leave it there: a fresh load
   // that opens in the middle of the archive (measured: 484–671px short, varying
   // per load, on an archive with three images). Stability is not the same as
-  // correctness — the layout had stopped moving, it had just stopped in the
+  // correctness: the layout had stopped moving, it had just stopped in the
   // wrong place.
   //
   // So: re-pin on every height change until the reader takes over, and after
-  // that only while they are still at the end — which is exactly how a chat
+  // that only while they are still at the end, which is exactly how a chat
   // behaves when a photo finishes loading.
   useEffect(() => {
     const list = listRef.current;
@@ -300,7 +300,7 @@ export function Timeline({
   // re-measuring an archive at a new width takes several frames, and the
   // virtualizer scrolls the window itself while it corrects, so "still
   // scrolling" means wait rather than give up. And they must not have taken
-  // over — on iOS the URL bar sliding away *is* a resize, and that gesture is
+  // over: on iOS the URL bar sliding away *is* a resize, and that gesture is
   // theirs. Tapping the composer is not a takeover, which is what leaves the
   // keyboard case working.
   useEffect(() => {
@@ -341,14 +341,14 @@ export function Timeline({
   return (
     // The top inset is the band the floating controls occupy: content may pass
     // behind them while scrolling, it may never come to rest under them. The
-    // bottom is not an inset — the composer sits in the flow below this column
-    // and takes real space — but coming to rest one row gap from it read as
+    // bottom is not an inset (the composer sits in the flow below this column
+    // and takes real space) but coming to rest one row gap from it read as
     // cramped. This padding lands on top of the last row's own `pb-3`, so the
     // newest card settles 3.75rem clear of the composer: the breathing room a
     // chat UI leaves between what was said and what you are typing.
     // The gutter is the composer's, and it is out here for the same reason it
     // is out there: it has to sit *outside* the column cap, or the cards come
-    // out narrower than the card you type into by exactly this padding — 1rem a
+    // out narrower than the card you type into by exactly this padding: 1rem a
     // side on a wide screen, where both are pinned at the cap and only the
     // cards pay for it.
     <div className="relative flex flex-1 flex-col px-3 pt-(--timeline-inset-top) pb-12 md:px-4">
@@ -374,7 +374,7 @@ export function Timeline({
               >
                 {row.type === "day" ? (
                   <div className="flex justify-center py-3">
-                    {/* The card surface, like the rows it separates — one fill
+                    {/* The card surface, like the rows it separates: one fill
                         for everything sitting on the canvas. The variant stays
                         for its ink; its own fill is overridden, and its hover
                         is anchor-only, so nothing here reacts to a pointer
@@ -404,7 +404,7 @@ export function Timeline({
 
 /**
  * What stands in for the stream when there is nothing to draw. Every branch is
- * a settled truth — and `opening` draws nothing at all, because the only honest
+ * a settled truth, and `opening` draws nothing at all, because the only honest
  * thing to say about an archive that is still on its way is nothing.
  */
 function Placeholder({
@@ -446,8 +446,8 @@ function Placeholder({
           {isSyncPaused(sync)
             ? // No spinner: sync is refused or offline, so nothing is in fact in
               // progress. The banner above says why.
-              "Nothing on this device yet. Dump anything below — it syncs once the connection is back."
-            : "Your ragbag is empty. Dump anything below — it syncs everywhere."}
+              "Nothing on this device yet. Dump anything below. It syncs once the connection is back."
+            : "Your ragbag is empty. Dump anything below. It syncs everywhere."}
         </p>
       </Centred>
     );

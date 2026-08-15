@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PanelLeftIcon } from "lucide-react";
 
-// Local edits to the generated component — re-apply all three on a re-pull:
+// Local edits to the generated component. Re-apply all three on a re-pull:
 //
 // 1. The generated `setOpen` also writes a `sidebar_state` cookie. It is gone:
 //    zustand + localStorage is the single source of truth for this preference,
@@ -214,7 +214,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          // Same duration and curve as the panel it makes room for, below —
+          // Same duration and curve as the panel it makes room for, below:
           // the gap and the sidebar are one movement, and a linear gap under a
           // decelerating panel is two.
           "relative w-(--sidebar-width) bg-transparent transition-[width] duration-450 ease-panel",
@@ -455,7 +455,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
       data-slot="sidebar-menu"
       data-sidebar="menu"
       // No gap: the space between two rows belongs to one of them. A gap is a
-      // strip that looks like the list and answers to nothing in it — the
+      // strip that looks like the list and answers to nothing in it: the
       // pointer crosses it and the highlight blinks off, and a click that lands
       // there does nothing at all. The rows carry the distance in their own
       // height instead (the size variants below), so the list is continuous
@@ -480,11 +480,18 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 const sidebarMenuButtonVariants = cva(
   // Selection is carried by ink and fill, not by weight: stock bolds the active
   // row, and a word that changes shape under the pointer is a bigger event than
-  // the thing it is reporting — the row reflows and the eye reads it as the list
+  // the thing it is reporting: the row reflows and the eye reads it as the list
   // moving. The unselected rows sit at `--muted-foreground` instead and the
   // selected one comes up to full strength, which is the same signal at the
   // same glance, spent on a property that costs no layout.
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  //
+  // The 1px transparent border top and bottom is where the separation between
+  // two fills comes from, and it is deliberately not a gap. The row's box still
+  // runs edge to edge against its neighbour's (every pixel of this list belongs
+  // to a row and answers to a click) while the fill, clipped to the padding
+  // box, stops short of it. Two adjacent highlights therefore read 2px apart
+  // with nothing dead in between.
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       variant: {

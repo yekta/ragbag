@@ -9,10 +9,10 @@ for (const candidate of [".env", "../../.env"]) {
 }
 
 // All server configuration comes from the environment (12-factor; identical
-// code paths for SaaS and self-host — see plan §11). Validated through
+// code paths for SaaS and self-host; see plan §11). Validated through
 // t3-env's createEnv: `emptyStringAsUndefined` means `SOME_VAR=` behaves like
 // an unset variable (so defaults apply) instead of smuggling "" past every
-// `z.string().optional()` — which once let blank R2 vars half-configure a
+// `z.string().optional()`, which once let blank R2 vars half-configure a
 // driver. A validation failure refuses to boot, loudly.
 
 const shape = {
@@ -31,7 +31,7 @@ const shape = {
   // Set when the web app, the API and zero-cache sit on sibling subdomains
   // (e.g. ".ragbag.app" for app./api./zero.ragbag.app): the session cookie is
   // issued for the parent domain so all three see it. Unset in dev, where
-  // everything is localhost — cookies ignore the port, so they already are.
+  // everything is localhost: cookies ignore the port, so they already are.
   // Must be a registrable domain; a Railway-style "*.up.railway.app" host
   // won't work, those are separate sites.
   COOKIE_DOMAIN: z.string().optional(),
@@ -48,7 +48,7 @@ const shape = {
 
   // Blob storage: Cloudflare R2 via the S3 API, or any S3-compatible bucket
   // for self-hosters. When unset, LOCAL_BLOB_DIR (plain files served by this
-  // server through HMAC-presigned URLs) takes over — defaulted in dev so
+  // server through HMAC-presigned URLs) takes over, defaulted in dev so
   // file dumps work with zero setup, opt-in in production.
   R2_ENDPOINT: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
@@ -56,7 +56,7 @@ const shape = {
   R2_BUCKET: z.string().optional(),
   LOCAL_BLOB_DIR: z.string().optional(),
 
-  // OpenAI powers enrichment + embeddings (plan §7/§8) — a core feature, not
+  // OpenAI powers enrichment + embeddings (plan §7/§8): a core feature, not
   // an add-on: REQUIRED in production (see the guard below; a keyless deploy
   // silently produced no summaries/tags for a day before anyone noticed).
   // Optional in dev/test so the stack boots without credentials.
@@ -71,7 +71,7 @@ const shape = {
   INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
 };
 
-/** The whole-environment schema — also the unit-test seam (env.test.ts). */
+/** The whole-environment schema, also the unit-test seam (env.test.ts). */
 export const EnvSchema = z.object(shape).superRefine((cfg, ctx) => {
   if (cfg.NODE_ENV !== "production") return;
   if (cfg.BETTER_AUTH_SECRET === "dev-only-secret-change-me") {
@@ -84,7 +84,7 @@ export const EnvSchema = z.object(shape).superRefine((cfg, ctx) => {
     ctx.addIssue({
       code: "custom",
       message:
-        "OPENAI_API_KEY must be set in production — enrichment is a core feature and the " +
+        "OPENAI_API_KEY must be set in production. Enrichment is a core feature and the " +
         "server refuses to run without it (set it on the API service's variables)",
     });
   }

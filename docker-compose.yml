@@ -39,7 +39,7 @@ services:
       # No S3 bucket? Blobs land on the mounted volume below instead.
       LOCAL_BLOB_DIR: ${LOCAL_BLOB_DIR:-/data/blobs}
       # Ingestion/AI (§7): without a key, content is still extracted and
-      # indexed — only summaries/tags/embeddings are skipped.
+      # indexed; only summaries/tags/embeddings are skipped.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       AI_USER_DAILY_BUDGET_USD: ${AI_USER_DAILY_BUDGET_USD:-1}

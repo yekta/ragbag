@@ -11,16 +11,16 @@ allowBuilds:
 
 # Single place to pin versions shared across packages (`"dep": "catalog:"`).
 catalog:
-  # runtime — clients
+  # runtime: clients
   react: ^19.2.8
   react-dom: ^19.2.8
   "@tanstack/react-router": ^1.170.25
   "@tanstack/react-virtual": ^3.14.9
   zustand: ^5.0.14
   minisearch: ^7.2.0
-  # runtime — sync (client + server + cache must stay in lockstep → exact pin)
+  # runtime: sync (client + server + cache must stay in lockstep → exact pin)
   "@rocicorp/zero": 1.8.0
-  # runtime — server
+  # runtime: server
   hono: ^4.13.1
   "@hono/node-server": ^2.1.0
   better-auth: ^1.6.27
@@ -35,7 +35,7 @@ catalog:
   # pdfjs reaches for this at runtime to polyfill DOMMatrix/Path2D. Pinned to
   # the version pdfjs itself resolves so only one copy is ever installed.
   "@napi-rs/canvas": 1.0.5
-  # runtime — shared
+  # runtime: shared
   zod: ^4.4.3
   ulid: ^3.0.2
   # tooling

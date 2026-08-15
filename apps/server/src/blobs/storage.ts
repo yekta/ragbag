@@ -17,7 +17,7 @@ import { env, localBlobDir, r2Configured } from "../env.js";
 // (<user_id>/<sha256>) and move directly between client and store via
 // presigned URLs (plan §5). Two drivers behind one interface:
 //
-//   - r2: Cloudflare R2 / any S3-compatible bucket — the SaaS + self-host path.
+//   - r2: Cloudflare R2 / any S3-compatible bucket, the SaaS + self-host path.
 //   - local: plain files under LOCAL_BLOB_DIR served by this server through
 //     HMAC-"presigned" URLs with the same bearer semantics as S3 presigning.
 //     Default in dev (file dumps work with zero setup); production only when
@@ -117,7 +117,7 @@ function localUrl(method: "PUT" | "GET", key: string, mime: string, ttlSeconds: 
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
   const q = new URLSearchParams({ mime, exp: String(exp), sig: sign(method, key, mime, exp) });
   // BETTER_AUTH_URL is the browser-facing base of /api (the Vite proxy in dev,
-  // the public server URL when self-hosting) — same origin as auth cookies.
+  // the public server URL when self-hosting): same origin as auth cookies.
   return `${env.BETTER_AUTH_URL.replace(/\/$/, "")}/api/blobs/local/${key}?${q}`;
 }
 
@@ -164,7 +164,7 @@ export const storage: BlobStorage | null = s3Client
 
 // Presigned PUT/GET run straight from the browser to the bucket, which is a
 // cross-origin request: without a CORS rule allowing the web origin, every
-// browser upload dies in the preflight — while server-side access (ingest,
+// browser upload dies in the preflight, while server-side access (ingest,
 // proofs) works fine, which made this failure maddening to diagnose.
 
 /** The one rule browser upload/download needs; also printed for manual setup. */
@@ -182,7 +182,7 @@ export type BucketCorsStatus =
   /** Local driver (same-site, covered by the API's own CORS middleware). */
   | { state: "not-applicable" }
   | { state: "ok"; detail: string }
-  /** Couldn't verify or apply — a human must set the policy on the bucket. */
+  /** Couldn't verify or apply: a human must set the policy on the bucket. */
   | { state: "manual-needed"; detail: string };
 
 let corsStatus: BucketCorsStatus = { state: "not-applicable" };
@@ -206,7 +206,7 @@ function ruleCovers(rule: CORSRule, origin: string): boolean {
  * Make the bucket's CORS policy allow browser uploads from WEB_ORIGIN,
  * following the ensureVectorColumn() precedent: the server fixes its own
  * prerequisites on boot when it can. Appends to existing rules, never
- * replaces them. Never throws — a failure lands in bucketCorsStatus() (and
+ * replaces them. Never throws: a failure lands in bucketCorsStatus() (and
  * the boot log) with instructions instead.
  */
 export async function ensureBucketCors(): Promise<BucketCorsStatus> {
@@ -238,7 +238,7 @@ export async function ensureBucketCors(): Promise<BucketCorsStatus> {
     corsStatus = { state: "ok", detail: `added a rule allowing ${env.WEB_ORIGIN}` };
   } catch (err) {
     // Object-scoped R2 API tokens can read/write objects but not bucket
-    // configuration — the common reason this lands here.
+    // configuration, the common reason this lands here.
     corsStatus = {
       state: "manual-needed",
       detail: err instanceof Error ? `${err.name}: ${err.message}` : String(err),

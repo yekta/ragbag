@@ -11,7 +11,7 @@ export type RagbagZeroConfig = {
   userID: string;
   /**
    * Auth token forwarded by zero-cache to /api/zero/query|mutate as an
-   * Authorization: Bearer header. On web this stays undefined — the better-auth
+   * Authorization: Bearer header. On web this stays undefined: the better-auth
    * session cookie is forwarded instead (ZERO_*_FORWARD_COOKIES). Native shells
    * (Electron/Expo) pass their stored session token here.
    */

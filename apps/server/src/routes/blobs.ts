@@ -13,7 +13,7 @@ import { blob } from "../db/schema.js";
 import { getAuthData } from "../session.js";
 
 // Blob bytes go straight between client and the object store via presigned
-// URLs — they never stream through application code (plan §5). Keys are
+// URLs: they never stream through application code (plan §5). Keys are
 // content-addressed: <user_id>/<sha256>, which makes re-dumps of the same
 // file free. The /local/* routes ARE the object store when the local-disk
 // driver is active; their auth is the HMAC signature (bearer semantics,
@@ -32,13 +32,13 @@ export const blobRoutes = new Hono()
     // The client's blob id always wins: its items already reference it, very
     // possibly created offline before this request. Re-dumping identical bytes
     // therefore adds a cheap extra row pointing at the same content-addressed
-    // object — the bytes are still stored exactly once, and no client ever has
+    // object: the bytes are still stored exactly once, and no client ever has
     // to be told its id was reassigned.
     const key = blobKey(authData.userID, sha256);
     await db
       .insert(blob)
       .values({ id: blobId, userId: authData.userID, sha256, mime, size, originalName })
-      .onConflictDoNothing(); // same id retried — the row is already right
+      .onConflictDoNothing(); // same id retried, the row is already right
 
     // Only skip the upload when the bytes are actually in the store: a row
     // alone can be a leftover from an interrupted upload, and this presign is
@@ -78,7 +78,7 @@ export const blobRoutes = new Hono()
     }
     const bytes = await localDriverGet(key);
     if (!bytes) return c.json({ error: "not found" }, 404);
-    // Copy into a fresh ArrayBuffer — a Node Buffer's backing store can be a
+    // Copy into a fresh ArrayBuffer: a Node Buffer's backing store can be a
     // shared pool slab, which Response would leak in full.
     return c.body(bytes.slice().buffer as ArrayBuffer, 200, {
       "content-type": query.mime || "application/octet-stream",

@@ -17,7 +17,7 @@ import type { Timeline, TimelineItem } from "@/lib/types";
 
 // The single search box (plan §8/§10): a ⌘K overlay over the Tier-1 local
 // index. Instant, search-as-you-type, fully offline. Tier 2 blends into this
-// same box in M7 — hybrid ranking, not a separate mode.
+// same box in M7: hybrid ranking, not a separate mode.
 //
 // cmdk owns keyboard navigation, selection and focus; `shouldFilter={false}`
 // because the ranking is ours (minisearch), not cmdk's substring match.
@@ -26,7 +26,7 @@ import type { Timeline, TimelineItem } from "@/lib/types";
 // shell that drops `children` straight into its content. It used to wrap them
 // itself, which is why this file once had to thread options through a
 // `commandProps` passthrough patched into the vendored component. Base UI's
-// version needs no patch — the option goes on the element directly.
+// version needs no patch: the option goes on the element directly.
 
 function ResultRow({ item, onPick }: { item: TimelineItem; onPick: () => void }) {
   const title = item.content?.title ?? item.text?.split("\n")[0] ?? item.url ?? `(${item.kind})`;
@@ -83,8 +83,8 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
       // to the middle of the screen reads as a modal, not a command bar.
       //
       // The unprefixed cap replaces DialogContent's base
-      // `max-w-[calc(100%-2rem)]` — same tailwind-merge group, so it evicts it
-      // — narrowing the phone gutter to 0.5rem a side. Drop it and the palette
+      // `max-w-[calc(100%-2rem)]` (same tailwind-merge group, so it evicts
+      // it), narrowing the phone gutter to 0.5rem a side. Drop it and the palette
       // inherits the 1rem gutter; the `sm:` cap must stay prefixed or it would
       // evict this one and the palette goes edge-to-edge on mobile.
       className="top-[8vh] max-w-[calc(100%-1rem)] translate-y-0 rounded-2xl sm:max-w-xl md:top-[12vh]"
@@ -99,7 +99,7 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
         <CommandList className="max-h-[55vh] p-2">
           {blank ? (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Type to search titles, tags, summaries, and content — instant and offline.
+              Search titles, tags, summaries, and content.
             </div>
           ) : (
             <>

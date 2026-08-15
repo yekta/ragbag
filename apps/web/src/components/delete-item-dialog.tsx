@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Deleting syncs, so the confirmation says so. Shared by the timeline card's
-// hover action and the item detail header — one wording, one dialog.
+// hover action and the item detail header: one wording, one dialog.
 
 export function DeleteItemDialog({
   children,
@@ -20,7 +20,7 @@ export function DeleteItemDialog({
 }: {
   /**
    * The trigger. Base UI renders it in place of its own button via `render`,
-   * merging trigger props into it — so this must be a single element that
+   * merging trigger props into it, so this must be a single element that
    * forwards props, not arbitrary nodes.
    */
   children: ReactElement;

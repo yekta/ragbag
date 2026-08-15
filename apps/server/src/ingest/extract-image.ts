@@ -52,7 +52,7 @@ export async function describeImage(input: {
       text: { format: zodTextFormat(ImageDescription, "image_description") },
     })
     .catch((err: unknown) => {
-      // A 4xx means this image will never be accepted — corrupt bytes, an
+      // A 4xx means this image will never be accepted: corrupt bytes, an
       // unsupported format, too many pixels. Retrying burns quota and delays
       // the failure the user sees, so surface it immediately. 408/429 and all
       // 5xx stay retryable.

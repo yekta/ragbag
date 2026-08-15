@@ -1,7 +1,7 @@
 # ragbag
 
-An info-dump app with a message-like interface. Dump anything — links, photos, notes, PDFs,
-screenshots — and it gets indexed intelligently so everything is searchable later. A smart
+An info-dump app with a message-like interface. Dump anything (links, photos, notes, PDFs,
+screenshots) and it gets indexed intelligently so everything is searchable later. A smart
 bookmark / second-brain hybrid.
 
 **Stack:** TypeScript pnpm monorepo · React web (also the Electron renderer, later) · Expo mobile
@@ -22,7 +22,7 @@ packages/
 ```
 
 `apps/desktop`, `apps/mobile`, and `apps/marketing` arrive in later milestones (M5/M6).
-Internal packages export raw `.ts` — no build step for packages.
+Internal packages export raw `.ts`: no build step for packages.
 
 ## Development
 
@@ -43,7 +43,7 @@ pnpm dev:stop                 # stop everything and free the ports
 
 Use `pnpm dev:stop` rather than killing things by port. zero-cache listens on
 :4848 _and_ forks a change-streamer on :4849, and `pnpm dev` supervises the API
-through a `tsx watch` parent — so killing one process usually leaves either an
+through a `tsx watch` parent, so killing one process usually leaves either an
 orphan holding :4849 (the next start dies with `EADDRINUSE :::4849`) or a
 watcher that quietly respawns the server.
 
@@ -55,7 +55,7 @@ anonymous sign-in button appears so sync can be exercised without credentials.
 
 **Blobs** go straight to R2/S3 via presigned URLs. With no bucket configured,
 the server falls back to local-disk storage (`LOCAL_BLOB_DIR`, default
-`.data/blobs` in dev) served through HMAC-presigned URLs — so file dumps work
+`.data/blobs` in dev) served through HMAC-presigned URLs, so file dumps work
 out of the box.
 
 **Ingestion** runs inside the API process (`INGEST_WORKER=false` to disable): a
@@ -65,14 +65,14 @@ extracts and indexes content; AI summaries, tags, and embeddings are skipped.
 
 Embeddings additionally need **pgvector**. The compose image ships it; on a
 distro Postgres install the extension package (e.g.
-`apt install postgresql-18-pgvector`) and restart the server — it creates the
+`apt install postgresql-18-pgvector`) and restart the server: it creates the
 extension, adds `item_chunk.embedding vector(1536)`, and builds the HNSW index
 on boot. Without pgvector everything else keeps working; chunks are still
 written with a generated `tsvector`, so embeddings can be backfilled later.
 
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 
-Acceptance proofs (each needs the dev stack running — postgres + server, plus
+Acceptance proofs (each needs the dev stack running: postgres + server, plus
 zero-cache for the two that sync):
 
 ```sh
@@ -85,6 +85,6 @@ pnpm exec tsx scripts/ingest-proof.mts  # M4: dump → queue → extract → ind
 ## Self-hosting
 
 `docker compose up` runs the whole backend: API server + zero-cache + Postgres. Bring your own
-OpenAI key (optional — without it, ingestion skips the AI stages) and any S3-compatible bucket
-(optional too — blobs otherwise land on a mounted volume). See `.env.example`. Same images and
+OpenAI key (optional: without it, ingestion skips the AI stages) and any S3-compatible bucket
+(optional too: blobs otherwise land on a mounted volume). See `.env.example`. Same images and
 code paths as the hosted SaaS.

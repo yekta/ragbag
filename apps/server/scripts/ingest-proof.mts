@@ -1,5 +1,5 @@
 // M4 acceptance check: the ingestion pipeline end to end against the live dev
-// stack — dump items through Zero like a client would, then watch the worker
+// stack: dump items through Zero like a client would, then watch the worker
 // classify → extract → (enrich) → index, with results replicating back.
 //
 // Runs WITHOUT an OpenAI key: extraction and chunk indexing are asserted;
@@ -60,7 +60,7 @@ const FONT: Record<string, string[]> = {
 };
 const OCR_WORD = "RAGBAG";
 
-/** Levenshtein distance — the OCR assertion allows a little model slop. */
+/** Levenshtein distance: the OCR assertion allows a little model slop. */
 function editDistance(a: string, b: string): number {
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
@@ -212,7 +212,7 @@ const addressId = await dump({
   kind: "address",
   text: "Karl-Marx-Allee 90, 10243 Berlin",
 });
-// A plain note that is really a task — enrichment may promote it to a todo.
+// A plain note that is really a task; enrichment may promote it to a todo.
 const promotableId = await dump({
   id: newId(),
   kind: "note",
@@ -297,7 +297,7 @@ async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promis
   return snapshot;
 }
 
-// The un-uploaded item never settles by design — it is asserted separately.
+// The un-uploaded item never settles by design; it is asserted separately.
 const watched = [
   noteId,
   linkId,
@@ -322,7 +322,7 @@ const note = settled.get(noteId)!;
 if (note.status !== "done") fail(`note not done: ${JSON.stringify(note)}`);
 console.log("OK   note ingested (no-op extraction)");
 
-// Todos and addresses ride the note path (no extraction) — and the kind the
+// Todos and addresses ride the note path (no extraction), and the kind the
 // owner picked survives ingestion. That fence is what makes AI promotion safe:
 // promoteNoteKind only ever matches kind = 'note'.
 const todo = settled.get(todoId)!;
@@ -383,7 +383,7 @@ if (pdfId) {
 
 // Images: the vision call is the only thing that makes an image searchable.
 // A recorded `vision` usage row on the good image proves the server has a
-// working key and had budget — the corrupt one can't prove it itself, since
+// working key and had budget; the corrupt one can't prove it itself, since
 // its call fails before any usage is metered.
 const [visionMetered] = imageId
   ? await sql<{ n: string }[]>`
@@ -404,8 +404,8 @@ if (imageId && !visionExercised) {
     fail(`vision produced no usable description: ${JSON.stringify(image.text)}`);
   }
   // What we own is the round-trip: pipeline.ts joins the model's description
-  // and ocr_text with a blank line into extracted_text. Assert that STRUCTURE
-  // — a description followed by its own transcription field — not the
+  // and ocr_text with a blank line into extracted_text. Assert that STRUCTURE,
+  // a description followed by its own transcription field, and not the
   // transcription's fidelity. A 5x7 bitmap font is genuinely hard to read:
   // the same image has come back as "RASBEG", "RAGBRS" and "RAGERS" across
   // runs, so any similarity threshold fails on model variance rather than on
@@ -421,12 +421,12 @@ if (imageId && !visionExercised) {
   const drift = editDistance(ocrText.replace(/\s/g, ""), OCR_WORD);
   console.log(
     `OK   image described + OCR'd by vision (title: ${JSON.stringify(image.title)}, ` +
-      `read ${JSON.stringify(ocrText)} vs "${OCR_WORD}" — ${drift} char(s) of model drift)`,
+      `read ${JSON.stringify(ocrText)} vs "${OCR_WORD}": ${drift} char(s) of model drift)`,
   );
 }
 
-// The offline-capture path: parked, not failed, and not counted as an attempt
-// — and above all it must not crash the worker (it once did: the wait
+// The offline-capture path: parked, not failed, not counted as an attempt,
+// and above all it must not crash the worker (it once did: the wait
 // deadline was computed in JS from a raw-SQL timestamp, which is a string).
 if (unuploadedId) {
   const [job] = await sql<{ status: string; attempts: number; last_error: string | null }[]>`
@@ -443,7 +443,7 @@ if (unuploadedId) {
   if (content && content.status !== "pending") {
     fail(`item awaiting upload should read as pending, got ${JSON.stringify(content)}`);
   }
-  // The server is still alive — a crash here used to take the whole API down.
+  // The server is still alive: a crash here used to take the whole API down.
   const health = await fetch(`${SERVER}/health`).catch(() => null);
   if (!health?.ok) fail("the API server died while handling a waiting job");
   console.log("OK   item whose blob has not uploaded yet parks (queued, 0 attempts, API alive)");
@@ -469,7 +469,7 @@ const chunksByItem = new Map(chunkCounts.map((r) => [r.item_id, Number(r.n)]));
 if (!chunksByItem.get(noteId)) fail("note text was not chunk-indexed");
 if (!chunksByItem.get(linkId)) fail("link article was not chunk-indexed");
 
-// tsvector is generated by Postgres — server-side keyword search works with
+// tsvector is generated by Postgres, server-side keyword search works with
 // no AI at all.
 const [tsHit] = await sql<{ n: string }[]>`
   select count(*) as n from item_chunk
@@ -511,7 +511,7 @@ if (!hasVector || enrichedIds.length === 0) {
   console.log(`OK   all ${embedded.total} chunks embedded as vector(1536) via pgvector`);
 
   // The point of the vectors: nearest-neighbour retrieval. Probe with a
-  // chunk's own embedding — it must rank itself first, at ~zero distance.
+  // chunk's own embedding: it must rank itself first, at ~zero distance.
   const probeItemId = enrichedIds[0]!;
   const [probe] = await sql<{ embedding: string }[]>`
     select embedding::text as embedding from item_chunk
@@ -537,7 +537,7 @@ if (!hasVector || enrichedIds.length === 0) {
       `next ${neighbours[1] ? Number(neighbours[1].distance).toFixed(4) : "n/a"}`,
   );
 
-  // The HNSW index must be *usable* for cosine ordering — i.e. the opclass
+  // The HNSW index must be *usable* for cosine ordering, i.e. the opclass
   // matches the operator this query uses. On a table this small the planner
   // rightly prefers a seq scan, so ask it to avoid one before reading the
   // plan; that isolates "is the index valid" from "is it worth using".

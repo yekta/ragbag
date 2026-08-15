@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { applyTheme, loadTheme, THEME_KEY, type Theme } from "@/lib/theme";
 
 // View-only state (plan §10): all *data* state lives in Zero. Filters narrow
-// the locally-synced timeline; nothing here survives a reload on purpose —
+// the locally-synced timeline; nothing here survives a reload on purpose:
 // except `sidebarCollapsed` and `theme`, device preferences (like the
 // remembered identity), which persist to localStorage.
 //

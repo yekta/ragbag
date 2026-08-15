@@ -1,4 +1,4 @@
-// Tiny promise wrapper around IndexedDB — just enough for the blob queue and
+// Tiny promise wrapper around IndexedDB: just enough for the blob queue and
 // cache. Not a general ORM; Zero owns the app data store.
 
 export function requestAsPromise<T>(req: IDBRequest<T>): Promise<T> {
@@ -11,7 +11,7 @@ export function requestAsPromise<T>(req: IDBRequest<T>): Promise<T> {
 /**
  * How long an open may take before we declare IndexedDB wedged. Opens are
  * normally milliseconds; a profile with a stuck backend (or a `blocked` state
- * nothing will ever resolve) hangs the request forever with no event at all —
+ * nothing will ever resolve) hangs the request forever with no event at all:
  * and anything awaiting it used to hang with it. Callers get a rejection
  * instead and can fall back.
  */
@@ -46,7 +46,7 @@ export function openDb(
     }
     req.addEventListener("upgradeneeded", () => upgrade(req.result));
     req.addEventListener("success", () => {
-      // Won the race against the timeout — but if the timeout already fired,
+      // Won the race against the timeout, but if the timeout already fired,
       // close rather than leak a connection nobody holds.
       if (settled) req.result.close();
       settle(() => resolve(req.result));

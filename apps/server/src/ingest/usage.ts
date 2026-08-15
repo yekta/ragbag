@@ -4,14 +4,14 @@ import { db } from "../db/client.js";
 import { aiUsage } from "../db/schema.js";
 
 // Per-user AI-spend metering: every OpenAI call is priced and recorded, so
-// spend is auditable after the fact. Recording only — nothing here gates
+// spend is auditable after the fact. Recording only: nothing here gates
 // enrichment. (There used to be a rolling-24h cap that silently skipped
 // enrichment; a stage that quietly does nothing is exactly the failure mode
 // this app keeps getting bitten by.)
 
 /** USD per million tokens. */
 const PRICES: Record<string, { input: number; output: number }> = {
-  // OpenAI's fastest/cheapest tier — the right fit for high-volume tagging (§7).
+  // OpenAI's fastest/cheapest tier, the right fit for high-volume tagging (§7).
   "gpt-5.6-luna": { input: 0.2, output: 1.2 },
   // Embeddings bill input only (§8).
   "text-embedding-3-small": { input: 0.02, output: 0 },

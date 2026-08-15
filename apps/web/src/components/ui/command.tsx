@@ -66,8 +66,8 @@ function CommandInput({
       {/* Local edits, both about this being the app's main search box rather
           than a filter strip on a menu. `--background`, not transparent: the
           palette's own surface is `--popover`, so a transparent field read as
-          an outline, while the sidebar's search control — same job, one
-          keystroke away — is a filled `--background` well. And the stock height
+          an outline, while the sidebar's search control (same job, one
+          keystroke away) is a filled `--background` well. And the stock height
           is a row in a list; this is the thing you are typing into. */}
       <InputGroup className="h-10! rounded-lg! border-input bg-background shadow-none! *:data-[slot=input-group-addon]:pl-2!">
         <CommandPrimitive.Input

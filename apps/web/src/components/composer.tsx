@@ -14,11 +14,11 @@ import { isTouch } from "@/lib/touch";
 
 // The dump box (plan §1: zero friction). Text → note; a bare URL → link;
 // a "todo:"/"[ ]" marker → todo; attached files → one item per file through
-// the persistent blob queue — capture is local-only, so dumping works offline
+// the persistent blob queue: capture is local-only, so dumping works offline
 // and uploads follow later.
 //
 // Attachments behave like a chat composer's: a fixed square tile (with its
-// image preview) appears the instant a file is picked — hashing, local
+// image preview) appears the instant a file is picked; hashing, local
 // persistence and the upload all happen behind it, each stage visible ON the
 // tile (reading spinner → upload progress ring → done, or a red state with the
 // classified reason and a retry). Nothing here waits silently: every async
@@ -26,24 +26,24 @@ import { isTouch } from "@/lib/touch";
 //
 // Floats over the timeline: "+" bottom-left opens the file picker, and the
 // bottom-right control is a mic while the box is empty, becoming send as soon
-// as there is something to dump. The kind is always guessed — there is no
+// as there is something to dump. The kind is always guessed; there is no
 // type picker to get in the way.
 
-const PLACEHOLDER = "Dump anything — a thought, a link, a file…";
+const PLACEHOLDER = "Dump anything: a thought, a link, a file…";
 
 type Attachment = {
-  /** Chip identity from the moment of pick — before any blobId exists. */
+  /** Chip identity from the moment of pick, before any blobId exists. */
   localId: string;
   file: File;
   name: string;
   size: number;
   kind: "image" | "pdf" | "file";
-  /** Object URL for image previews — created synchronously on pick. */
+  /** Object URL for image previews, created synchronously on pick. */
   previewUrl: string | null;
   /** The local stage: hashing+persisting ("reading") until a blobId exists. */
   status: "reading" | "ready" | "error";
   error?: string;
-  /** False for validation failures (too large, empty) — retrying can't help. */
+  /** False for validation failures (too large, empty); retrying can't help. */
   retryable?: boolean;
   captured?: CapturedBlob;
 };
@@ -54,7 +54,7 @@ const CAPTURE_TIMEOUT_MS = 12_000;
 /** The write is optimistic; only the server's verdict can still surprise us. */
 function watchServer(write: { server: Promise<{ type: string }> }) {
   void write.server.then((r) => {
-    if (r.type === "error") toast.error("The server rejected a dump — check the console.");
+    if (r.type === "error") toast.error("The server rejected a dump. Check the console.");
   });
 }
 
@@ -108,7 +108,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
           const current = attachmentsRef.current;
           const me = current.find((a) => a.localId === localId);
           if (!me) {
-            // Chip removed while reading — don't leave an orphan upload.
+            // Chip removed while reading: don't leave an orphan upload.
             if (!captured.reused) void queue.cancel(captured.blobId);
             return;
           }
@@ -147,7 +147,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
       for (const file of files) {
         const localId = newId();
         const kind = kindForMime(file.type || "application/octet-stream");
-        // The preview exists before any async work — the whole point.
+        // The preview exists before any async work: the whole point.
         const previewUrl = kind === "image" ? URL.createObjectURL(file) : null;
         const base: Attachment = {
           localId,
@@ -204,7 +204,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
       e.target instanceof Node && cardRef.current?.contains(e.target) ? "composer" : "window";
 
     // dragenter/dragleave fire for every element crossed, so count depth
-    // rather than trusting a single leave — otherwise the indicator flickers
+    // rather than trusting a single leave; otherwise the indicator flickers
     // off the moment the pointer passes over a card.
     const onDragEnter = (e: DragEvent) => {
       if (!carriesFiles(e)) return;
@@ -335,14 +335,14 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     <>
       {dragZone === "window" && <DropOverlay />}
       {/* Sticky, not fixed: the card keeps its place in the column, so it
-          inherits the width the sidebar leaves it with no offset arithmetic —
+          inherits the width the sidebar leaves it with no offset arithmetic,
           and its slot at the end of the flow means the last card can never come
           to rest under it. */}
       <div className="pointer-events-none sticky bottom-0 z-20 px-3 pb-(--composer-inset) md:px-4">
         {/* Canvas strip scoped to this container, not the shell column. It
-            covers the gap between the card and the bottom of the column — the
+            covers the gap between the card and the bottom of the column: the
             only strip where a scrolling card would otherwise be cut off by the
-            viewport edge — plus 1rem that tucks behind the card. Solid
+            viewport edge, plus 1rem that tucks behind the card. Solid
             `--background`, not a gradient: nothing translucent, and its top
             edge is invisible anyway (behind the card in the middle, background
             over background either side, since the timeline column is inset
@@ -450,15 +450,15 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
 /**
  * The tile's edge, fixed for every attachment in every state. Progress used to
  * be a caption ("Uploading 7%" → "Uploading 100%"), which re-measured the chip
- * on each XHR progress event and walked the composer — and the timeline above
- * it — sideways a dozen times per upload. Nothing inside a tile may size it:
+ * on each XHR progress event and walked the composer (and the timeline above
+ * it) sideways a dozen times per upload. Nothing inside a tile may size it:
  * state shows as a ring and a scrim over a square that never moves.
  */
 const TILE = "size-28";
 
 /**
  * One attachment tile: the picture (instant, from an object URL) or a file
- * face, with the live stage of this file painted over it — reading, uploading,
+ * face, with the live stage of this file painted over it: reading, uploading,
  * done, or a red state with the classified reason. The scrim doubles as the
  * retry button when a retry makes sense.
  */
@@ -474,7 +474,7 @@ function AttachmentChip({
   const queue = useBlobQueue();
   const queueState = useBlobQueueState();
   const upload = useBlobUploadState(a.captured?.blobId);
-  // An `image/*` type the decoder then refuses (a .ico is the usual one) —
+  // An `image/*` type the decoder then refuses (a .ico is the usual one):
   // fall back to the file face rather than leave a broken-image glyph.
   const [undecodable, setUndecodable] = useState(false);
 
@@ -512,15 +512,18 @@ function AttachmentChip({
         : null;
 
   // The name is gone from the face of a picture (you can see which file it is),
-  // so the hover text carries it — along with the size and whatever this file
+  // so the hover text carries it, along with the size and whatever this file
   // is doing right now.
   const title = failedReason
-    ? `${a.name} — ${failedReason}${retry ? " (click to retry)" : ""}`
+    ? `${a.name}: ${failedReason}${retry ? " (click to retry)" : ""}`
     : `${a.name} · ${formatBytes(a.size)}${stage ? ` · ${stage}` : ""}`;
 
   const scrim = `absolute inset-0 flex items-center justify-center ${
     failedReason ? "bg-destructive-soft text-destructive" : "bg-card text-foreground"
   }`;
+
+  /** Showing a picture, rather than the file face or a red tile. */
+  const framed = Boolean(a.previewUrl) && !undecodable;
 
   return (
     // Overflow is clipped one level in, so the remove button can still hang off
@@ -529,10 +532,23 @@ function AttachmentChip({
       <span
         // `relative` is what makes the clip mean anything: the scrim below is
         // `inset-0`, and without a containing block here it resolves against the
-        // outer span instead — escaping the rounding, and painting over the
+        // outer span instead, escaping the rounding, and painting over the
         // failed tile's red border.
+        //
+        // A picture also gets an inner edge. The 1px border is `--border`,
+        // which is a *lighter* line than the canvas: it reads against a dark
+        // photo and against a dark theme, and disappears against the white
+        // screenshot that is half of what gets dumped here. So a preview adds a
+        // second hairline inside it, drawn from the shadow family (the palette's
+        // one sanctioned translucent set, index.css) rather than a flat colour,
+        // because only a tinted line reads over content it cannot predict.
+        // Between the two the tile has an edge whatever the photo does.
         className={`relative block size-full overflow-hidden rounded-xl border bg-muted ${
-          failedReason ? "border-destructive" : ""
+          failedReason
+            ? "border-destructive"
+            : framed
+              ? "shadow-[inset_0_0_0_1px_rgb(var(--shadow-tint)/var(--shadow-a3))]"
+              : ""
         }`}
         title={title}
       >
@@ -540,7 +556,7 @@ function AttachmentChip({
           <>
             {/* No alt text: a fallback string would spill out of a tile this
                 size when the bytes fail to decode, and the picture is only half
-                the story anyway — the sr-only line below carries the rest. */}
+                the story anyway: the sr-only line below carries the rest. */}
             <img
               src={a.previewUrl}
               alt=""
@@ -564,7 +580,7 @@ function AttachmentChip({
           ))}
       </span>
       {/* Keeps the base's full 44px: at 24px on a corner this is the fiddliest
-          target on a phone, and it has room — the bleed to the right lands on
+          target on a phone, and it has room: the bleed to the right lands on
           the next tile, which is inert and paints over this anyway. The one
           consequence is on a failed tile, where the retry scrim below loses its
           top-right corner to this. That is the right winner: the ✕ is sitting
@@ -584,7 +600,7 @@ function AttachmentChip({
 
 /**
  * The face of a file with nothing to show: name and type, laid out inside the
- * tile. Two PDFs are otherwise the same grey square — and text in here is free,
+ * tile. Two PDFs are otherwise the same grey square, and text in here is free,
  * since the box it sits in is a fixed size no matter what it says.
  */
 function FileFace({ attachment: a }: { attachment: Attachment }) {
@@ -603,7 +619,7 @@ function FileFace({ attachment: a }: { attachment: Attachment }) {
 /**
  * The whole of the progress feedback on a tile: an arc that fills with `value`,
  * or spins when there is no number yet (reading, queued, a server that sends no
- * upload progress). No percentage — the arc says as much, and a caption would
+ * upload progress). No percentage: the arc says as much, and a caption would
  * be one more thing changing shape on a file that hasn't finished arriving.
  */
 function ProgressRing({ value }: { value?: number }) {
@@ -634,16 +650,16 @@ function ProgressRing({ value }: { value?: number }) {
 /**
  * Full-viewport drop state, shown while files hover anywhere but the composer.
  * pointer-events-none throughout: the window-level handlers own the drop, and
- * a scrim that swallowed events would break it — so this stays a plain div
+ * a scrim that swallowed events would break it, so this stays a plain div
  * rather than a Radix dialog.
  */
 function DropOverlay() {
   return (
     // The scrim is the surface: it fades the whole page out toward the canvas,
-    // and the icon and label sit straight on it — no card. `bg-background`
+    // and the icon and label sit straight on it, no card. `bg-background`
     // rather than `bg-overlay` because this state replaces the page rather
     // than dimming something you still read through, which also means ordinary
-    // `text-foreground` ink under both themes — it's the canvas underneath.
+    // `text-foreground` ink under both themes: it's the canvas underneath.
     <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/scrim p-6 text-center text-foreground">
       <Icon name="filePlus" className="size-12" />
       <p className="text-lg font-medium">Drop the files to add to your message</p>

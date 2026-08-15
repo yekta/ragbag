@@ -98,7 +98,7 @@ describe("plannedTags", () => {
     expect(tags.filter((t) => t.name.toLowerCase() === "realkey")).toEqual([
       { kind: "topic", name: "realkey" },
     ]);
-    // Names are unique overall — the duplicate badges are gone at the source.
+    // Names are unique overall: the duplicate badges are gone at the source.
     const names = tags.map((t) => t.name.toLowerCase());
     expect(new Set(names).size).toBe(names.length);
   });

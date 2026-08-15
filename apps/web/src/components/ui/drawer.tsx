@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 // Local edit (see the header in ui/button.tsx): the two curves this file shipped
 // with as inline literals are now the motion tokens from index.css, at the same
-// values. Nothing here moves differently — but ui/sheet.tsx, which is what the
+// values. Nothing here moves differently, but ui/sheet.tsx, which is what the
 // sidebar renders on a phone, reads the same names, and this is what keeps the
 // two panels in step when one of them is next retimed.
 

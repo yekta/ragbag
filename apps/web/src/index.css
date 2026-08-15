@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 /* Base UI's styling companion: the `data-open` / `data-closed` / `data-disabled`
    custom variants the vendored components compile against, plus the
-   `scroll-fade`, `no-scrollbar` and `shimmer` utilities. Purely additive — it
+   `scroll-fade`, `no-scrollbar` and `shimmer` utilities. Purely additive. It
    declares no `--color-*`, `--radius-*`, `--shadow-*` or `--ease-*`, so the
    @theme block below is untouched by it. The variants match Radix's
    `data-state="open"` *and* Base's `data-open` in one rule, which is what let
@@ -17,7 +17,7 @@
  *
  * 1. The chroma budget is lopsided. Surfaces (background, card, popover,
  *    panel, sidebar, muted, secondary, border, input) and ink sit at
- *    0.0015–0.012 — within ~2/255 of a neutral grey, so they read as "not
+ *    0.0015–0.012, within ~2/255 of a neutral grey, so they read as "not
  *    quite grey" rather than as a green app. primary / ring / accent / the
  *    kind + ai tokens keep real chroma, because those are the places colour is
  *    supposed to do work. Every one of them, including borders and shadows,
@@ -26,7 +26,7 @@
  * 2. Every colour is an opaque token, and there is no `dark:` anywhere in the
  *    app. Those are the same rule seen from two ends. An alpha fill composites
  *    against whatever happens to be behind it, so the same class lands
- *    differently on the canvas, on a card, and inside the detail drawer — and
+ *    differently on the canvas, on a card, and inside the detail drawer, and
  *    the usual patch for that is a second, dark-only alpha, which is how a
  *    palette ends up with two of everything and a `dark:` prefix deciding
  *    which one you get. Both problems disappear if the token itself changes
@@ -34,35 +34,35 @@
  *
  *    So soft fills get their own solid tokens (`--kind-*-soft`,
  *    `--destructive-soft`, `--ai-soft`, `--panel`) and hover states get solid
- *    `-hover` tokens. The generated components arrive built the other way —
+ *    `-hover` tokens. The generated components arrive built the other way (
  *    `bg-input/30`, `bg-destructive/10`, `bg-black/10`, `ring-ring/50`, each
- *    paired with a `dark:` twin — and are re-tokenised on every pull. That is
+ *    paired with a `dark:` twin) and are re-tokenised on every pull. That is
  *    the standing local edit noted at the top of ui/button.tsx.
  *
  *    The deliberate exceptions are things that are *physically* translucent:
  *    `--overlay` (you must see the page through it), the scrim that fades the
  *    page out behind the drop state, and the shadow scale (a shadow that isn't
  *    translucent is a solid block). All are mint-tinted, all keep an opaque
- *    colour, and their strengths are named `--opacity-*` modifiers — so call
+ *    colour, and their strengths are named `--opacity-*` modifiers, so call
  *    sites read `bg-overlay/overlay` and `bg-background/scrim`, a named
  *    strength, never a loose `/40`.
  *
  * 3. The canvas lands in the middle of its 8-bit bucket. `oklch()` is resolved
  *    per paint, and the browser draws `--background` through more than one
- *    path on the same screen — the canvas fill propagated from `body`, an
- *    element that repaints it, a composited layer, the `theme-color` chrome —
+ *    path on the same screen (the canvas fill propagated from `body`, an
+ *    element that repaints it, a composited layer, the `theme-color` chrome),
  *    so a value that converts to a channel ending in .5 is a coin flip, and
  *    the two paths can land on opposite sides of it. `oklch(0.19 0.005 174)`
  *    converted to 17.589, 20.530, 19.559: every channel within 0.09 of the
- *    boundary. That is what put a full-width seam across the sign-in screen —
+ *    boundary. That is what put a full-width seam across the sign-in screen:
  *    two greys one unit apart, canvas on one side, canvas on the other. The
  *    lightness of both canvases is now tuned so all three channels land within
  *    0.08 of an integer: same #121514 and #f1f3f2, same contrast ratios, no
  *    longer a coin flip. Everything that paints `--background` over the canvas
- *    and expects it to disappear — the composer's strip, the settle cover —
+ *    and expects it to disappear (the composer's strip, the settle cover)
  *    rests on this.
  *
- * Values were checked for sRGB gamut and WCAG contrast — every text pair
+ * Values were checked for sRGB gamut and WCAG contrast: every text pair
  * clears AA and focus rings clear 3:1. The measured ratios, light / dark:
  * foreground on background 14.50 / 15.27, foreground on card 16.04 / 13.89,
  * muted-foreground on card 5.79 / 6.59, primary-foreground on primary
@@ -76,19 +76,19 @@
 
   /* The composer's constant distance from the bottom of the column. Defined
      once because two things depend on it: the composer's own bottom padding,
-     and the height of the canvas strip behind it — the card grows with its
+     and the height of the canvas strip behind it: the card grows with its
      content but this gap never does, so the strip is sized off the gap, not
      off the card. */
   --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
 
   /* The timeline's top padding: the band the floating controls occupy, plus a
      little clearance. The controls sit `top-3`, so the band is offset +
-     control; nothing else feeds into this number — whatever the first row
+     control; nothing else feeds into this number; whatever the first row
      happens to be, it starts below the buttons. Defined here so the padding
      tracks the controls: change their offset or size and it follows.
 
      The two controls are different sizes. The phone's menu / search buttons
-     are `size-11` — 44px, what iOS gives a navigation bar button — and the
+     are `size-11`, 44px, what iOS gives a navigation bar button, and the
      desktop sidebar-reopen button is the stock `size-9`. They never render
      together, because app.tsx picks one branch or the other at 768px, so this
      switches on the same breakpoint rather than padding everything by the
@@ -150,7 +150,7 @@
   --sidebar-ring: oklch(0.58 0.06 170);
 
   /* Item kinds: muted and hue-spaced so they read as a family next to the mint
-     chrome. `-soft` is the solid fill behind the icon — not the ink at 12%. */
+     chrome. `-soft` is the solid fill behind the icon, not the ink at 12%. */
   --kind-note: oklch(0.56 0.085 95);
   --kind-note-soft: oklch(0.962 0.03 95);
   --kind-todo: oklch(0.535 0.085 160);
@@ -177,10 +177,10 @@
   --chart-5: oklch(0.56 0.08 296);
 
   /* The scrim: the full-page fade behind the drop state. Deliberately not an
-     overlay — an overlay dims a page you are still meant to read through, and
+     overlay: an overlay dims a page you are still meant to read through, and
      the drop state isn't read-through, it takes the screen over. So it fades
      the page toward the canvas instead of darkening it: `--background` at this
-     strength, i.e. `bg-background/scrim`. One strength for both themes — each
+     strength, i.e. `bg-background/scrim`. One strength for both themes: each
      fades toward its own canvas, so the same number lands the same way either
      way, and at 90% what shows through is a trace of the page rather than a
      readable one.
@@ -194,7 +194,7 @@
   --scrim-alpha: 90%;
 
   /* One opaque overlay colour for both themes: the dark canvas taken a step
-     darker, same chroma and hue. Only the strength differs by theme —
+     darker, same chroma and hue. Only the strength differs by theme:
      `--overlay-alpha`, exposed as the named `--opacity-overlay` modifier in the
      @theme block below so call sites read `bg-overlay/overlay` rather than a
      baked-in alpha.
@@ -240,12 +240,12 @@
   --accent: oklch(0.322 0.02 172);
   --accent-foreground: oklch(0.935 0.006 168);
 
-  /* The overlay colour is shared with light; only its strength changes — the
+  /* The overlay colour is shared with light; only its strength changes: the
      same wash that dims a light page barely registers on a dark one. */
   --overlay-alpha: 60%;
 
   /* Light enough to read as *text* on the dark canvas (5.10:1 on a card), so
-     as a fill it takes dark ink rather than white — which is the contrast the
+     as a fill it takes dark ink rather than white, which is the contrast the
      generated components reach for a second, dark-only alpha to get. */
   --destructive: oklch(0.665 0.165 27);
   --destructive-hover: oklch(0.615 0.17 27);
@@ -302,7 +302,7 @@
 }
 
 @theme inline {
-  /* All seven rungs are declared. Leaving any of them out doesn't disable it —
+  /* All seven rungs are declared. Leaving any of them out doesn't disable it:
      it falls back to Tailwind's stock value, and stock `2xl` is 1rem, the same
      16px as our `xl`. That collision is why cards and the blocks inside them
      used to carry identical corners.
@@ -408,15 +408,15 @@
     0 8px 12px -4px rgb(var(--shadow-tint) / var(--shadow-a2)),
     0 20px 32px -8px rgb(var(--shadow-tint) / var(--shadow-a3));
   --shadow-2xl: 0 24px 48px -12px rgb(var(--shadow-tint) / var(--shadow-a4));
-  /* The floating-card shadow, defined once — now only the sign-in card lifts
+  /* The floating-card shadow, defined once: now only the sign-in card lifts
      off the canvas. A `@utility` writing `box-shadow` directly would have
      clobbered any `ring-*` on the same element (Tailwind composes both into one
-     box-shadow) — as a `--shadow-*` key it composes correctly instead. */
+     box-shadow), as a `--shadow-*` key it composes correctly instead. */
   --shadow-float:
     0 2px 6px -2px rgb(var(--shadow-tint) / var(--shadow-a2)),
     0 8px 30px -4px rgb(var(--shadow-tint) / var(--shadow-a3));
 
-  /* Motion. Things arriving decelerate hard — they cover most of the distance
+  /* Motion. Things arriving decelerate hard: they cover most of the distance
      immediately, so the panel feels like it was already there. Things leaving
      accelerate away and take less time, because nobody waits to watch a drawer
      close. `ease-in-out` (shadcn's default on Sheet) is wrong for both: it
@@ -425,7 +425,7 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
   /* The exception to the split above, and the reason it is a token: a panel
-     that slides in from an edge — the item drawer, the sidebar — is a physical
+     that slides in from an edge (the item drawer, the sidebar) is a physical
      object, and an object does not arrive on one curve and leave on another.
      Both directions ride this one, for the same 450ms, which is what the drawer
      was already doing inline. Anything that only fades keeps the pair above. */
@@ -446,13 +446,13 @@
      paints an opaque *track*: a slab of UA grey down the right edge of
      anything that scrolls. It is worst in the item-detail sheet, which is its
      own scroll container (`overflow-y-auto`) rather than a window onto the
-     document — so on desktop, where scrollbars are classic rather than
+     document, so on desktop, where scrollbars are classic rather than
      overlay, the drawer wears a full-height rectangle in a colour that
      belongs to no theme here. (Stock shadcn's Sheet never scrolls itself,
      which is why it looks fine.)
 
      Both properties inherit, so one rule on the root reaches every scroller:
-     no track at all — the surface behind shows through — and a thumb in the
+     no track at all (the surface behind shows through) and a thumb in the
      palette's own line colour. */
   html {
     scrollbar-width: thin;
@@ -469,7 +469,7 @@
     /* The app is a bag of other people's strings: filenames, URLs, pasted
        tokens, a note typed without a space in it. Any one of them is a single
        unbreakable word, and CSS's default is to let a word overflow its box
-       rather than break it — which is how a 60-character filename pushed the
+       rather than break it, which is how a 60-character filename pushed the
        detail drawer's whole column sideways and turned every heading under it
        into a horizontal scroll.
        `anywhere`, not `break-word`: both break a word that would otherwise
@@ -481,7 +481,7 @@
     overflow-wrap: anywhere;
   }
 
-  /* Nothing here is load-bearing motion — every panel is legible at rest — so
+  /* Nothing here is load-bearing motion (every panel is legible at rest), so
      honour the OS setting rather than easing more gently. Not zero: some
      state changes wait on `animationend`. */
   @media (prefers-reduced-motion: reduce) {

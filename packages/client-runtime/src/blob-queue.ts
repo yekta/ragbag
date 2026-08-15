@@ -4,7 +4,7 @@ import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
 
 // The persistent blob upload queue + lazy blob cache (plan §6): Zero syncs
 // rows, not files. Capture stores the bytes in IndexedDB and returns a
-// client-minted blobId IMMEDIATELY — the item is created and syncs before any
+// client-minted blobId IMMEDIATELY: the item is created and syncs before any
 // network happens, offline included. A background flush presigns, PUTs the
 // bytes to the object store, and survives app restarts (the constructor
 // resumes whatever is still pending). Downloaded blobs land in a bounded LRU
@@ -14,11 +14,11 @@ import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
 // inflight → done, with progress and a classified lastError) is published
 // through `state.blobs` so the composer chips, timeline badges and the
 // sidebar can show what is actually happening. A queue that silently retried
-// on a 15-minute backoff looked exactly like a dead app — never again.
+// on a 15-minute backoff looked exactly like a dead app; never again.
 //
 // Every stage is also bounded: IndexedDB opens time out (see idb.ts), record
 // writes fall back to an in-memory overlay when IndexedDB is wedged (uploads
-// still work, they just don't survive a reload — `state.ephemeral`), the
+// still work, they just don't survive a reload, `state.ephemeral`), the
 // presign has a deadline, and the PUT has a stall watchdog. Nothing in this
 // file may hang forever.
 
@@ -30,7 +30,7 @@ export type CapturedBlob = {
   originalName?: string | undefined;
   kind: Extract<ItemKind, "image" | "pdf" | "file">;
   /**
-   * True when capture matched bytes already queued on this device — the
+   * True when capture matched bytes already queued on this device: the
    * blobId belongs to an earlier attachment (possibly an already-sent item),
    * so removing this attachment must NOT cancel the shared upload.
    */
@@ -59,7 +59,7 @@ export type BlobQueueState = {
    * still upload normally but will be lost if the page reloads first.
    */
   ephemeral: boolean;
-  /** Per-blob upload lifecycle, keyed by blobId — drives all upload UI. */
+  /** Per-blob upload lifecycle, keyed by blobId; drives all upload UI. */
   blobs: Record<string, BlobUploadState>;
 };
 
@@ -108,23 +108,23 @@ const PUT_TIMEOUT_MS = 20 * 60 * 1000;
 const IDB_OP_TIMEOUT_MS = 4_000;
 
 const CORS_HINT =
-  "The storage bucket blocked the browser's upload — its CORS policy must allow this site (see DEPLOY.md)";
+  "The storage bucket blocked the browser's upload; its CORS policy must allow this site (see DEPLOY.md)";
 
 export type BlobQueueOptions = {
   /** Scopes the IndexedDB database, like Zero scopes its store. */
   userID: string;
   /** Base URL of the API, "" when same-origin (web behind the dev proxy). */
   apiBase?: string;
-  /** Extra headers for API calls — native shells pass their bearer token. */
+  /** Extra headers for API calls; native shells pass their bearer token. */
   authHeaders?: () => Record<string, string>;
   fetchImpl?: typeof fetch;
 };
 
 async function sha256Hex(blob: Blob): Promise<string> {
   if (typeof crypto === "undefined" || !crypto.subtle) {
-    // crypto.subtle only exists in secure contexts — a plain-http deploy
+    // crypto.subtle only exists in secure contexts; a plain-http deploy
     // used to die here as an inscrutable TypeError.
-    throw new Error("Files need a secure (HTTPS) connection — this page has none");
+    throw new Error("Files need a secure (HTTPS) connection, and this page has none");
   }
   const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -158,7 +158,7 @@ export class BlobQueue {
   readonly #apiBase: string;
   readonly #authHeaders: (() => Record<string, string>) | undefined;
   readonly #fetch: typeof fetch;
-  /** Resolves null when IndexedDB is unusable — the queue runs from memory. */
+  /** Resolves null when IndexedDB is unusable; the queue runs from memory. */
   readonly #idb: Promise<IDBDatabase | null>;
   /**
    * In-memory overlay over the uploads store. Normally empty; holds records
@@ -169,7 +169,7 @@ export class BlobQueue {
   readonly #listeners = new Set<() => void>();
   /** Abort hooks for in-flight PUTs, keyed by blobId. */
   readonly #aborts = new Map<string, () => void>();
-  /** Blobs canceled mid-flight — their failure is cleanup, not a retry. */
+  /** Blobs canceled mid-flight; their failure is cleanup, not a retry. */
   readonly #cancelled = new Set<string>();
   #state: BlobQueueState = { pending: 0, blocked: null, ephemeral: false, blobs: {} };
   #flushing = false;
@@ -217,7 +217,7 @@ export class BlobQueue {
     this.flush(true);
   }
 
-  /** Drop one blob's backoff and flush — the chip's "retry now" button. */
+  /** Drop one blob's backoff and flush; the chip's "retry now" button. */
   async retryBlob(blobId: string): Promise<void> {
     const record = await this.#getUpload(blobId);
     if (record) await this.#putUpload({ ...record, nextAttemptAt: 0 });
@@ -226,13 +226,13 @@ export class BlobQueue {
   }
 
   /**
-   * Abort and forget a queued upload — an attachment removed before sending.
+   * Abort and forget a queued upload: an attachment removed before sending.
    * A record already linked to an item survives untouched (the item still
    * needs its bytes); callers also pass `reused` captures through unharmed.
    */
   async cancel(blobId: string): Promise<void> {
     const record = await this.#getUpload(blobId);
-    if (record?.itemId) return; // sent — the item needs its bytes
+    if (record?.itemId) return; // sent: the item needs its bytes
     const wasInflight = this.#aborts.has(blobId);
     this.#cancelled.add(blobId);
     this.#aborts.get(blobId)?.(); // an in-flight attempt unwinds via #finishCancelled
@@ -380,7 +380,7 @@ export class BlobQueue {
 
   /**
    * Hash + persist the bytes locally and return the blobId to put on the
-   * item. Pure local work — safe offline; the upload happens in the flush.
+   * item. Pure local work: safe offline; the upload happens in the flush.
    */
   async capture(file: Blob, originalName?: string): Promise<CapturedBlob> {
     const sha256 = await sha256Hex(file);
@@ -528,7 +528,7 @@ export class BlobQueue {
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       return fail(
         offline
-          ? "Offline — the upload will resume when the connection returns"
+          ? "Offline. The upload will resume when the connection returns"
           : "Couldn't reach the API to start the upload",
       );
     }
@@ -591,7 +591,7 @@ export class BlobQueue {
 
   /**
    * PUT the bytes to the presigned URL. XMLHttpRequest when the runtime has
-   * it — fetch cannot report upload progress — with a stall watchdog so a
+   * it (fetch cannot report upload progress) with a stall watchdog so a
    * dead connection surfaces in under a minute instead of never. Non-browser
    * runtimes (tests, workers) fall back to fetch without progress.
    */
@@ -644,13 +644,13 @@ export class BlobQueue {
         ),
       );
       // A network-level failure on a presigned PUT is almost always the
-      // bucket rejecting the CORS preflight — say so instead of "error".
+      // bucket rejecting the CORS preflight: say so instead of "error".
       xhr.addEventListener("error", () => finish({ ok: false, reason: CORS_HINT }));
       xhr.addEventListener("timeout", () => finish({ ok: false, reason: "The upload timed out" }));
       xhr.addEventListener("abort", () =>
         finish({
           ok: false,
-          reason: stalled ? "The upload stalled — no data moved for 45s" : "Upload canceled",
+          reason: stalled ? "The upload stalled: no data moved for 45s" : "Upload canceled",
         }),
       );
       this.#aborts.set(blobId, () => xhr.abort());
@@ -662,7 +662,7 @@ export class BlobQueue {
 
   async #cachePut(record: CacheRecord): Promise<void> {
     const db = await this.#idb;
-    if (!db) return; // no cache without IndexedDB — downloads just refetch
+    if (!db) return; // no cache without IndexedDB: downloads just refetch
     try {
       await withDeadline(idbPut(db, CACHE, record), IDB_OP_TIMEOUT_MS, "cache write");
       await this.#evict(db);
@@ -695,7 +695,7 @@ export class BlobQueue {
 
   /**
    * Resolve blob bytes: local first, else download via a presigned URL and
-   * cache for next time. Null when offline/missing — callers render a
+   * cache for next time. Null when offline/missing: callers render a
    * placeholder.
    */
   async fetchBytes(blobId: string): Promise<{ bytes: Blob; mime: string } | null> {

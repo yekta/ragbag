@@ -1,7 +1,7 @@
 // The context both endpoints derive from the authenticated session (server)
 // and the client mirrors for optimistic runs. Zero 1.x has no separate
 // permission system: every query and mutator scopes rows to ctx.userID, and
-// the server derives ctx from the verified session — that IS the authorization.
+// the server derives ctx from the verified session; that IS the authorization.
 //
 // The registered context is non-optional: the endpoints 401 before ever
 // invoking a query/mutator without a session, and clients only construct Zero

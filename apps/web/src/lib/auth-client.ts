@@ -3,7 +3,7 @@ import { createAuthClient } from "better-auth/react";
 import { API_BASE } from "@/lib/api";
 
 // In dev the Vite server proxies /api to the API, so leaving baseURL unset
-// keeps everything same-origin. In production it points at api.ragbag.app —
+// keeps everything same-origin. In production it points at api.ragbag.app:
 // same-site as the web app, so the session cookie still rides along (the
 // client sends `credentials: "include"` by default). anonymousClient only does
 // anything when the server has DEV_LOGIN enabled.
@@ -18,7 +18,7 @@ export const authClient = createAuthClient({
  * Both URLs have to be absolute: better-auth resolves a relative one against
  * its own baseURL, which in production would drop the user on api.ragbag.app
  * after the round trip. The server accepts them because WEB_ORIGIN is in
- * `trustedOrigins` — it origin-checks `errorCallbackURL` exactly like
+ * `trustedOrigins`: it origin-checks `errorCallbackURL` exactly like
  * `callbackURL`.
  */
 export async function signInWithGoogle(): Promise<string | undefined> {
@@ -51,7 +51,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
  * `signInWithGoogle` can't report these: by the time they happen the browser
  * has navigated to Google and its promise is long gone, so the failure arrives
  * as a query parameter on a fresh page load instead. Read once at module load
- * rather than per component — StrictMode double-invokes both state initialisers
+ * rather than per component: StrictMode double-invokes both state initialisers
  * and effects, and the URL stays untouched because the router owns history.
  */
 export const OAUTH_REDIRECT_ERROR = ((): string | undefined => {

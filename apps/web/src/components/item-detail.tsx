@@ -27,7 +27,7 @@ import { useMeta } from "@/lib/use-meta";
 //
 // A Drawer rather than a hand-rolled overlay: focus trap, scroll lock, Esc,
 // swipe-to-dismiss and the slide animation all come from Base UI. One
-// component covers both form factors — it opens from the bottom on a phone
+// component covers both form factors: it opens from the bottom on a phone
 // (with a swipe handle) and from the right as an inset floating card at `md`+,
 // which is the same floating-card language the sidebar uses at that
 // breakpoint.
@@ -60,27 +60,27 @@ export function ItemDetail() {
   //
   // Mount with `open` already true and `mounted` is true on the same render, so
   // that branch never runs, `data-starting-style` is never applied, and the
-  // popup is inserted straight at its resting transform — no entrance at all.
+  // popup is inserted straight at its resting transform, no entrance at all.
   // Closing still animates, because `open` genuinely changes there. That is the
   // whole of "opens abruptly but closes with an animation": the route mounts
   // this component with the drawer already open, which is the one case Base UI
   // reads as "was always there".
   //
   // So hand it a real false → true. `useLayoutEffect`, not `useEffect`: the
-  // flip is flushed before paint, so the closed frame is never drawn — the
+  // flip is flushed before paint, so the closed frame is never drawn: the
   // entrance starts from the first frame anyone sees.
   const [open, setOpen] = useState(false);
   useLayoutEffect(() => setOpen(true), []);
 
   // Closing has to outlive the route change. Navigating to "/" unmounts this
   // component on the spot, which meant the panel disappeared in a single frame
-  // while its overlay was still there — no exit animation at all. So flip
+  // while its overlay was still there, no exit animation at all. So flip
   // `open` first and leave the route once the panel is actually gone.
   //
   // "Actually gone" is `onOpenChangeComplete`, not a timer. This used to be a
   // setTimeout hand-synced to the Sheet's exit duration; under Base UI there is
   // no constant to sync to, because a flicked drawer exits in
-  // `calc(var(--drawer-swipe-strength) * 400ms)` — the harder the swipe, the
+  // `calc(var(--drawer-swipe-strength) * 400ms)`: the harder the swipe, the
   // faster it leaves.
   //
   // `opened` gates it: the drawer now starts closed, and a `false` completion
@@ -124,7 +124,7 @@ export function ItemDetail() {
           void navigate({ to: "/", resetScroll: false });
         }
       }}
-      // Bottom sheet on a phone, right-hand panel on a desktop — and the handle
+      // Bottom sheet on a phone, right-hand panel on a desktop, and the handle
       // only where there is a thumb to drag it with.
       showSwipeHandle={isMobile}
       swipeDirection={isMobile ? "down" : "right"}
@@ -137,7 +137,7 @@ export function ItemDetail() {
           // off-screen. 42rem is the reading column this view has always had.
           //
           // The compound `data-[swipe-axis=x]:md:` shape matches the width rule
-          // it overrides — the vendored component sets 24rem at `sm:`, and a
+          // it overrides: the vendored component sets 24rem at `sm:`, and a
           // bare `md:` would be racing it on source order rather than beating
           // it. Rounding is additive: the popup rounds only its leading edge
           // for a flush panel, `md:rounded-xl md:border` closes the other three.
@@ -146,7 +146,7 @@ export function ItemDetail() {
           // `--bleed`-wide (3rem) band of `--popover` parked at `left-full`, so
           // that dragging the drawer back from its resting place does not open
           // a gap onto the page. Welded to the edge it is off-screen and never
-          // seen. Inset, `left-full` is 0.5rem short of the edge — so it fills
+          // seen. Inset, `left-full` is 0.5rem short of the edge, so it fills
           // the margin instead, and the floating card grows a full-height strip
           // of its own background down its right side, which is what the drawer
           // looked wrong for. An inset card has no gap to hide: the page is
@@ -252,15 +252,15 @@ export function ItemDetail() {
 
             {/* The scroller. DrawerContent is `overflow-hidden` by
                 construction, so this is what actually scrolls. The bottom-only
-                fade (a mask, not a wrapper — safe here) says "there is more
+                fade (a mask, not a wrapper, safe here) says "there is more
                 below"; the top edge stays hard, because it butts against the
                 header rather than against the panel's own rounding, and fading
                 content out into a solid bar reads as a rendering fault.
                 `overflow-x-hidden` is not redundant: asking for `overflow-y`
                 alone computes the other axis from `visible` to `auto`, so this
                 was a sideways scroller too, and anything that outgrew the
-                column — a filename with no spaces in it, before `body` learned
-                to break words — could drag the whole panel off its own edge. */}
+                column (a filename with no spaces in it, before `body` learned
+                to break words) could drag the whole panel off its own edge. */}
             <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               {/* hero */}
               {item.kind === "image" &&
@@ -274,7 +274,7 @@ export function ItemDetail() {
                   />
                 ) : (
                   // Same box as the image that replaces it, whenever this
-                  // device has seen it before — so nothing below it moves.
+                  // device has seen it before, so nothing below it moves.
                   <Skeleton
                     style={mediaBox(item.blobId, "70vh")}
                     className={`flex items-center justify-center rounded-xl text-muted-foreground ${
@@ -500,7 +500,7 @@ export function ItemDetail() {
                   <span>
                     {c.error ??
                       (meta && !meta.ai
-                        ? "AI enrichment is off on this server — no summary or tags."
+                        ? "AI enrichment is off on this server, so there are no summaries or tags."
                         : "No AI summary for this item yet.")}
                   </span>
                   {meta?.ai !== false && (

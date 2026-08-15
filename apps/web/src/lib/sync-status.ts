@@ -4,19 +4,19 @@ import { STATUS_HOLD_MS } from "@/lib/settle";
 
 // One derived answer to "how is syncing going?"
 //
-// Three places used to interpret `useConnectionState()` their own way — the
-// sidebar dot, the banner, and the timeline's empty state — which is how a
+// Three places used to interpret `useConnectionState()` their own way (the
+// sidebar dot, the banner, and the timeline's empty state) which is how a
 // connection blip could shove the timeline down by a banner's height while the
 // dot said something else. They all read this instead.
 //
 // The hysteresis rule is asymmetric on purpose: **bad news waits, good news is
 // instant.** A `disconnected` that lasts 200 ms between reconnects is not an
 // outage and must never reach the screen; being back is worth showing the
-// moment it happens. `null` means "no verdict worth showing yet" — callers
+// moment it happens. `null` means "no verdict worth showing yet"; callers
 // render nothing (with the space reserved), which is what keeps the first paint
 // from claiming "Connecting…" on every single load.
 
-/** Zero reports precisely who refused us and with what — pass it on verbatim. */
+/** Zero reports precisely who refused us and with what; pass it on verbatim. */
 type AuthRejection = Extract<
   ReturnType<typeof useConnectionState>,
   { name: "needs-auth" }
@@ -26,7 +26,7 @@ export type SyncStatus =
   | { name: "synced" }
   | { name: "syncing" }
   | { name: "offline" }
-  /** Signed in, and sync was still turned away — the server's problem, not the user's. */
+  /** Signed in, and sync was still turned away: the server's problem, not the user's. */
   | { name: "refused"; detail: string }
   /** The API says this session is gone. Signing in is the fix. */
   | { name: "expired" };

@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
-// Acceptance harness for BASE_UI_PLAN.md §8.2 / §8.3 — the detail drawer.
+// Acceptance harness for BASE_UI_PLAN.md §8.2 / §8.3: the detail drawer.
 //
 // The settle harness next door proves nothing flashes in the timeline; it does
 // not open the detail overlay at all. This one covers what the Sheet → Drawer
@@ -21,7 +21,7 @@ mkdirSync(SHOTS, { recursive: true });
 const results = [];
 const check = (name, pass, detail) => {
   results.push({ name, pass, detail });
-  console.log(`${pass ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${pass ? "PASS" : "FAIL"}  ${name}${detail ? `: ${detail}` : ""}`);
 };
 
 const ctx = await chromium.launchPersistentContext(PROFILE, {
@@ -51,13 +51,13 @@ if (signedOut) {
   await page.waitForSelector("textarea", { timeout: 30_000 });
 }
 // A fresh dev-login profile owns nothing, and the drawer needs something to
-// open. Seed a couple of items through the composer — the same path a reader
-// uses — including one long enough to force the body to scroll.
+// open. Seed a couple of items through the composer (the same path a reader
+// uses) including one long enough to force the body to scroll.
 if ((await page.locator("article").count()) === 0) {
   const box = page.locator("textarea").first();
   const seeds = [
-    "Drawer proof — a short note.",
-    `Drawer proof — a long note that has to overflow the panel so the body scrolls.\n\n${"Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(160)}`,
+    "Drawer proof: a short note.",
+    `Drawer proof: a long note that has to overflow the panel so the body scrolls.\n\n${"Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(160)}`,
   ];
   for (const text of seeds) {
     await box.click();
@@ -71,11 +71,11 @@ await page.waitForSelector("article", { timeout: 30_000 });
 /**
  * Open the first timeline item and wait for the drawer to finish animating in.
  * Tapping the card body only opens the detail view on touch devices; on a
- * pointer device it is the "Details and tags" hover action, so drive that —
+ * pointer device it is the "Details and tags" hover action, so drive that,
  * Playwright hovers before it clicks, which is what reveals it.
  */
 async function openDrawer(which = "first") {
-  // The timeline is chat-style — newest at the bottom — so "the long one" is
+  // The timeline is chat-style (newest at the bottom) so "the long one" is
   // the last card, not the first.
   const card = which === "last" ? page.locator("article").last() : page.locator("article").first();
   await card.scrollIntoViewIfNeeded();
@@ -148,7 +148,7 @@ check("desktop: opens from the right", swipeDir === "right", `data-swipe-directi
 const handleDesktop = await page.locator('[data-slot="drawer-swipe-handle"]').count();
 check("desktop: no swipe handle", handleDesktop === 0, `handles=${handleDesktop}`);
 
-// The body must be the scroller — DrawerContent is overflow-hidden.
+// The body must be the scroller: DrawerContent is overflow-hidden.
 const scroller = await page.evaluate(() => {
   const el = document.querySelector('[data-slot="drawer-popup"] .overflow-y-auto');
   if (!el) return null;
@@ -192,13 +192,13 @@ console.log(`      dark  overlay: ${JSON.stringify(darkOverlay)}`);
  * Does the drawer separate from the page behind it in dark mode?
  *
  * The tokens are authored in `oklch()` and `getComputedStyle` hands them back
- * that way, so they have to be resolved to sRGB before any luminance maths —
+ * that way, so they have to be resolved to sRGB before any luminance maths,
  * reading the three oklch components as if they were R, G and B is how this
  * check first "passed" at exactly 1.000:1. Canvas `fillStyle` does the
  * conversion with the browser's own colour code.
  *
  * Compared here: the panel's surface, and the canvas *after* the backdrop dims
- * it — which is the comparison a reader actually makes.
+ * it, which is the comparison a reader actually makes.
  */
 // The helpers below can't be hoisted out of this callback the way the linter
 // wants: it is serialised and run inside the page, so anything it references

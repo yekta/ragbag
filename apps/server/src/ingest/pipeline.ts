@@ -36,7 +36,7 @@ async function loadBlobBytes(row: typeof item.$inferSelect): Promise<{
   const blobRow = await db.query.blob.findFirst({ where: eq(blob.id, row.blobId) });
   if (!blobRow) {
     // The item synced before its capture device finished (or started) the
-    // upload — normal with the offline queue. Try again later.
+    // upload: normal with the offline queue. Try again later.
     throw new WaitingError("waiting for the file upload to start");
   }
   if (!storage) throw new PermanentError("server has no blob storage configured");
@@ -50,7 +50,7 @@ const TEXTUAL_FILE_RE =
 
 export async function processJob(job: { itemId: string; userId: string }): Promise<void> {
   const row = await db.query.item.findFirst({ where: eq(item.id, job.itemId) });
-  if (!row || row.deletedAt) return; // deleted while queued — nothing to do
+  if (!row || row.deletedAt) return; // deleted while queued, nothing to do
 
   await patchContent(job.itemId, { status: "processing" });
 
@@ -68,7 +68,7 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
     case "note":
     case "todo":
     case "address":
-      break; // the user's own words — nothing to extract (plan §7)
+      break; // the user's own words, nothing to extract (plan §7)
 
     case "link": {
       try {
@@ -117,7 +117,7 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
             fullText = [vision.description, vision.ocr_text].filter(Boolean).join("\n\n");
           }
         } catch (err) {
-          // The image itself is fine (it renders from the blob) — only the
+          // The image itself is fine (it renders from the blob); only the
           // description is missing, and the note says why.
           aiNotes.push(`AI image description failed: ${describeAiError(err)}`);
           log.warn("vision failed; keeping the image without a description", {
@@ -139,7 +139,7 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
       });
       if (pdf.text.length < 40) {
         throw new PermanentError(
-          "PDF has no text layer (scanned?) — OCR for scanned PDFs isn't supported yet",
+          "PDF has no text layer (scanned?); OCR for scanned PDFs isn't supported yet",
         );
       }
       fullText = pdf.text;
@@ -160,7 +160,7 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
 
   patch.extractedText = fullText ? fullText.slice(0, SYNCED_TEXT_LIMIT) : null;
 
-  // Enrich (plan §7 stage 3) — skipped or soft-failed, never job-fatal.
+  // Enrich (plan §7 stage 3): skipped or soft-failed, never job-fatal.
   if (!openai) {
     aiNotes.push("AI enrichment is off on this server (no OpenAI API key)");
   } else {
@@ -184,7 +184,7 @@ export async function processJob(job: { itemId: string; userId: string }): Promi
         patch.aiSummary = enrichment.summary;
         patch.lang = enrichment.lang || patch.lang || null;
         // A dumped thought the model recognises as a task or a place becomes
-        // one — notes only, so an explicit choice is never overwritten.
+        // one: notes only, so an explicit choice is never overwritten.
         if (await promoteNoteKind(enrichment.suggestedKind, { itemId: job.itemId })) {
           log.info("note promoted", { itemId: job.itemId, kind: enrichment.suggestedKind });
         }

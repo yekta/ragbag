@@ -3,7 +3,7 @@ import { isVideoUrl } from "@ragbag/shared";
 import { parseHTML } from "linkedom";
 
 // Stage 2 for links (plan §7): OG/meta/favicon from the raw page, article
-// text via Readability. Video links stop at metadata — no transcript, no
+// text via Readability. Video links stop at metadata: no transcript, no
 // content-level analysis; they get tagged from title + description only.
 
 export type LinkExtraction = {
@@ -15,7 +15,7 @@ export type LinkExtraction = {
   lang?: string;
   /** Plain article text (empty for video links / unreaderable pages). */
   extractedText: string;
-  /** Readability's cleaned article HTML — stored as the link-rot snapshot. */
+  /** Readability's cleaned article HTML, stored as the link-rot snapshot. */
   articleHtml?: string;
   isVideo: boolean;
 };
@@ -83,7 +83,7 @@ export function extractFromHtml(html: string, pageUrl: string): LinkExtraction {
         description ??= article.excerpt ?? undefined;
       }
     } catch {
-      // Readability chokes on some DOMs — metadata alone is a fine result.
+      // Readability chokes on some DOMs; metadata alone is a fine result.
     }
   }
 

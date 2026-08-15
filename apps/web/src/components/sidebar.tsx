@@ -62,14 +62,14 @@ const SYNC_DOT: Record<SyncStatus["name"], [tone: string, label: string]> = {
   syncing: ["bg-warning-foreground", "Connecting…"],
   offline: ["bg-warning-foreground", "Offline"],
   // A 401 with a live session is the server's problem, not the user's, so it
-  // does not tell them to sign in — that is what `expired` is for.
+  // does not tell them to sign in; that is what `expired` is for.
   refused: ["bg-destructive", "Sync refused"],
   expired: ["bg-destructive", "Sign in to sync"],
 };
 
 /**
  * `null` is a verdict that hasn't held long enough to be worth showing
- * (lib/sync-status.ts) — the row keeps its height and says nothing, rather than
+ * (lib/sync-status.ts): the row keeps its height and says nothing, rather than
  * claiming "Connecting…" on every load for the third of a second before the
  * socket opens.
  */
@@ -122,7 +122,7 @@ function ThemeToggle() {
 /**
  * How many items a filter would show, inside the row rather than over it.
  *
- * `SidebarMenuBadge` — what this replaces — is absolutely positioned, so a long
+ * `SidebarMenuBadge` (what this replaces) is absolutely positioned, so a long
  * name truncated at the row's edge and the count sat on top of it. Reserving a
  * fixed strip of right padding is the stock answer and it only defers the
  * collision: this archive's counts are whatever the archive holds, and four
@@ -137,14 +137,14 @@ function MenuCount({ children }: { children: React.ReactNode }) {
 export function Sidebar({
   items,
   tags,
-  name,
+  email,
   meta,
   sync,
   onSignOut,
 }: {
   items: Timeline;
   tags: readonly TagRow[];
-  name: string;
+  email: string;
   meta: MetaResponse | undefined;
   sync: SyncStatus | null;
   onSignOut: () => void;
@@ -164,14 +164,14 @@ export function Sidebar({
 
   const favoriteCount = useMemo(() => items.filter((i) => i.favorite).length, [items]);
 
-  // Todos count what's left to do — a list that says "42" when 40 are ticked
+  // Todos count what's left to do: a list that says "42" when 40 are ticked
   // off is noise. Every other kind counts everything it holds.
   const openTodoCount = useMemo(
     () => items.filter((i) => i.kind === "todo" && !i.completedAt).length,
     [items],
   );
 
-  // The rail lists the user's own tags only — AI tags are deliberately
+  // The rail lists the user's own tags only: AI tags are deliberately
   // numerous (§7) and would bury them. They still drive search and the
   // filters below, they just aren't browsable here.
   const tagCounts = useMemo(() => {
@@ -204,13 +204,19 @@ export function Sidebar({
   return (
     <SidebarRoot variant="floating" collapsible="offcanvas">
       <SidebarHeader className="gap-0 pt-4">
-        {/* No inset of its own. The rows below are controls — their padding is
-            the pill's, and it has to be there. This is a masthead: it has no
-            box, so padding here is just the wordmark sitting in from the edge
-            everything else starts at. The logo and the trigger take the rail
-            the search field's border and the highlighted rows are already on. */}
-        <div className="flex items-center gap-2 pb-2">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        {/* The masthead rides the same rail as the search field below and the
+            row pills under that, no inset of its own, because unlike those
+            rows it is not a control and has no box of its own to pad.
+            Geometrically the logo is already flush with the field at that rail;
+            the 2px is optical. A solid, saturated block reads as overhanging a
+            pale fill it is level with, and 2px at this size is what takes the
+            overhang off without moving the mark off the rail. */}
+        <div className="flex items-center gap-2 pb-2 pl-0.5">
+          {/* The same box a kind dot is drawn in (item-card.tsx): 1.5rem at
+              `--radius-md`. It was a size up and a step rounder, which at 28px
+              put the corner radius at nearly half the side, a pill pretending
+              to be a mark. */}
+          <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Icon name="inbox" className="size-4" />
           </span>
           <span className="text-lg font-bold tracking-tight">ragbag</span>
@@ -291,7 +297,7 @@ export function Sidebar({
           <SidebarGroupContent>
             {rankedTags.length === 0 ? (
               <p className="px-2 text-xs text-muted-foreground">
-                Your tags show up here as you add them. Auto-tags stay out of the way — they still
+                Your tags show up here as you add them. Auto-tags stay out of the way but still
                 power search.
               </p>
             ) : (
@@ -324,7 +330,9 @@ export function Sidebar({
         <QueueStatus state={queueState} onRetry={() => void queue.retryNow()} />
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="truncate text-sm font-medium" title={email}>
+              {email}
+            </p>
             <SyncDot sync={sync} />
           </div>
           <ThemeToggle />
@@ -343,14 +351,14 @@ export function Sidebar({
   );
 }
 
-/** Ceiling on one backfill click — enough for a personal archive, bounded. */
+/** Ceiling on one backfill click: enough for a personal archive, bounded. */
 const BACKFILL_LIMIT = 250;
 
 /**
  * Re-run enrichment over items that finished ingestion without a summary.
  *
  * The client already syncs `item_content`, so it knows exactly which items
- * these are — no new server API, just the existing per-item retryIngest
+ * these are: no new server API, just the existing per-item retryIngest
  * mutator in a loop, bounded by BACKFILL_LIMIT per click.
  * This exists because a server that ran for a day without an OpenAI key
  * leaves a pile of permanently-empty items that nothing would otherwise
@@ -374,7 +382,7 @@ function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse |
   const run = async () => {
     setRunning(batch.length);
     let failed = 0;
-    // Sequential on purpose: this is a background chore, not a race — and it
+    // Sequential on purpose: this is a background chore, not a race, and it
     // keeps the mutation log (and the ingest queue) from being flooded.
     for (const item of batch) {
       try {
@@ -389,7 +397,7 @@ function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse |
       {
         description:
           pending.length > batch.length
-            ? `${pending.length - batch.length} more remain — run it again when these finish.`
+            ? `${pending.length - batch.length} more remain. Run it again when these finish.`
             : "Summaries and tags appear as each one finishes.",
       },
     );
@@ -423,7 +431,7 @@ function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse |
  * The upload queue's live state, in words: how many are moving, how many are
  * failing and why, or why the whole queue is parked. A queue that only said
  * "N pending" while every attempt was quietly dying looked exactly like a
- * healthy one — the reason is the point.
+ * healthy one: the reason is the point.
  */
 function QueueStatus({ state, onRetry }: { state: BlobQueueState; onRetry: () => void }) {
   if (state.pending === 0) return null;
@@ -435,7 +443,7 @@ function QueueStatus({ state, onRetry }: { state: BlobQueueState; onRetry: () =>
     return (
       <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon name="pause" className="size-3 shrink-0" />
-        {state.pending} upload{plural} paused — sign in to resume
+        {state.pending} upload{plural} paused, sign in to resume
       </p>
     );
   }
@@ -444,7 +452,7 @@ function QueueStatus({ state, onRetry }: { state: BlobQueueState; onRetry: () =>
     return (
       <p className="mb-1.5 flex items-center gap-1.5 text-xs text-destructive">
         <Icon name="alert" className="size-3 shrink-0" />
-        <span className="min-w-0 truncate">Uploads paused — the server has no blob storage</span>
+        <span className="min-w-0 truncate">Uploads paused: the server has no blob storage</span>
         <RetryButton onRetry={onRetry} />
       </p>
     );

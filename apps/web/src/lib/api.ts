@@ -3,7 +3,7 @@
 // Empty in dev: the Vite server proxies /api to the API, so requests stay
 // same-origin and the better-auth session cookie is first-party. In production
 // the web and API are separate origins under one registrable domain
-// (app.ragbag.app / api.ragbag.app), which is still *same-site* — so the
+// (app.ragbag.app / api.ragbag.app), which is still *same-site*, so the
 // session cookie is shared via `crossSubDomainCookies` on the server and
 // travels on ordinary SameSite=Lax rules. Every call still has to opt in with
 // `credentials: "include"`, because same-site is not same-origin.

@@ -18,10 +18,10 @@ import { zql } from "./schema.js";
 // where the SAME function runs authoritatively (Zod-validated args, ctx from
 // the server session, Postgres writes, server-only side effects).
 //
-// Conflict policy is last-writer-wins per mutation — single-user data, no CRDTs.
+// Conflict policy is last-writer-wins per mutation: single-user data, no CRDTs.
 
 /**
- * Every dumped item gets an ingestion job (plan §7) — notes included: they
+ * Every dumped item gets an ingestion job (plan §7), notes included: they
  * skip extraction but still get AI tags and a summary. Servers without an
  * OpenAI key complete note jobs as no-ops.
  */
@@ -40,7 +40,7 @@ export const createItemArgs = z
     blobId: z.string().optional(),
   })
   .superRefine((args, ctx) => {
-    // note/todo/address are all "the user's own words" kinds — they differ in
+    // note/todo/address are all "the user's own words" kinds; they differ in
     // how they render and what you can do with them, not in what they carry.
     if (
       (args.kind === "note" || args.kind === "todo" || args.kind === "address") &&
@@ -203,7 +203,7 @@ export const mutators = defineMutators({
       });
     }),
 
-    // Manual re-run of failed (or stuck) ingestion — plan §7: failures are
+    // Manual re-run of failed (or stuck) ingestion; plan §7: failures are
     // non-fatal and retryable from the UI.
     retryIngest: defineMutator(retryIngestArgs, async ({ tx, ctx, args }) => {
       const { userID } = mustBeLoggedIn(ctx);
@@ -239,7 +239,7 @@ export const mutators = defineMutators({
       const tagIdByName = new Map(userTags.map((t) => [t.name, t.id]));
 
       // Create tag rows that don't exist yet. Ids are minted inside the
-      // mutator, so the optimistic and authoritative runs mint different ids —
+      // mutator, so the optimistic and authoritative runs mint different ids:
       // fine: the server result is authoritative and replaces local state.
       for (const name of wanted) {
         if (!tagIdByName.has(name)) {

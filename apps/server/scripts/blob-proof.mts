@@ -64,7 +64,7 @@ const retry = await presign(clientBlobId);
 if (!retry.uploadUrl) fail("retry presign returned no uploadUrl despite missing bytes");
 console.log("OK   presign retries until the bytes actually exist in the store");
 
-// 4. PUT the bytes to the presigned URL EXACTLY as handed out (no session —
+// 4. PUT the bytes to the presigned URL EXACTLY as handed out (no session:
 // the URL itself is the bearer). Never rewrite it: the whole point is to
 // exercise the URL a browser would use, whichever driver produced it.
 const put = await fetch(retry.uploadUrl, {
@@ -81,12 +81,12 @@ console.log("OK   bytes uploaded through the presigned URL");
 const otherBlobId = newId();
 const second = await presign(otherBlobId);
 if (second.blobId !== otherBlobId) {
-  fail(`presign reassigned the client's blobId to ${second.blobId} — items would orphan`);
+  fail(`presign reassigned the client's blobId to ${second.blobId}: items would orphan`);
 }
 if (second.uploadUrl !== null) fail("identical bytes should not need a second upload");
 console.log("OK   re-dump keeps the caller's blobId and skips the upload (one object, two rows)");
 
-// 5b. Both ids must resolve to the same bytes — that is what makes reusing the
+// 5b. Both ids must resolve to the same bytes: that is what makes reusing the
 // object safe.
 for (const id of [clientBlobId, otherBlobId]) {
   const res = await fetch(`${SERVER}/api/blobs/${id}/download-url`, {

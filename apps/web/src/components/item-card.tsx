@@ -24,7 +24,7 @@ import type { TimelineItem } from "@/lib/types";
 // user attached to a dump renders above the kind-specific body.
 
 /**
- * Opening an item draws an overlay *above* the timeline — it is not a new
+ * Opening an item draws an overlay *above* the timeline: it is not a new
  * screen, and the archive underneath has to stay exactly where the reader left
  * it. The router scrolls the window to the top on every navigation unless told
  * otherwise, which was invisible while the timeline had its own scroll box and
@@ -84,14 +84,18 @@ export function StatusChip({ item }: { item: TimelineItem }) {
   }
   return (
     <Badge className="gap-1 bg-warning px-2 text-[11px] text-warning-foreground">
-      <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
+      {/* Optical, not arithmetic. Both sides carry the same 0.5rem, but the
+          right side ends on a letter and the left starts on a round glyph that
+          leaves air inside its own box, so the equal padding reads as more on
+          the left. The pull takes that air back out. */}
+      <Icon name="spinner" className="-ml-0.5 size-3 animate-spin [animation-duration:2s]" />
       {status === "processing" ? "processing" : "queued"}
     </Badge>
   );
 }
 
 // Only the user's own tags appear in the timeline. AI tags are generous by
-// design (§7) — a dozen per item would drown the cards — so they stay behind
+// design (§7) (a dozen per item would drown the cards), so they stay behind
 // the item detail view while still powering search and filtering.
 export function TagChips({ item, limit = 8 }: { item: TimelineItem; limit?: number }) {
   const userTags = item.itemTags.filter((it) => it.tag && it.source === "user");
@@ -151,7 +155,7 @@ export function TodoBody({ item, size = "sm" }: { item: TimelineItem; size?: "sm
 }
 
 /**
- * Addresses stay as typed (plan §4) — the actions are what make them useful:
+ * Addresses stay as typed (plan §4); the actions are what make them useful:
  * open in maps, or copy for the taxi app. `content.title` is the place name
  * ingestion recognised, when it did.
  */
@@ -259,10 +263,10 @@ function LinkBody({ item }: { item: TimelineItem }) {
 }
 
 /**
- * "This item's file hasn't reached the server yet" — pinned over the media of
+ * "This item's file hasn't reached the server yet", pinned over the media of
  * a freshly-dumped card. The bytes render locally either way (that's the
  * local-first deal); this badge is the difference between "uploading",
- * "waiting", and "failing, here's why" — states that used to be invisible
+ * "waiting", and "failing, here's why": states that used to be invisible
  * until another device quietly couldn't load the image.
  */
 function UploadBadge({
@@ -270,7 +274,7 @@ function UploadBadge({
   side = "left",
 }: {
   blobId: string | null;
-  /** Which top corner to pin to — right for file rows, left over images. */
+  /** Which top corner to pin to: right for file rows, left over images. */
   side?: "left" | "right";
 }) {
   const queue = useBlobQueue();
@@ -280,9 +284,9 @@ function UploadBadge({
 
   const failing = upload.stage === "waiting" && upload.lastError !== null && blocked !== "auth";
   const label = failing
-    ? `Upload failing — ${upload.lastError}. Click to retry now.`
+    ? `Upload failing: ${upload.lastError}. Click to retry now.`
     : blocked === "auth"
-      ? "Upload paused — sign in to resume"
+      ? "Upload paused, sign in to resume"
       : upload.stage === "inflight" && upload.progress !== null
         ? `Uploading ${Math.round(upload.progress * 100)}%`
         : "Waiting to upload";
@@ -328,14 +332,14 @@ function ImageBody({ item }: { item: TimelineItem }) {
   const navigate = useNavigate();
   // The box this picture will occupy, known from the last time this device
   // displayed it. Placeholder and image share it exactly, so the swap moves
-  // nothing — neither the rest of this card nor the rows below it.
+  // nothing: neither the rest of this card nor the rows below it.
   const box = mediaBox(item.blobId, IMAGE_MAX_H);
 
   return url ? (
     // The box goes on the wrapper, not on the image, and the wrapper is a
     // block. On an `inline-block` span the `min(100%, …)` width resolves
     // against a shrink-to-fit container whose own width depends on the image
-    // inside it — so until the bytes decode, the picture is 7×2px and the
+    // inside it: so until the bytes decode, the picture is 7×2px and the
     // archive briefly loses 800px of height (measured). A block wrapper
     // resolves the percentage against the card, before anything has loaded.
     <span style={box} className={`relative mt-0.5 ${box ? "block" : "inline-block max-w-full"}`}>
@@ -368,9 +372,13 @@ function ImageBody({ item }: { item: TimelineItem }) {
 function FileBody({ item }: { item: TimelineItem }) {
   const icon = item.kind === "pdf" ? "pdf" : "file";
   return (
+    // `openItem`, not a hand-written target: this is a link rather than a
+    // `navigate` call, but it opens the same overlay over the same archive and
+    // owes it the same `resetScroll: false`. Spelling the route out here is how
+    // it came to be the one way into the drawer that threw the reader back to
+    // the top of the timeline.
     <Link
-      to="/item/$id"
-      params={{ id: item.id }}
+      {...openItem(item.id)}
       className="relative mt-0.5 flex items-center gap-3 rounded-lg border bg-panel p-3 transition hover:bg-accent"
     >
       <span
@@ -412,7 +420,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
         void navigate(openItem(item.id));
       }}
     >
-      {/* hover actions. A Tooltip supplies the description, not the name — these
+      {/* hover actions. A Tooltip supplies the description, not the name: these
           are icon-only, so each still needs its own aria-label. z-10 because the
           media bodies below are `relative` (they pin an upload badge) and so
           paint over an auto-z-index sibling that precedes them in the DOM. */}
@@ -482,7 +490,14 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       {item.kind === "image" && <ImageBody item={item} />}
       {(item.kind === "pdf" || item.kind === "file") && <FileBody item={item} />}
 
-      <div className="mt-2 flex items-end justify-between gap-2">
+      {/* The footer stands a chip tall whether or not there is a chip in it.
+          Ingestion is the one thing on a card that changes on its own, with no
+          one touching it: a badge appears the moment a dump lands, swaps
+          queued for processing, then leaves. Each of those is a row 3px taller
+          than the bare timestamp, so every card below jumped 3px, twice, per
+          dump. `min-h-5` is the badge's own height held open permanently, and
+          `items-end` keeps the timestamp on the same baseline either way. */}
+      <div className="mt-2 flex min-h-5 items-end justify-between gap-2">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           {/* hover actions are unreachable on touch, so favorites need a mark
                 that is always visible */}

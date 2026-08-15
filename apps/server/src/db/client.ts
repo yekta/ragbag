@@ -7,7 +7,7 @@ import * as dbSchema from "./schema.js";
 
 // GOTCHA: drizzle/zero replace this client's type parsers, so raw `sql`
 // queries return timestamps as STRINGS, not Date objects (a bare postgres.js
-// client would give you Dates). Don't do JS date math on a raw result —
+// client would give you Dates). Don't do JS date math on a raw result:
 // compare against now() in SQL, or go through drizzle, which maps types.
 export const sql = postgres(env.DATABASE_URL, {
   onnotice: () => {}, // silence NOTICEs from idempotent DDL

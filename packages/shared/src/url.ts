@@ -1,4 +1,4 @@
-// Tracking params stripped during normalization — they change the string
+// Tracking params stripped during normalization: they change the string
 // without changing the resource, which would defeat dedup-by-url (M7).
 const TRACKING_PARAMS = new Set([
   "fbclid",
@@ -46,7 +46,7 @@ export function isBareUrl(text: string): boolean {
 }
 
 // Video links get metadata-only treatment (plan §7): title/thumbnail/
-// description from OG tags, a `video` type tag — no transcript fetching or
+// description from OG tags, a `video` type tag; no transcript fetching or
 // content-level analysis. Detection is by URL shape.
 const VIDEO_PATTERNS: RegExp[] = [
   /^(www\.|m\.)?youtube\.com$/i,

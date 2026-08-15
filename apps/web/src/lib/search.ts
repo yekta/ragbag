@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { hostOf } from "./format.js";
 import type { Timeline, TimelineItem } from "./types.js";
 
-// Feeds the Tier-1 index (client-runtime) from Zero's live timeline query —
+// Feeds the Tier-1 index (client-runtime) from Zero's live timeline query:
 // every sync update reconciles the index incrementally, so search is always
 // current and always local.
 

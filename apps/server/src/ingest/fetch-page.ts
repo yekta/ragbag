@@ -5,7 +5,7 @@ import { PermanentError } from "./errors.js";
 // Fetch a user-dumped URL with realistic headers (plan §7), a byte cap, a
 // timeout, and a baseline SSRF guard: this server fetches arbitrary URLs on
 // behalf of users, so every hop must resolve to a public address. (DNS
-// re-resolution between check and connect remains — full pinning is M8
+// re-resolution between check and connect remains; full pinning is M8
 // hardening territory.) Guard refusals are permanent: retrying cannot change
 // the answer.
 
@@ -126,7 +126,7 @@ export async function fetchPage(rawUrl: string, opts: FetchPageOptions = {}): Pr
         throw new NotHtmlError(contentType.split(";")[0]?.trim() ?? "");
       }
 
-      // Read with a byte cap — a page that exceeds it is truncated, not fatal.
+      // Read with a byte cap: a page that exceeds it is truncated, not fatal.
       let bytes: Uint8Array;
       if (!res.body) {
         bytes = new Uint8Array(await res.arrayBuffer());

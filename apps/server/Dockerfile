@@ -13,7 +13,7 @@ COPY packages ./packages
 COPY apps/server ./apps/server
 RUN pnpm --filter server build
 # The bundle is self-contained except for @napi-rs/canvas, which pdfjs pulls in
-# through a runtime require() to polyfill DOMMatrix/Path2D — so this one package
+# through a runtime require() to polyfill DOMMatrix/Path2D, so this one package
 # (JS wrapper plus its native binary) has to sit next to the bundle. Flatten
 # pnpm's symlink farm into a plain node_modules; the glob fails the build loudly
 # if the store layout ever moves.

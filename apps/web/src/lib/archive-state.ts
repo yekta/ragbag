@@ -10,7 +10,7 @@ import type { Timeline } from "@/lib/types";
 // meant.
 
 export type ArchiveState =
-  /** Rows are expected and not here yet — show nothing at all. */
+  /** Rows are expected and not here yet: show nothing at all. */
   | "opening"
   /** Nothing local to expect and sync is live: the one honest loader. */
   | "syncing"
@@ -45,7 +45,7 @@ export function useArchiveState({
   if (resultType !== "unknown") return "empty"; // the server confirmed it
   if (isSyncPaused(sync)) return "empty"; // nothing more is coming
   if (hint && hint.count > 0 && !budgetSpent) return "opening"; // they're on their way
-  // Either this device has never held an archive (first run — so the loader is
+  // Either this device has never held an archive (first run, so the loader is
   // both honest and immediate), or it held an empty one, or we waited and
   // nothing came.
   return hint?.count === 0 ? "empty" : "syncing";
@@ -53,7 +53,7 @@ export function useArchiveState({
 
 /**
  * Records what the timeline settled on, for the next boot to expect. Only ever
- * writes a truth the UI actually painted — never a way-station.
+ * writes a truth the UI actually painted, never a way-station.
  */
 export function useArchiveHintWriter(state: ArchiveState, count: number): void {
   useEffect(() => {
@@ -65,7 +65,7 @@ export function useArchiveHintWriter(state: ArchiveState, count: number): void {
  * The rows to paint: never fewer than we already painted, unless something
  * authoritative says so.
  *
- * An empty, `unknown` snapshot means "we don't know yet" — it is what Zero
+ * An empty, `unknown` snapshot means "we don't know yet": it is what Zero
  * hands over before its local store answers, and treating it as "the archive is
  * empty" is what let the timeline collapse from thousands of pixels to one
  * screen and back. A `complete` empty result still
@@ -81,7 +81,7 @@ export function useStableRows(items: Timeline, resultType: "unknown" | "complete
   if (import.meta.env.DEV && !warned.current && items.length === 0 && last.current.length > 0) {
     warned.current = true;
     console.warn(
-      `[settle] the timeline query went from ${last.current.length} rows to 0 while still "unknown" — ` +
+      `[settle] the timeline query went from ${last.current.length} rows to 0 while still "unknown", ` +
         `holding the last rows. A rebuilt Zero client is the usual cause.`,
     );
   }
