@@ -336,8 +336,8 @@ export function Sidebar({
               <SidebarMenu>
                 {rankedTags.map((tag) => (
                   <SidebarMenuItem key={tag.id}>
-                    <SidebarMenuButton size="sm" {...tagRow(tag.id)} title={`${tag.kind} tag`}>
-                      <Icon name="tag" className="size-3.5 opacity-50" />
+                    <SidebarMenuButton {...tagRow(tag.id)} title={`${tag.kind} tag`}>
+                      <Icon name="tag" className="size-4" />
                       <span className="truncate">{tag.name}</span>
                       <MenuCount>{tagCounts.get(tag.id)}</MenuCount>
                     </SidebarMenuButton>
