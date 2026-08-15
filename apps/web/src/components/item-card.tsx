@@ -83,12 +83,13 @@ export function StatusChip({ item }: { item: TimelineItem }) {
     );
   }
   return (
-    <Badge className="gap-1 bg-warning px-2 text-[11px] text-warning-foreground">
-      {/* Optical, not arithmetic. Both sides carry the same 0.5rem, but the
-          right side ends on a letter and the left starts on a round glyph that
-          leaves air inside its own box, so the equal padding reads as more on
-          the left. The pull takes that air back out. */}
-      <Icon name="spinner" className="-ml-0.5 size-3 animate-spin [animation-duration:2s]" />
+    // Optical, not arithmetic: the two sides are not carrying the same thing.
+    // The right ends on a letter, which needs room; the left starts on a
+    // 0.75rem glyph, which is already a square with air in it. Giving that
+    // side the same 0.25rem the glyph has above and below sets it in its
+    // corner evenly, instead of leaving it adrift in a wider margin.
+    <Badge className="gap-1 bg-warning pr-2 pl-1 text-[11px] text-warning-foreground">
+      <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
       {status === "processing" ? "processing" : "queued"}
     </Badge>
   );

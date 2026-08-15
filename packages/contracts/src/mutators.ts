@@ -38,6 +38,16 @@ export const createItemArgs = z
     text: z.string().max(100_000).optional(),
     url: z.string().max(8_192).optional(),
     blobId: z.string().optional(),
+    /**
+     * What to call this item until ingestion has looked at it. Only the blob
+     * kinds send one, and it is the file's own name: the picker handed it to
+     * the client, so a card that says "PDF document" while the bytes upload is
+     * withholding something it already knows. Ingestion writes the same field
+     * and lands on the same value (pipeline.ts sets `originalName` for all
+     * three blob kinds), so nothing flips when the job finishes: an image is
+     * the one that can change, to the title the vision model gives it.
+     */
+    title: z.string().max(512).optional(),
   })
   .superRefine((args, ctx) => {
     // note/todo/address are all "the user's own words" kinds; they differ in
@@ -128,6 +138,7 @@ export const mutators = defineMutators({
       await tx.mutate.itemContent.insert({
         itemId: args.id,
         status: needsIngest(args.kind) ? "pending" : "done",
+        title: args.title,
       });
 
       if (tx.location === "server" && needsIngest(args.kind)) {

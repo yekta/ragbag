@@ -293,7 +293,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     dictation.stop();
 
     if (attachments.length > 0) {
-      attachments.forEach(({ captured }, i) => {
+      attachments.forEach(({ captured, name }, i) => {
         if (!captured) return; // unreachable: send is gated on every chip being ready
         const id = newId();
         watchServer(
@@ -302,6 +302,9 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               id,
               kind: captured.kind,
               blobId: captured.blobId,
+              // The name is already on this device; the card should not have to
+              // wait for the server to learn it.
+              title: name,
               // The typed text rides along as the comment on the first file.
               text: i === 0 && text ? text : undefined,
             }),

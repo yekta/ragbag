@@ -361,15 +361,18 @@ function Shell({
 /**
  * When the sidebar panel has *visually* left, which is not when its transition
  * ends. `--ease-panel` front-loads the distance: solving it for the 450ms in
- * ui/sidebar.tsx gives 97.5% of the travel done by here and 99% by 300ms, so
- * everything past this point is a tail nobody can see. Waiting out the full
- * duration spent that tail on an empty corner, which reads as the button being
- * late rather than as the panel still arriving.
+ * ui/sidebar.tsx gives 96% of the travel done by here, 97.5% by 250ms and 99%
+ * by 300ms, so everything past this point is a tail nobody can see. Waiting out
+ * the full duration spent that tail on an empty corner, which reads as the
+ * button being late rather than as the panel still arriving.
  *
- * Below ~210ms the panel is genuinely still moving (95%) and the button starts
- * arriving into it. Re-derive if the curve or the duration changes.
+ * This is close to the floor. ~11px of the 288px panel is still on screen here,
+ * off at the far edge, and the button lands 20px clear of it because the inset
+ * it sits in is travelling too. Take much more off and the panel is visibly
+ * moving while the button is already home. Re-derive if the curve or the
+ * duration changes.
  */
-const SIDEBAR_CLEARED_MS = 250;
+const SIDEBAR_CLEARED_MS = 225;
 
 function ShellBody({
   email,
