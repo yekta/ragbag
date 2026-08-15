@@ -485,13 +485,13 @@ const sidebarMenuButtonVariants = cva(
   // selected one comes up to full strength, which is the same signal at the
   // same glance, spent on a property that costs no layout.
   //
-  // The 1px transparent border top and bottom is where the separation between
+  // The 2px transparent border top and bottom is where the separation between
   // two fills comes from, and it is deliberately not a gap. The row's box still
   // runs edge to edge against its neighbour's (every pixel of this list belongs
   // to a row and answers to a click) while the fill, clipped to the padding
-  // box, stops short of it. Two adjacent highlights therefore read 2px apart
+  // box, stops short of it. Two adjacent highlights therefore read 4px apart
   // with nothing dead in between.
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y-2 border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       variant: {
