@@ -29,9 +29,6 @@ import { useMeta } from "@/lib/use-meta";
 // screen exists; local `open` state decides whether the panel is on screen, so
 // that closing can animate before the route change tears the component down.
 
-/** Keep in step with `data-[state=closed]:duration-150` on SheetContent. */
-const SHEET_EXIT_MS = 150;
-
 const TEXT_SECTION_LABEL: Partial<Record<ItemKind, string>> = {
   note: "Note",
   todo: "Todo",
@@ -53,14 +50,9 @@ export function ItemDetail() {
   // component on the spot, which meant the panel disappeared in a single frame
   // while its overlay was still there — no exit animation at all, unlike the
   // mobile drawer (which is state-driven and slides out properly). So flip
-  // `open` first and leave the route once the panel is gone.
+  // `open` first, and let <ExitToTimeline> below leave the route once Radix has
+  // taken the panel off screen.
   const close = () => setOpen(false);
-  useEffect(() => {
-    if (open) return;
-    // Matches the exit duration on SheetContent in ui/sheet.tsx.
-    const t = setTimeout(() => void navigate({ to: "/", resetScroll: false }), SHEET_EXIT_MS);
-    return () => clearTimeout(t);
-  }, [open, navigate]);
 
   // Deleting from here drops the row from the local store immediately, so
   // while the panel slides out there is nothing left to render. Keep painting
@@ -93,6 +85,8 @@ export function ItemDetail() {
         showCloseButton={false}
         className="w-full gap-0 overflow-y-auto p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-2xl"
       >
+        <ExitToTimeline armed={!open} go={() => void navigate({ to: "/", resetScroll: false })} />
+
         {/* The visible header below carries the heading; Radix still needs an
             accessible name and description for the dialog itself. */}
         <SheetTitle className="sr-only">{c?.title ?? item?.text ?? "Item"}</SheetTitle>
@@ -452,6 +446,31 @@ export function ItemDetail() {
       </SheetContent>
     </Sheet>
   );
+}
+
+/**
+ * Leaves the route once the panel is actually gone.
+ *
+ * Radix holds the sheet mounted through its exit animation and drops it on
+ * `animationend`, so this — rendered *inside* the panel — unmounts at exactly
+ * that moment. A timer here would be a second copy of the exit duration, kept
+ * in step with the CSS by hand and silently wrong the next time the sheet is
+ * retimed; that is what it was before.
+ *
+ * `armed` covers the unmounts that are not a close: StrictMode's double mount
+ * in dev, and the panel going away while still open (sign-out, or Back taking
+ * the route out from under it).
+ */
+function ExitToTimeline({ armed, go }: { armed: boolean; go: () => void }) {
+  const latest = useRef({ armed, go });
+  latest.current = { armed, go };
+  useEffect(
+    () => () => {
+      if (latest.current.armed) latest.current.go();
+    },
+    [],
+  );
+  return null;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

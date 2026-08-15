@@ -14,10 +14,11 @@ import { cn } from "@/lib/utils";
 // foreground`, which is near-white in light mode and near-black in dark — the
 // contrast trick shadcn was using the 60% fill for, done with a real token.
 //
-// Motion was retimed at the same time (sheet / dialog / alert-dialog /
-// sidebar): the generated Sheet ran 500ms in, 300ms out on `ease-in-out`, and
-// the sidebar rail on `ease-linear`. Everything now uses `--ease-enter` /
-// `--ease-exit` from index.css, with exits shorter than entrances.
+// Motion was retimed at the same time (dialog / alert-dialog / sidebar, which
+// ran on `ease-linear`): those use `--ease-enter` / `--ease-exit` from
+// index.css, with exits shorter than entrances. Sheet is the exception — it
+// was retimed too, the drawer stopped reading as motion, and it is back on
+// stock shadcn's 500/300 `ease-in-out`. See the note in ui/sheet.tsx.
 //
 // The `before:` strip in the base is the hit area, not the button: every size
 // here tops out at 40px, and 44 is the floor every touch platform asks for
