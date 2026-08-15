@@ -475,13 +475,33 @@ function ShellBody({
   );
 }
 
-/** Round button for the controls that sit over the timeline. */
+/**
+ * Round button for the controls that sit over the timeline.
+ *
+ * `secondary`, not `outline` + `bg-card`, and the reason is what these float
+ * over: `--card` rows on the `--background` canvas. That combination failed
+ * both ways round.
+ *
+ * In dark it never took: the `outline` variant carries `dark:bg-panel`, and
+ * twMerge keeps it — a dark-prefixed background is a different group from an
+ * unprefixed one, so it does not read as a conflict — after which
+ * `.dark .dark\:bg-panel` outranks `.bg-card` on specificity. The fill here
+ * was decorative.
+ *
+ * In light it *did* take, which was worse: `--card` is the exact surface of
+ * the cards these sit on top of, so the button dissolved into whatever row was
+ * passing under it and that row's text read as running straight through the
+ * glyph — the "partially transparent" look. `--secondary` is the one surface
+ * that stays a step away from both the canvas and the cards in both themes,
+ * and `shadow-float` (the token that already exists for lifting off the
+ * canvas) carries the separation where the fills are closest.
+ */
 function FloatingButton({ className, ...props }: ComponentProps<typeof Button>) {
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="icon"
-      className={`absolute rounded-full bg-card text-muted-foreground shadow-md ${className ?? ""}`}
+      className={`absolute rounded-full border text-muted-foreground shadow-float ${className ?? ""}`}
       {...props}
     />
   );

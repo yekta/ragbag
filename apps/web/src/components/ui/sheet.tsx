@@ -30,7 +30,7 @@ function SheetOverlay({
       className={cn(
         // Timed to match SheetContent below, or the overlay finishes first and
         // the panel appears to lag behind its own backdrop.
-        "fixed inset-0 z-50 bg-overlay/overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=open]:ease-enter",
+        "fixed inset-0 z-50 bg-overlay/overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-400 data-[state=open]:ease-enter",
         className,
       )}
       {...props}
@@ -56,11 +56,21 @@ function SheetContent({
         className={cn(
           // Was 500ms in / 300ms out on `ease-in-out` — a drawer that takes half
           // a second to arrive, and an S-curve that barely moves for the first
-          // 100ms of it. Now 200 in / 150 out on the enter/exit curves.
+          // 100ms of it. Now 400 in / 150 out on the enter/exit curves.
           // The bare `transition` (transition-property: all) is gone too: the
           // panel animates via keyframes, and `all` meant every colour and
           // shadow on it transitioned as a side effect.
-          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition-none data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=open]:ease-enter",
+          //
+          // 400, not the 200 this ran at first: `--ease-enter` is the iOS/Vaul
+          // drawer curve, and its second control point sits at (0, 1) — it is
+          // 46% travelled at 15% of the duration and 85% at 31%. At 200ms that
+          // put 85% of the slide into the first ~60ms (four frames) and spent
+          // the remaining 140ms creeping the last 100px at sub-pixel speed:
+          // the panel read as *cut* into place, while the exit — `--ease-exit`
+          // accelerates away from a standstill — still read as motion. That
+          // asymmetry was the whole bug. The curve is right for a drawer; it
+          // just needs a duration long enough for its fast part to be seen.
+          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition-none data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:ease-exit data-[state=open]:animate-in data-[state=open]:duration-400 data-[state=open]:ease-enter",
           side === "right" &&
             "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
           side === "left" &&
