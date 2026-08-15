@@ -559,6 +559,12 @@ function AttachmentChip({
             </span>
           ))}
       </span>
+      {/* Keeps the base's full 44px: at 24px on a corner this is the fiddliest
+          target on a phone, and it has room — the bleed to the right lands on
+          the next tile, which is inert and paints over this anyway. The one
+          consequence is on a failed tile, where the retry scrim below loses its
+          top-right corner to this. That is the right winner: the ✕ is sitting
+          on it. */}
       <Button
         variant="outline"
         size="icon-xs"

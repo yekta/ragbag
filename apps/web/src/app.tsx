@@ -424,21 +424,31 @@ function ShellBody({
           {/* Zero-height anchor: the floating controls land below the sync
               banner without covering it. */}
           <div className="relative">
+            {/* The phone's only chrome, so they are sized like chrome rather
+                than like a control inside a card: iOS has drawn a navigation
+                bar button at 44pt since iOS 7, and iOS 26 still does — the
+                Liquid Glass capsule *is* the 44pt target — with an 18–24pt
+                glyph inside it. Points are CSS pixels here, so that reads
+                `size-11` around `size-6`. The desktop control below is a mouse
+                target and stays at the stock 36px; the two branches never
+                coexist (`isMobile` is <768px, `md:` is ≥768px), which is also
+                why `--timeline-inset-top` can switch on that same breakpoint
+                rather than measure anything. */}
             {isMobile ? (
               <>
                 <FloatingButton
-                  className="left-3 top-3"
+                  className="left-3 top-3 size-11"
                   title="Menu"
                   onClick={() => setOpenMobile(true)}
                 >
-                  <Icon name="menu" className="size-5" />
+                  <Icon name="menu" className="size-6" />
                 </FloatingButton>
                 <FloatingButton
-                  className="right-3 top-3"
+                  className="right-3 top-3 size-11"
                   title="Search"
                   onClick={() => setSearchOpen(true)}
                 >
-                  <Icon name="search" className="size-4" />
+                  <Icon name="search" className="size-6" />
                 </FloatingButton>
               </>
             ) : (

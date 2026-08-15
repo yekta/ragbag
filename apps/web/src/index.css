@@ -74,11 +74,22 @@
   --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
 
   /* The timeline's top padding: the band the floating controls occupy, plus a
-     little clearance. The controls sit `top-3` and are `size-9`, so the band is
-     offset + control; nothing else feeds into this number — whatever the first
-     row happens to be, it starts below the buttons. Defined here so the padding
-     tracks the controls: change their offset or size and it follows. */
-  --timeline-inset-top: calc(0.75rem + 2.25rem + 0.5rem); /* 3.5rem = 56px */
+     little clearance. The controls sit `top-3`, so the band is offset +
+     control; nothing else feeds into this number — whatever the first row
+     happens to be, it starts below the buttons. Defined here so the padding
+     tracks the controls: change their offset or size and it follows.
+
+     The two controls are different sizes. The phone's menu / search buttons
+     are `size-11` — 44px, what iOS gives a navigation bar button — and the
+     desktop sidebar-reopen button is the stock `size-9`. They never render
+     together, because app.tsx picks one branch or the other at 768px, so this
+     switches on the same breakpoint rather than padding everything by the
+     larger of the two. 48rem is that breakpoint: Tailwind's `md`, and
+     MOBILE_BREAKPOINT in hooks/use-mobile.ts. */
+  --timeline-inset-top: calc(0.75rem + 2.75rem + 0.5rem); /* 4rem = 64px */
+  @media (min-width: 48rem) {
+    --timeline-inset-top: calc(0.75rem + 2.25rem + 0.5rem); /* 3.5rem = 56px */
+  }
 
   /* Bucket-centred (rule 3): 240.931, 242.990, 242.074. */
   --background: oklch(0.9623 0.0025 168); /* #f1f3f2 */
