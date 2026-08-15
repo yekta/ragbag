@@ -36,10 +36,17 @@ export function TagEditor({
       {userTagNames.map((name) => (
         <Badge key={name} variant="secondary" className="py-0.5 pl-2.5 pr-1">
           {name}
+          {/* The one button in the app that can't take the base's 44px hit
+              area. This is 16px inside a chip in a wrapping row, so 44 would
+              reach ~11px past the badge — five of those into the row above,
+              over *its* remove button, and the row above loses because it
+              paints first. 24px bleeds 4px against this row's 6px gap, so the
+              hit areas tile the gap without ever crossing, which is the same
+              arithmetic the sidebar's row strips use. */}
           <Button
             variant="ghost"
             size="icon-xs"
-            className="size-4 rounded-full text-muted-foreground hover:text-foreground"
+            className="size-4 rounded-full text-muted-foreground before:min-h-6 before:min-w-6 hover:text-foreground"
             title={`Remove ${name}`}
             onClick={() => save(userTagNames.filter((n) => n !== name))}
           >

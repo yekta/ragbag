@@ -18,9 +18,27 @@ import { cn } from "@/lib/utils";
 // sidebar): the generated Sheet ran 500ms in, 300ms out on `ease-in-out`, and
 // the sidebar rail on `ease-linear`. Everything now uses `--ease-enter` /
 // `--ease-exit` from index.css, with exits shorter than entrances.
+//
+// The `before:` strip in the base is the hit area, not the button: every size
+// here tops out at 40px, and 44 is the floor every touch platform asks for
+// (iOS 44pt, WCAG 2.5.5). `size-full` + `min-*-11` means it is
+// `max(the button, 44px)` — a text button keeps its own bounds, an icon button
+// grows symmetrically around itself — so nothing moves on screen.
+//
+// Same rule as the `after:` strip in ui/sidebar.tsx: an expanded hit area may
+// tile the gap to its neighbour but must never cross into what the neighbour
+// shows. Every cluster in this app was measured against that (the bleed is
+// `(44 - button) / 2 - gap`, and it has to stay inside the neighbour's icon
+// padding); the one that failed — the tag chips in tag-editor.tsx, where a
+// wrapped row sits 6px away — clamps itself down. A call site that must not
+// expand at all passes `before:hidden`.
+//
+// `relative` is here for that strip. Call sites that position the button
+// themselves pass `absolute`, which twMerge resolves in favour of the call
+// site; either way the button is the pseudo's containing block.
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none before:absolute before:top-1/2 before:left-1/2 before:size-full before:min-h-11 before:min-w-11 before:-translate-x-1/2 before:-translate-y-1/2 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
