@@ -18,12 +18,18 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { mediaBox, rememberBlobAspect, useBlobUrl } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
+import { filterLink, useFilter } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 import { useMeta } from "@/lib/use-meta";
 
-// Route overlay (/item/$id): reader view for links, PDF viewer, image
+// Route overlay (…/item/$id): reader view for links, PDF viewer, image
 // lightbox (plan §10), plus the tag editor and favorite/delete/retry actions.
 // Rendered above the timeline so scroll position survives.
+//
+// A *child* of whichever filter is behind it (main.tsx), so the view stays in
+// the path while the drawer is open: closing goes back to `/notes`, not to the
+// whole archive, and a link to `/notes/item/<id>` opens the drawer over the
+// notes timeline for whoever follows it.
 //
 // A Drawer rather than a hand-rolled overlay: focus trap, scroll lock, Esc,
 // swipe-to-dismiss and the slide animation all come from Base UI. One
@@ -46,6 +52,8 @@ export function ItemDetail() {
   const { id } = useParams({ strict: false }) as { id: string };
   const zero = useZero();
   const navigate = useNavigate();
+  // The view this drawer is over, which is where closing it goes back to.
+  const filter = useFilter();
   const [liveItem] = useQuery(queries.item({ id }));
   const [allTags] = useQuery(queries.tags());
   const meta = useMeta();
@@ -93,7 +101,7 @@ export function ItemDetail() {
     setOpen(true);
   }, [id]);
 
-  // Closing has to outlive the route change. Navigating to "/" unmounts this
+  // Closing has to outlive the route change. Navigating away unmounts this
   // component on the spot, which meant the panel disappeared in a single frame
   // while its overlay was still there, no exit animation at all. So flip
   // `open` first and leave the route once the panel is actually gone.
@@ -140,7 +148,7 @@ export function ItemDetail() {
       open={open}
       onOpenChange={(next) => !next && close()}
       onOpenChangeComplete={(nowOpen) => {
-        if (!nowOpen && opened.current) void navigate({ to: "/", resetScroll: false });
+        if (!nowOpen && opened.current) void navigate(filterLink(filter));
       }}
       // Bottom sheet on a phone, right-hand panel on a desktop, and the handle
       // only where there is a thumb to drag it with.

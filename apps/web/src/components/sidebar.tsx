@@ -4,6 +4,7 @@ import type { MetaResponse } from "@ragbag/contracts";
 import { ITEM_KINDS } from "@ragbag/shared";
 import type { ItemKind } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Icon, KIND_ICON } from "@/components/icon";
@@ -30,6 +31,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
+import { EVERYTHING, filterLink, useFilter, type Filter, type ViewFilter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
 import type { SyncStatus } from "@/lib/sync-status";
 import type { Theme } from "@/lib/theme";
@@ -37,6 +39,11 @@ import type { TagRow, Timeline } from "@/lib/types";
 
 // Left rail: kind + tag filters over the locally-synced archive, sync state,
 // account. Collections join in v1.5 (plan §4).
+//
+// Every filter row is a `<Link>` to the path that view lives at (lib/routes.ts),
+// not a button that sets a variable: which means a middle click opens it in a
+// tab, a right click can copy it, the back button walks back through them, and
+// what is on screen is always what the address bar says.
 //
 // Placement is the shadcn Sidebar's job: a floating card at md+, a flush
 // full-height Sheet below it. This file only fills the slots.
@@ -149,10 +156,12 @@ export function Sidebar({
   sync: SyncStatus | null;
   onSignOut: () => void;
 }) {
-  const { viewFilter, tagFilter, setViewFilter, setTagFilter, setSearchOpen } = useViewStore();
+  const { setSearchOpen } = useViewStore();
+  const filter = useFilter();
   // On a phone the drawer exists to pick one thing and get back to the
   // timeline, so every pick closes it. (No-op on desktop.)
   const { setOpenMobile } = useSidebar();
+  const closeDrawer = () => setOpenMobile(false);
   const queue = useBlobQueue();
   const queueState = useBlobQueueState();
 
@@ -196,9 +205,31 @@ export function Sidebar({
     [tags, tagCounts],
   );
 
-  const pickView = (view: Parameters<typeof setViewFilter>[0]) => {
-    setViewFilter(view);
-    setOpenMobile(false);
+  // Where each row points, and whether it is the row you are already on: one
+  // helper, because those two are the same question. Picking the row you are on
+  // clears that one filter, which is what a second click on it always did, and
+  // the other filter rides along, because a kind and a tag have always narrowed
+  // together. `aria-current` because these are links now: the highlight says
+  // "this is the view you are in" to everyone else.
+  const rowProps = (target: Filter, active: boolean) => ({
+    isActive: active,
+    render: (
+      <Link
+        {...filterLink(target)}
+        aria-current={active ? "page" : undefined}
+        onClick={closeDrawer}
+      />
+    ),
+  });
+
+  const viewRow = (view: Exclude<ViewFilter, null>) => {
+    const active = filter.view === view;
+    return rowProps({ view: active ? null : view, tagId: filter.tagId }, active);
+  };
+
+  const tagRow = (tagId: string) => {
+    const active = filter.tagId === tagId;
+    return rowProps({ view: filter.view, tagId: active ? null : tagId }, active);
   };
 
   return (
@@ -259,11 +290,7 @@ export function Sidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={viewFilter === null && tagFilter === null}
-                  onClick={() => {
-                    useViewStore.getState().clearFilters();
-                    setOpenMobile(false);
-                  }}
+                  {...rowProps(EVERYTHING, filter.view === null && filter.tagId === null)}
                 >
                   <Icon name="inbox" className="size-4" />
                   <span className="truncate">Everything</span>
@@ -271,10 +298,7 @@ export function Sidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={viewFilter === "favorites"}
-                  onClick={() => pickView("favorites")}
-                >
+                <SidebarMenuButton {...viewRow("favorites")}>
                   <Icon name="star" className="size-4" />
                   <span className="truncate">Favorites</span>
                   <MenuCount>{favoriteCount}</MenuCount>
@@ -283,9 +307,8 @@ export function Sidebar({
               {ITEM_KINDS.map((kind) => (
                 <SidebarMenuItem key={kind}>
                   <SidebarMenuButton
-                    isActive={viewFilter === kind}
+                    {...viewRow(kind)}
                     title={kind === "todo" ? "Todos (open)" : KIND_LABEL[kind]}
-                    onClick={() => pickView(kind)}
                   >
                     <Icon name={KIND_ICON[kind]} className="size-4" />
                     <span className="truncate">{KIND_LABEL[kind]}</span>
@@ -313,15 +336,7 @@ export function Sidebar({
               <SidebarMenu>
                 {rankedTags.map((tag) => (
                   <SidebarMenuItem key={tag.id}>
-                    <SidebarMenuButton
-                      size="sm"
-                      isActive={tagFilter === tag.id}
-                      title={`${tag.kind} tag`}
-                      onClick={() => {
-                        setTagFilter(tag.id);
-                        setOpenMobile(false);
-                      }}
-                    >
+                    <SidebarMenuButton size="sm" {...tagRow(tag.id)} title={`${tag.kind} tag`}>
                       <Icon name="tag" className="size-3.5 opacity-50" />
                       <span className="truncate">{tag.name}</span>
                       <MenuCount>{tagCounts.get(tag.id)}</MenuCount>

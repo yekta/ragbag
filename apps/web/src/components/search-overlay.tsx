@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { dayLabel, hostOf } from "@/lib/format";
+import { itemLink, useFilter } from "@/lib/routes";
 import { useSearchResults } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
 import type { Timeline, TimelineItem } from "@/lib/types";
@@ -46,6 +47,7 @@ function ResultRow({ item, onPick }: { item: TimelineItem; onPick: () => void })
 export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; items: Timeline }) {
   const { searchOpen, setSearchOpen } = useViewStore();
   const navigate = useNavigate();
+  const filter = useFilter();
   const [query, setQuery] = useState("");
   const results = useSearchResults(index, items, query);
 
@@ -67,7 +69,9 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
 
   const pick = (item: TimelineItem) => {
     setSearchOpen(false);
-    void navigate({ to: "/item/$id", params: { id: item.id }, resetScroll: false });
+    // Search looks at the whole archive, but the drawer still opens over the
+    // view the search was called from, and closing it lands back there.
+    void navigate(itemLink(item.id, filter));
   };
 
   const blank = query.trim() === "";

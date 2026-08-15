@@ -17,20 +17,23 @@ import {
   useBlobUrl,
 } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
+import { itemLink, useFilter } from "@/lib/routes";
 import { isTouch } from "@/lib/touch";
 import type { TimelineItem } from "@/lib/types";
 
 // One timeline entry. Chat-style: the card is the "message"; a comment the
 // user attached to a dump renders above the kind-specific body.
-
-/**
- * Opening an item draws an overlay *above* the timeline: it is not a new
- * screen, and the archive underneath has to stay exactly where the reader left
- * it. The router scrolls the window to the top on every navigation unless told
- * otherwise, which was invisible while the timeline had its own scroll box and
- * very much is not now that the document is the scroller.
- */
-const openItem = (id: string) => ({ to: "/item/$id", params: { id }, resetScroll: false }) as const;
+//
+// Every way into the detail view goes through `itemLink` (lib/routes.ts) rather
+// than a route spelled out here, because opening an item draws an overlay
+// *above* the timeline: it is not a new screen. So the archive underneath has to
+// stay exactly where the reader left it, which takes `resetScroll: false` (the
+// router scrolls the window to the top on every navigation otherwise: invisible
+// while the timeline had its own scroll box, very much not now that the document
+// is the scroller), and it has to stay *filtered*, which is why the drawer opens
+// at `/notes/item/<id>` when notes is what you are looking at. Spelling the
+// route out by hand is how one of these came to be the way into the drawer that
+// threw the reader back to the top of the timeline.
 
 const URL_RE = /(https?:\/\/[^\s<>"')\]]+)/g;
 
@@ -331,6 +334,7 @@ const IMAGE_MAX_H = "20rem";
 function ImageBody({ item }: { item: TimelineItem }) {
   const url = useBlobUrl(item.blobId);
   const navigate = useNavigate();
+  const filter = useFilter();
   // The box this picture will occupy, known from the last time this device
   // displayed it. Placeholder and image share it exactly, so the swap moves
   // nothing: neither the rest of this card nor the rows below it.
@@ -350,7 +354,7 @@ function ImageBody({ item }: { item: TimelineItem }) {
         className={`cursor-zoom-in rounded-lg border object-contain ${
           box ? "h-full w-full" : "max-h-80 max-w-full"
         }`}
-        onClick={() => void navigate(openItem(item.id))}
+        onClick={() => void navigate(itemLink(item.id, filter))}
         onLoad={(e) => rememberBlobAspect(item.blobId, e.currentTarget)}
       />
       <UploadBadge blobId={item.blobId} />
@@ -372,14 +376,10 @@ function ImageBody({ item }: { item: TimelineItem }) {
 
 function FileBody({ item }: { item: TimelineItem }) {
   const icon = item.kind === "pdf" ? "pdf" : "file";
+  const filter = useFilter();
   return (
-    // `openItem`, not a hand-written target: this is a link rather than a
-    // `navigate` call, but it opens the same overlay over the same archive and
-    // owes it the same `resetScroll: false`. Spelling the route out here is how
-    // it came to be the one way into the drawer that threw the reader back to
-    // the top of the timeline.
     <Link
-      {...openItem(item.id)}
+      {...itemLink(item.id, filter)}
       className="relative mt-0.5 flex items-center gap-3 rounded-lg border bg-panel p-3 transition hover:bg-accent"
     >
       <span
@@ -407,6 +407,7 @@ function FileBody({ item }: { item: TimelineItem }) {
 export function ItemCard({ item }: { item: TimelineItem }) {
   const zero = useZero();
   const navigate = useNavigate();
+  const filter = useFilter();
 
   return (
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
@@ -418,7 +419,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
       onClick={(e) => {
         if (!isTouch) return;
         if (e.target instanceof Element && e.target.closest("a,button")) return;
-        void navigate(openItem(item.id));
+        void navigate(itemLink(item.id, filter));
       }}
     >
       {/* hover actions. A Tooltip supplies the description, not the name: these
@@ -456,7 +457,7 @@ export function ItemCard({ item }: { item: TimelineItem }) {
                 size="icon-sm"
                 aria-label="Details and tags"
                 className="rounded-full text-muted-foreground"
-                onClick={() => void navigate(openItem(item.id))}
+                onClick={() => void navigate(itemLink(item.id, filter))}
               />
             }
           >

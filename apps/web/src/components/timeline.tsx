@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import type { ArchiveState } from "@/lib/archive-state";
 import { blobAspect } from "@/lib/blobs";
 import { dayKey, dayLabel } from "@/lib/format";
+import { useFilter } from "@/lib/routes";
 import { BUDGET, usePatient } from "@/lib/settle";
-import { useViewStore } from "@/lib/store";
 import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
 import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
 
@@ -37,14 +37,15 @@ const AT_END_PX = 120;
 const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
 
 function useRows(items: TimelineRows): Row[] {
-  const { viewFilter, tagFilter } = useViewStore();
+  // The URL is the filter (lib/routes.ts).
+  const { view, tagId } = useFilter();
   return useMemo(() => {
     // Items arrive newest-first from the shared query; the chat renders
     // oldest-first.
     let filtered = items.toReversed();
-    if (viewFilter === "favorites") filtered = filtered.filter((i) => i.favorite);
-    else if (viewFilter) filtered = filtered.filter((i) => i.kind === viewFilter);
-    if (tagFilter) filtered = filtered.filter((i) => i.itemTags.some((t) => t.tagId === tagFilter));
+    if (view === "favorites") filtered = filtered.filter((i) => i.favorite);
+    else if (view) filtered = filtered.filter((i) => i.kind === view);
+    if (tagId) filtered = filtered.filter((i) => i.itemTags.some((t) => t.tagId === tagId));
 
     const rows: Row[] = [];
     let lastDay = "";
@@ -57,7 +58,7 @@ function useRows(items: TimelineRows): Row[] {
       rows.push({ type: "item", item });
     }
     return rows;
-  }, [items, viewFilter, tagFilter]);
+  }, [items, view, tagId]);
 }
 
 // Row geometry, estimated from what is known before layout.
@@ -137,7 +138,7 @@ export function Timeline({
   // The list element only exists when there is something to draw; effects that
   // observe it have to re-run when it appears.
   const hasRows = rows.length > 0;
-  const { viewFilter, tagFilter } = useViewStore();
+  const { view, tagId } = useFilter();
   const [scrollMargin, setScrollMargin] = useState(0);
   const [width, setWidth] = useState(700);
 
@@ -212,7 +213,7 @@ export function Timeline({
   // (lib/settle.ts).
   useLayoutEffect(() => {
     virtualizer.scrollToEnd();
-  }, [viewFilter, tagFilter, virtualizer]);
+  }, [view, tagId, virtualizer]);
 
   // Was the reader at the newest item? Sampled while scrolling, because by the
   // time a resize arrives it is too late to ask: the new viewport height has

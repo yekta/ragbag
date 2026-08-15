@@ -174,9 +174,12 @@ Static build; no Dockerfile, no proxy.
 | Build command  | `pnpm --filter web build` |
 | Start command  | `pnpm --filter web start` |
 
-`start` is `serve -s dist -l $PORT`. The `-s` is the SPA fallback: without it a hard refresh on
-`/item/<id>` 404s, because the router uses history routing. `serve` is a runtime dependency of
-`apps/web` (not a dev one) so a production prune can't remove it.
+`start` is `serve -s dist -l $PORT`. The `-s` is the SPA fallback, and it is load-bearing: every
+view in the app is a real path (`/notes`, `/favorites`, `/tags/<id>`, `/notes/tags/<id>/item/<id>`,
+…) matched by the router in the browser, so without it a hard refresh on any of them 404s. `serve`
+is a runtime dependency of `apps/web` (not a dev one) so a production prune can't remove it. Hosts
+that read `_redirects` (Netlify, Cloudflare Pages) get the same rule from `apps/web/public`; on
+anything else, point unmatched paths at `index.html` with a **200**, not a 301.
 
 Watch paths:
 
@@ -219,7 +222,8 @@ application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app
    (exercises presign + R2 + bucket CORS). If it goes red with "The storage bucket blocked the
    browser's upload", the bucket CORS policy is missing, see §2, and `GET /api/debug/storage`
    to confirm the server side is fine.
-8. Hard-refresh on `/item/<id>`: must render, not 404.
+8. Hard-refresh on `/notes` and on `/item/<id>`: both must render the app (filtered, and with the
+   detail drawer open), not 404.
 9. Open that note's detail view: an **AI summary and tags** must appear within a few seconds
    (enrichment is the slow stage, the `ingested` log line goes from ~30ms to seconds when AI is
    really running). If a summary never comes, the detail view now says why, and
