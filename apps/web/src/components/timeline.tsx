@@ -346,13 +346,18 @@ export function Timeline({
     // cramped. This padding lands on top of the last row's own `pb-3`, so the
     // newest card settles 3.75rem clear of the composer: the breathing room a
     // chat UI leaves between what was said and what you are typing.
-    <div className="relative flex flex-1 flex-col pt-(--timeline-inset-top) pb-12">
+    // The gutter is the composer's, and it is out here for the same reason it
+    // is out there: it has to sit *outside* the column cap, or the cards come
+    // out narrower than the card you type into by exactly this padding — 1rem a
+    // side on a wide screen, where both are pinned at the cap and only the
+    // cards pay for it.
+    <div className="relative flex flex-1 flex-col px-3 pt-(--timeline-inset-top) pb-12 md:px-4">
       {rows.length > 0 ? (
         <div
           ref={listRef}
           // The browser's own scroll anchoring would correct on top of the
           // virtualizer's measurement corrections; one of the two has to go.
-          className="relative mx-auto w-full max-w-3xl px-4 [overflow-anchor:none]"
+          className="relative mx-auto w-full max-w-3xl [overflow-anchor:none]"
           style={{ height: virtualizer.getTotalSize() }}
         >
           {virtualizer.getVirtualItems().map((v) => {
@@ -362,7 +367,7 @@ export function Timeline({
                 key={v.key}
                 ref={virtualizer.measureElement}
                 data-index={v.index}
-                className="absolute inset-x-4 top-0"
+                className="absolute inset-x-0 top-0"
                 // Row positions are document coordinates; this box starts
                 // `scrollMargin` into the document.
                 style={{ transform: `translateY(${v.start - scrollMargin}px)` }}

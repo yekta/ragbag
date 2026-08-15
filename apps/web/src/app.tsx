@@ -353,8 +353,16 @@ function Shell({
 }
 
 /** Inside the provider, so the floating controls can reach `useSidebar()`. */
-/** Keep in step with the sidebar panel's `duration-450` in ui/sidebar.tsx. */
-const SIDEBAR_TRAVEL_MS = 450;
+/**
+ * When the sidebar panel has *visually* left, which is not when its transition
+ * ends. `--ease-panel` front-loads the distance — at two thirds of the 450ms it
+ * has covered 99% of the travel, and the rest is a tail nobody can see. Waiting
+ * out the full duration spent that tail on an empty corner, which reads as the
+ * button being late rather than as the panel still arriving.
+ *
+ * Re-derive this if the curve or the duration in ui/sidebar.tsx changes.
+ */
+const SIDEBAR_CLEARED_MS = 300;
 
 function ShellBody({
   name,
@@ -396,7 +404,7 @@ function ShellBody({
   // is about to cover it. Booting straight into a closed sidebar is neither —
   // nothing has moved, so there is nothing to wait for.
   const sidebarUsed = useLatch(open);
-  const sidebarGone = useHeld(!open, SIDEBAR_TRAVEL_MS);
+  const sidebarGone = useHeld(!open, SIDEBAR_CLEARED_MS);
   const showSidebarButton = !open && (!sidebarUsed || sidebarGone);
 
   return (

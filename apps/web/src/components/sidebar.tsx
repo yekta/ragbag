@@ -24,7 +24,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
@@ -120,6 +119,21 @@ function ThemeToggle() {
   );
 }
 
+/**
+ * How many items a filter would show, inside the row rather than over it.
+ *
+ * `SidebarMenuBadge` — what this replaces — is absolutely positioned, so a long
+ * name truncated at the row's edge and the count sat on top of it. Reserving a
+ * fixed strip of right padding is the stock answer and it only defers the
+ * collision: this archive's counts are whatever the archive holds, and four
+ * digits are wider than any strip worth reserving. In the flow the number
+ * measures itself, and `shrink-0` against a truncating name settles which of
+ * the two gives way.
+ */
+function MenuCount({ children }: { children: React.ReactNode }) {
+  return <span className="ml-auto shrink-0 pl-1 text-xs tabular-nums">{children}</span>;
+}
+
 export function Sidebar({
   items,
   tags,
@@ -190,7 +204,12 @@ export function Sidebar({
   return (
     <SidebarRoot variant="floating" collapsible="offcanvas">
       <SidebarHeader className="gap-0 pt-4">
-        <div className="flex items-center gap-2 px-2 pb-2">
+        {/* No inset of its own. The rows below are controls — their padding is
+            the pill's, and it has to be there. This is a masthead: it has no
+            box, so padding here is just the wordmark sitting in from the edge
+            everything else starts at. The logo and the trigger take the rail
+            the search field's border and the highlighted rows are already on. */}
+        <div className="flex items-center gap-2 pb-2">
           <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Icon name="inbox" className="size-4" />
           </span>
@@ -232,9 +251,9 @@ export function Sidebar({
                   }}
                 >
                   <Icon name="inbox" className="size-4" />
-                  <span>Everything</span>
+                  <span className="truncate">Everything</span>
+                  <MenuCount>{items.length}</MenuCount>
                 </SidebarMenuButton>
-                <SidebarMenuBadge>{items.length}</SidebarMenuBadge>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -242,9 +261,9 @@ export function Sidebar({
                   onClick={() => pickView("favorites")}
                 >
                   <Icon name="star" className="size-4" />
-                  <span>Favorites</span>
+                  <span className="truncate">Favorites</span>
+                  <MenuCount>{favoriteCount}</MenuCount>
                 </SidebarMenuButton>
-                <SidebarMenuBadge>{favoriteCount}</SidebarMenuBadge>
               </SidebarMenuItem>
               {ITEM_KINDS.map((kind) => (
                 <SidebarMenuItem key={kind}>
@@ -254,11 +273,11 @@ export function Sidebar({
                     onClick={() => pickView(kind)}
                   >
                     <Icon name={KIND_ICON[kind]} className="size-4" />
-                    <span>{KIND_LABEL[kind]}</span>
+                    <span className="truncate">{KIND_LABEL[kind]}</span>
+                    <MenuCount>
+                      {kind === "todo" ? openTodoCount : (kindCounts.get(kind) ?? 0)}
+                    </MenuCount>
                   </SidebarMenuButton>
-                  <SidebarMenuBadge>
-                    {kind === "todo" ? openTodoCount : (kindCounts.get(kind) ?? 0)}
-                  </SidebarMenuBadge>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -276,14 +295,11 @@ export function Sidebar({
                 power search.
               </p>
             ) : (
-              <SidebarMenu className="gap-px">
+              <SidebarMenu>
                 {rankedTags.map((tag) => (
                   <SidebarMenuItem key={tag.id}>
                     <SidebarMenuButton
                       size="sm"
-                      // Half of this list's `gap-px`, so the rows' hit areas
-                      // tile the gap exactly instead of overlapping it.
-                      className="after:-inset-y-[0.5px]"
                       isActive={tagFilter === tag.id}
                       title={`${tag.kind} tag`}
                       onClick={() => {
@@ -292,11 +308,9 @@ export function Sidebar({
                       }}
                     >
                       <Icon name="tag" className="size-3.5 opacity-50" />
-                      <span>{tag.name}</span>
+                      <span className="truncate">{tag.name}</span>
+                      <MenuCount>{tagCounts.get(tag.id)}</MenuCount>
                     </SidebarMenuButton>
-                    <SidebarMenuBadge className="text-[11px]">
-                      {tagCounts.get(tag.id)}
-                    </SidebarMenuBadge>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

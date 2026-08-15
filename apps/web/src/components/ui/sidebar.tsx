@@ -454,7 +454,13 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-1", className)}
+      // No gap: the space between two rows belongs to one of them. A gap is a
+      // strip that looks like the list and answers to nothing in it — the
+      // pointer crosses it and the highlight blinks off, and a click that lands
+      // there does nothing at all. The rows carry the distance in their own
+      // height instead (the size variants below), so the list is continuous
+      // while the rows still read as separated.
+      className={cn("flex w-full min-w-0 flex-col", className)}
       {...props}
     />
   );
@@ -481,7 +487,9 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]",
       },
       size: {
-        default: "h-8 text-sm",
+        // The old row plus the gap it used to sit above (see SidebarMenu): the
+        // pitch of the list is unchanged, the dead strip between rows is not.
+        default: "h-9 text-sm",
         sm: "h-7 text-xs",
         lg: "h-12 text-sm group-data-[collapsible=icon]:p-0!",
       },
