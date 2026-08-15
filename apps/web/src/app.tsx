@@ -229,10 +229,48 @@ function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
   return null;
 }
 
+/**
+ * Geometry every banner in this slot shares.
+ *
+ * The slot is as wide as the app column, not as wide as the window, so with the
+ * sidebar open a full-bleed strip is a strip the panel has cut off: one border,
+ * running off the side of the screen at one end and into the sidebar at the
+ * other. At `md` with the panel out it stops being a rule and becomes a box that
+ * ends where its column does, which is the shape the single border was already
+ * implying.
+ *
+ * The 8px on the right is the sidebar's own. `variant="floating"` holds the
+ * panel that far off the window (ui/sidebar.tsx: `p-2`) while the column starts
+ * at the gap's full width, so the banner already sits 8px clear of the panel;
+ * matching it on the right makes those one distance rather than a gap on one
+ * side and a cut on the other.
+ *
+ * Below `md`, and on desktop with the sidebar closed, the column *is* the
+ * window: nothing is cutting anything off, so the strip stays edge to edge on
+ * its bottom rule alone, which is what it already looks right as.
+ *
+ * The side borders are always drawn and only change colour, and the margin and
+ * the radius ride the panel's own curve and duration, so opening the sidebar
+ * stays one movement instead of two: no box assembling itself at the far edge
+ * of the screen while the panel is still travelling.
+ *
+ * `w-auto` because `Alert` ships `w-full`, and a percentage width plus a margin
+ * is that margin's width of overflow.
+ */
+function useBannerShell(): string {
+  const { open } = useSidebar();
+  return `w-auto border-x-0 border-b transition-[margin,border-radius,border-color] duration-450 ease-panel md:border-x ${
+    open ? "md:mr-2 md:rounded-b-md md:border-x-border" : "md:border-x-transparent"
+  }`;
+}
+
 /** Shared chrome for the amber banner; the wording is what differs. */
 function BannerAlert({ children }: { children: React.ReactNode }) {
+  const shell = useBannerShell();
   return (
-    <Alert className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-none border-x-0 border-t-0 bg-warning text-warning-foreground">
+    <Alert
+      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-none border-t-0 bg-warning text-warning-foreground ${shell}`}
+    >
       {children}
     </Alert>
   );
@@ -245,6 +283,7 @@ const BANNER_BUTTON =
 
 function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaResponse | undefined }) {
   const zero = useZero();
+  const shell = useBannerShell();
   // Seeded so a re-auth that failed mid-round-trip explains itself here rather
   // than silently restoring the generic "Signed out" copy below.
   const [error, setError] = useState<string | undefined>(OAUTH_REDIRECT_ERROR);
@@ -316,7 +355,7 @@ function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaRespons
 
   if (sync?.name === "offline") {
     return (
-      <p className="border-b bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground">
+      <p className={`bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground ${shell}`}>
         Offline. Dumping and search keep working; sync resumes automatically.
       </p>
     );
