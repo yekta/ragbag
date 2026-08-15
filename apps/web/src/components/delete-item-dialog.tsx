@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,13 +18,17 @@ export function DeleteItemDialog({
   children,
   onConfirm,
 }: {
-  /** The trigger; rendered via asChild, so it must forward props. */
-  children: ReactNode;
+  /**
+   * The trigger. Base UI renders it in place of its own button via `render`,
+   * merging trigger props into it — so this must be a single element that
+   * forwards props, not arbitrary nodes.
+   */
+  children: ReactElement;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      <AlertDialogTrigger render={children} />
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this item?</AlertDialogTitle>

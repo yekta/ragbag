@@ -376,7 +376,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               // Autofocus on touch would pop the keyboard the moment the app
               // opens.
               autoFocus={!isTouch}
-              className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base dark:bg-transparent"
+              className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base"
               placeholder={dictation.listening ? "Listening…" : PLACEHOLDER}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -519,7 +519,7 @@ function AttachmentChip({
     : `${a.name} · ${formatBytes(a.size)}${stage ? ` · ${stage}` : ""}`;
 
   const scrim = `absolute inset-0 flex items-center justify-center ${
-    failedReason ? "bg-destructive/15 text-destructive" : "bg-card/70 text-foreground"
+    failedReason ? "bg-destructive-soft text-destructive" : "bg-card text-foreground"
   }`;
 
   return (
@@ -528,7 +528,7 @@ function AttachmentChip({
     <span className={`group/att relative shrink-0 ${TILE}`}>
       <span
         className={`block size-full overflow-hidden rounded-xl border bg-muted ${
-          failedReason ? "border-destructive/60" : ""
+          failedReason ? "border-destructive" : ""
         }`}
         title={title}
       >

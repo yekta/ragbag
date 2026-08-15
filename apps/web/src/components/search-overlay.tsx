@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { KindDot } from "@/components/item-card";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandInput,
@@ -20,6 +21,12 @@ import type { Timeline, TimelineItem } from "@/lib/types";
 //
 // cmdk owns keyboard navigation, selection and focus; `shouldFilter={false}`
 // because the ranking is ours (minisearch), not cmdk's substring match.
+//
+// The <Command> wrapper is ours to render: `CommandDialog` is a plain dialog
+// shell that drops `children` straight into its content. It used to wrap them
+// itself, which is why this file once had to thread options through a
+// `commandProps` passthrough patched into the vendored component. Base UI's
+// version needs no patch — the option goes on the element directly.
 
 function ResultRow({ item, onPick }: { item: TimelineItem; onPick: () => void }) {
   const title = item.content?.title ?? item.text?.split("\n")[0] ?? item.url ?? `(${item.kind})`;
@@ -71,7 +78,6 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
       onOpenChange={setSearchOpen}
       title="Search your ragbag"
       description="Search titles, tags, summaries and content in the local index."
-      commandProps={{ shouldFilter: false }}
       showCloseButton={false}
       // Anchored near the top rather than centred: a search palette that jumps
       // to the middle of the screen reads as a modal, not a command bar.
@@ -83,33 +89,35 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
       // evict this one and the palette goes edge-to-edge on mobile.
       className="top-[8vh] max-w-[calc(100%-1rem)] translate-y-0 rounded-2xl sm:max-w-xl md:top-[12vh]"
     >
-      <CommandInput
-        placeholder="Search your ragbag…"
-        value={query}
-        onValueChange={setQuery}
-        autoFocus
-      />
-      <CommandList className="max-h-[55vh] p-2">
-        {blank ? (
-          <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-            Type to search titles, tags, summaries, and content — instant and offline.
-          </div>
-        ) : (
-          <>
-            <CommandEmpty>Nothing found for “{query}”.</CommandEmpty>
-            {results.map((item) => (
-              <ResultRow key={item.id} item={item} onPick={() => pick(item)} />
-            ))}
-          </>
-        )}
-      </CommandList>
+      <Command shouldFilter={false}>
+        <CommandInput
+          placeholder="Search your ragbag…"
+          value={query}
+          onValueChange={setQuery}
+          autoFocus
+        />
+        <CommandList className="max-h-[55vh] p-2">
+          {blank ? (
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+              Type to search titles, tags, summaries, and content — instant and offline.
+            </div>
+          ) : (
+            <>
+              <CommandEmpty>Nothing found for “{query}”.</CommandEmpty>
+              {results.map((item) => (
+                <ResultRow key={item.id} item={item} onPick={() => pick(item)} />
+              ))}
+            </>
+          )}
+        </CommandList>
 
-      {!blank && results.length > 0 && (
-        <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
-          {results.length} result{results.length === 1 ? "" : "s"} · local index, works offline · ↑↓
-          to move, Enter to open
-        </p>
-      )}
+        {!blank && results.length > 0 && (
+          <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
+            {results.length} result{results.length === 1 ? "" : "s"} · local index, works offline ·
+            ↑↓ to move, Enter to open
+          </p>
+        )}
+      </Command>
     </CommandDialog>
   );
 }

@@ -412,7 +412,13 @@ function ShellBody({
           never scrolls — instead of to the viewport. `overflow-x-clip` is the
           safe one if clipping is ever needed: `clip` is not a scroll
           container. */}
-      <SidebarInset className="relative min-w-0">
+      {/* `overflow-x-clip`, never `overflow-x-hidden`: `hidden` would make this
+          column a scroll container and the sticky chrome inside it would stick
+          to *that* instead of to the viewport (see the note below). `clip` is
+          not a scroll container, so it draws the line without moving anything —
+          the app column cannot be dragged sideways by whatever a row happens to
+          contain. */}
+      <SidebarInset className="relative min-w-0 overflow-x-clip">
         {/* What the column's fixed height used to pin, the viewport pins now.
             Sticky rather than fixed so the banner keeps its slot in the flow:
             the controls stay below it, and the timeline's own offset accounts
@@ -482,11 +488,12 @@ function ShellBody({
  * over: `--card` rows on the `--background` canvas. That combination failed
  * both ways round.
  *
- * In dark it never took: the `outline` variant carries `dark:bg-panel`, and
- * twMerge keeps it — a dark-prefixed background is a different group from an
- * unprefixed one, so it does not read as a conflict — after which
- * `.dark .dark\:bg-panel` outranks `.bg-card` on specificity. The fill here
- * was decorative.
+ * In dark it never took. The `outline` variant carried a theme-prefixed
+ * background of its own, and twMerge keeps those — a prefixed background is a
+ * different group from an unprefixed one, so it does not read as a conflict —
+ * after which the prefixed rule outranks a bare `.bg-card` on specificity.
+ * The fill here was decorative. (That whole class of bug is gone now: rule 2
+ * in index.css took the theme prefix out of the app.)
  *
  * In light it *did* take, which was worse: `--card` is the exact surface of
  * the cards these sit on top of, so the button dissolved into whatever row was

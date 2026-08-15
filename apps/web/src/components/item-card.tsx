@@ -169,10 +169,20 @@ export function AddressActions({ address }: { address: string }) {
   return (
     <div className="flex items-center gap-1.5">
       {mapsUrl && (
-        <Button variant="outline" size="xs" asChild>
-          <a href={mapsUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-            <Icon name="external" className="size-3" /> Open in Maps
-          </a>
+        <Button
+          variant="outline"
+          size="xs"
+          nativeButton={false}
+          render={
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          }
+        >
+          <Icon name="external" className="size-3" /> Open in Maps
         </Button>
       )}
       <Button
@@ -288,12 +298,10 @@ function UploadBadge({
         e.stopPropagation();
         if (failing) void queue.retryBlob(blobId);
       }}
-      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium backdrop-blur-sm ${
+      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
         side === "left" ? "left-1.5" : "right-1.5"
       } ${
-        failing
-          ? "border-destructive/50 bg-card/90 text-destructive"
-          : "bg-card/80 text-muted-foreground"
+        failing ? "border-destructive bg-card text-destructive" : "bg-card text-muted-foreground"
       }`}
     >
       {failing ? (
@@ -408,36 +416,40 @@ export function ItemCard({ item }: { item: TimelineItem }) {
           are icon-only, so each still needs its own aria-label. */}
       <div className="absolute -top-3 right-3 hidden items-center gap-0.5 rounded-full border bg-card px-1 py-0.5 group-hover:flex">
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={item.favorite ? "Remove from favorites" : "Add to favorites"}
-              className={`rounded-full ${item.favorite ? "text-kind-note" : "text-muted-foreground"}`}
-              onClick={() =>
-                void zero.mutate(
-                  mutators.item.setFavorite({ id: item.id, favorite: !item.favorite }),
-                )
-              }
-            >
-              <Icon name="star" className="size-4" filled={item.favorite} />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={item.favorite ? "Remove from favorites" : "Add to favorites"}
+                className={`rounded-full ${item.favorite ? "text-kind-note" : "text-muted-foreground"}`}
+                onClick={() =>
+                  void zero.mutate(
+                    mutators.item.setFavorite({ id: item.id, favorite: !item.favorite }),
+                  )
+                }
+              />
+            }
+          >
+            <Icon name="star" className="size-4" filled={item.favorite} />
           </TooltipTrigger>
           <TooltipContent>
             {item.favorite ? "Remove from favorites" : "Add to favorites"}
           </TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Details and tags"
-              className="rounded-full text-muted-foreground"
-              onClick={() => void navigate(openItem(item.id))}
-            >
-              <Icon name="tag" className="size-4" />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Details and tags"
+                className="rounded-full text-muted-foreground"
+                onClick={() => void navigate(openItem(item.id))}
+              />
+            }
+          >
+            <Icon name="tag" className="size-4" />
           </TooltipTrigger>
           <TooltipContent>Details &amp; tags</TooltipContent>
         </Tooltip>

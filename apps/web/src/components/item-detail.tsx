@@ -3,7 +3,7 @@ import { TEXT_ITEM_KINDS, isTextKind } from "@ragbag/shared";
 import type { ItemKind, TextItemKind } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { DeleteItemDialog } from "@/components/delete-item-dialog";
 import { Icon } from "@/components/icon";
 import { AddressActions, KindDot } from "@/components/item-card";
@@ -11,10 +11,11 @@ import { TagEditor } from "@/components/tag-editor";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { mediaBox, rememberBlobAspect, useBlobUrl } from "@/lib/blobs";
 import { hostOf, timeLabel } from "@/lib/format";
 import { useHeld } from "@/lib/settle";
@@ -24,10 +25,16 @@ import { useMeta } from "@/lib/use-meta";
 // lightbox (plan §10), plus the tag editor and favorite/delete/retry actions.
 // Rendered above the timeline so scroll position survives.
 //
-// A Sheet rather than a hand-rolled overlay: focus trap, scroll lock, Esc and
-// the slide animation all come from Radix. The route decides whether this
-// screen exists; local `open` state decides whether the panel is on screen, so
-// that closing can animate before the route change tears the component down.
+// A Drawer rather than a hand-rolled overlay: focus trap, scroll lock, Esc,
+// swipe-to-dismiss and the slide animation all come from Base UI. One
+// component covers both form factors — it opens from the bottom on a phone
+// (with a swipe handle) and from the right as an inset floating card at `md`+,
+// which is the same floating-card language the sidebar uses at that
+// breakpoint.
+//
+// The route decides whether this screen exists; local `open` state decides
+// whether the panel is on screen, so that closing can animate before the route
+// change tears the component down.
 
 const TEXT_SECTION_LABEL: Partial<Record<ItemKind, string>> = {
   note: "Note",
@@ -42,16 +49,44 @@ export function ItemDetail() {
   const [liveItem] = useQuery(queries.item({ id }));
   const [allTags] = useQuery(queries.tags());
   const meta = useMeta();
+  const isMobile = useIsMobile();
   const [editing, setEditing] = useState(false);
   const [textDraft, setTextDraft] = useState("");
-  const [open, setOpen] = useState(true);
+  // Opens closed, one frame. Base UI decides whether to play an entrance from
+  // `mounted` being seeded with `open` (internals/useTransitionStatus.mjs):
+  //
+  //   const [mounted, setMounted] = useState(open);
+  //   if (open && !mounted) { setMounted(true); setTransitionStatus('starting'); }
+  //
+  // Mount with `open` already true and `mounted` is true on the same render, so
+  // that branch never runs, `data-starting-style` is never applied, and the
+  // popup is inserted straight at its resting transform — no entrance at all.
+  // Closing still animates, because `open` genuinely changes there. That is the
+  // whole of "opens abruptly but closes with an animation": the route mounts
+  // this component with the drawer already open, which is the one case Base UI
+  // reads as "was always there".
+  //
+  // So hand it a real false → true. `useLayoutEffect`, not `useEffect`: the
+  // flip is flushed before paint, so the closed frame is never drawn — the
+  // entrance starts from the first frame anyone sees.
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => setOpen(true), []);
 
   // Closing has to outlive the route change. Navigating to "/" unmounts this
   // component on the spot, which meant the panel disappeared in a single frame
-  // while its overlay was still there — no exit animation at all, unlike the
-  // mobile drawer (which is state-driven and slides out properly). So flip
-  // `open` first, and let <ExitToTimeline> below leave the route once Radix has
-  // taken the panel off screen.
+  // while its overlay was still there — no exit animation at all. So flip
+  // `open` first and leave the route once the panel is actually gone.
+  //
+  // "Actually gone" is `onOpenChangeComplete`, not a timer. This used to be a
+  // setTimeout hand-synced to the Sheet's exit duration; under Base UI there is
+  // no constant to sync to, because a flicked drawer exits in
+  // `calc(var(--drawer-swipe-strength) * 400ms)` — the harder the swipe, the
+  // faster it leaves.
+  //
+  // `opened` gates it: the drawer now starts closed, and a `false` completion
+  // that arrives before it has ever been open would navigate away from the
+  // screen we are in the middle of opening.
+  const opened = useRef(false);
   const close = () => setOpen(false);
 
   // Deleting from here drops the row from the local store immediately, so
@@ -79,20 +114,55 @@ export function ItemDetail() {
   };
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && close()}>
-      <SheetContent
-        side="right"
-        showCloseButton={false}
-        className="w-full gap-0 overflow-y-auto p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-2xl"
+    <Drawer
+      open={open}
+      onOpenChange={(next) => !next && close()}
+      onOpenChangeComplete={(nowOpen) => {
+        if (nowOpen) {
+          opened.current = true;
+        } else if (opened.current) {
+          void navigate({ to: "/", resetScroll: false });
+        }
+      }}
+      // Bottom sheet on a phone, right-hand panel on a desktop — and the handle
+      // only where there is a thumb to drag it with.
+      showSwipeHandle={isMobile}
+      swipeDirection={isMobile ? "down" : "right"}
+    >
+      <DrawerContent
+        className={
+          // Desktop: an inset floating card rather than a panel welded to the
+          // edge. `--drawer-inset` becomes the popup's margin and is already
+          // folded into its closed transform, so it still slides fully
+          // off-screen. 42rem is the reading column this view has always had.
+          //
+          // The compound `data-[swipe-axis=x]:md:` shape matches the width rule
+          // it overrides — the vendored component sets 24rem at `sm:`, and a
+          // bare `md:` would be racing it on source order rather than beating
+          // it. Rounding is additive: the popup rounds only its leading edge
+          // for a flush panel, `md:rounded-xl md:border` closes the other three.
+          //
+          // The bleed has to go with the inset. It is the popup's `::after`: a
+          // `--bleed`-wide (3rem) band of `--popover` parked at `left-full`, so
+          // that dragging the drawer back from its resting place does not open
+          // a gap onto the page. Welded to the edge it is off-screen and never
+          // seen. Inset, `left-full` is 0.5rem short of the edge — so it fills
+          // the margin instead, and the floating card grows a full-height strip
+          // of its own background down its right side, which is what the drawer
+          // looked wrong for. An inset card has no gap to hide: the page is
+          // *meant* to show in that margin, so there is nothing for the bleed
+          // to do but be visible.
+          "data-[swipe-axis=x]:md:[--drawer-content-width:min(42rem,calc(100vw-1rem))] " +
+          "md:[--drawer-inset:0.5rem] md:[--drawer-bleed-background:transparent] " +
+          "md:rounded-xl md:border"
+        }
       >
-        <ExitToTimeline armed={!open} go={() => void navigate({ to: "/", resetScroll: false })} />
-
-        {/* The visible header below carries the heading; Radix still needs an
-            accessible name and description for the dialog itself. */}
-        <SheetTitle className="sr-only">{c?.title ?? item?.text ?? "Item"}</SheetTitle>
-        <SheetDescription className="sr-only">
+        {/* The visible header below carries the heading; the dialog still needs
+            an accessible name and description of its own. */}
+        <DrawerTitle className="sr-only">{c?.title ?? item?.text ?? "Item"}</DrawerTitle>
+        <DrawerDescription className="sr-only">
           Details, tags and actions for this item.
-        </SheetDescription>
+        </DrawerDescription>
 
         {!item ? (
           stillLoading && (
@@ -105,8 +175,10 @@ export function ItemDetail() {
           )
         ) : (
           <>
-            {/* header */}
-            <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card px-5 py-3">
+            {/* Header. Was `sticky top-0` when the whole panel was one scroll
+                box; the drawer is a flex column with its own scrolling body
+                below, so the header simply doesn't scroll. */}
+            <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
               <KindDot kind={item.kind} />
               <span className="text-sm font-medium capitalize">{item.kind}</span>
               {item.kind === "todo" && (
@@ -129,10 +201,13 @@ export function ItemDetail() {
               </time>
               <span className="ml-auto flex items-center gap-1">
                 {item.url && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={item.url} target="_blank" rel="noreferrer">
-                      <Icon name="external" className="size-3.5" /> Open original
-                    </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<a href={item.url} target="_blank" rel="noreferrer" />}
+                  >
+                    <Icon name="external" className="size-3.5" /> Open original
                   </Button>
                 )}
                 <Button
@@ -175,7 +250,15 @@ export function ItemDetail() {
               </span>
             </div>
 
-            <div className="space-y-5 px-5 py-5">
+            {/* The scroller. DrawerContent is `overflow-hidden` by
+                construction, so this is what actually scrolls. `scroll-fade`
+                (a mask, not a wrapper — safe here) softens both edges.
+                `overflow-x-hidden` is not redundant: asking for `overflow-y`
+                alone computes the other axis from `visible` to `auto`, so this
+                was a sideways scroller too, and anything that outgrew the
+                column — a filename with no spaces in it, before `body` learned
+                to break words — could drag the whole panel off its own edge. */}
+            <div className="min-h-0 flex-1 space-y-5 scroll-fade overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               {/* hero */}
               {item.kind === "image" &&
                 (blobUrl ? (
@@ -218,10 +301,13 @@ export function ItemDetail() {
                     <p className="text-xs text-muted-foreground">Stored in your ragbag</p>
                   </div>
                   {blobUrl && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={blobUrl} download={c?.title ?? "file"}>
-                        Download
-                      </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      nativeButton={false}
+                      render={<a href={blobUrl} download={c?.title ?? "file"} />}
+                    >
+                      Download
                     </Button>
                   )}
                 </div>
@@ -314,17 +400,16 @@ export function ItemDetail() {
                 <section>
                   <SectionLabel>Type</SectionLabel>
                   <ToggleGroup
-                    type="single"
                     variant="outline"
                     size="sm"
-                    value={item.kind}
-                    onValueChange={(kind) => {
-                      // Radix emits "" when the active item is clicked again;
-                      // an item always has a kind, so ignore it.
+                    value={[item.kind]}
+                    onValueChange={(kinds) => {
+                      // Base UI has no `type="single"`: the value is always an
+                      // array, and clicking the active item empties it. An item
+                      // always has a kind, so ignore that.
+                      const kind = kinds[0] as TextItemKind | undefined;
                       if (kind && kind !== item.kind) {
-                        void zero.mutate(
-                          mutators.item.setKind({ id: item.id, kind: kind as TextItemKind }),
-                        );
+                        void zero.mutate(mutators.item.setKind({ id: item.id, kind }));
                       }
                     }}
                   >
@@ -443,34 +528,9 @@ export function ItemDetail() {
             </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
-}
-
-/**
- * Leaves the route once the panel is actually gone.
- *
- * Radix holds the sheet mounted through its exit animation and drops it on
- * `animationend`, so this — rendered *inside* the panel — unmounts at exactly
- * that moment. A timer here would be a second copy of the exit duration, kept
- * in step with the CSS by hand and silently wrong the next time the sheet is
- * retimed; that is what it was before.
- *
- * `armed` covers the unmounts that are not a close: StrictMode's double mount
- * in dev, and the panel going away while still open (sign-out, or Back taking
- * the route out from under it).
- */
-function ExitToTimeline({ armed, go }: { armed: boolean; go: () => void }) {
-  const latest = useRef({ armed, go });
-  latest.current = { armed, go };
-  useEffect(
-    () => () => {
-      if (latest.current.armed) latest.current.go();
-    },
-    [],
-  );
-  return null;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

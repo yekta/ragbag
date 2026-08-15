@@ -1,18 +1,22 @@
-import * as React from "react";
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Slot } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
 // Local edit, applied across every file in this directory (re-apply on a
-// re-pull): the generated components lean on alpha modifiers — `ring-ring/50`,
-// `bg-primary/90`, `dark:bg-destructive/60`, `bg-input/30`, `bg-black/50` — all
-// of which composite differently depending on what happens to be behind them.
-// They now point at opaque tokens (`-hover`, `-soft`, `panel`, `overlay`); see
-// the header of index.css for why. The destructive variant also drops
-// `text-white` + `dark:bg-destructive/60` in favour of `text-destructive-
-// foreground`, which is near-white in light mode and near-black in dark — the
-// contrast trick shadcn was using the 60% fill for, done with a real token.
+// re-pull): the generated components lean on alpha modifiers — a ring token at
+// half strength, an input fill at 30%, a destructive tint at 10%, a black wash
+// at 10% — each paired with a dark-only twin, because an alpha composites
+// differently depending on what happens to be behind it. They now point at
+// opaque tokens (the -hover, -soft, panel and overlay families) that re-declare
+// themselves for the dark theme, so one class name is correct either way and
+// the theme prefix is gone from the app entirely. Rule 2 in index.css has the
+// full argument.
+//
+// Note that this comment names none of those classes literally, and neither
+// should the next one: Tailwind scans this file as raw text, so a class spelled
+// out in prose is compiled into the bundle as a real rule. Four dead utilities
+// and three theme-prefixed ones were shipped that way before anyone noticed.
 //
 // Motion was retimed at the same time (dialog / alert-dialog / sidebar, which
 // ran on `ease-linear`): those use `--ease-enter` / `--ease-exit` from
@@ -44,22 +48,27 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive-hover focus-visible:ring-destructive",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-panel",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary-hover",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+          "border-border bg-background shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        ghost:
+          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+        destructive:
+          "bg-destructive-soft text-destructive hover:bg-destructive-soft-hover focus-visible:border-destructive focus-visible:ring-destructive",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        default:
+          "h-9 gap-1.5 px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
+        lg: "h-10 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         icon: "size-9",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-8",
+        "icon-xs":
+          "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm":
+          "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
         "icon-lg": "size-10",
       },
     },
@@ -74,19 +83,11 @@ function Button({
   className,
   variant = "default",
   size = "default",
-  asChild = false,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot.Root : "button";
-
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
-    <Comp
+    <ButtonPrimitive
       data-slot="button"
-      data-variant={variant}
-      data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

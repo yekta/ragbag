@@ -1,5 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Base UI's styling companion: the `data-open` / `data-closed` / `data-disabled`
+   custom variants the vendored components compile against, plus the
+   `scroll-fade`, `no-scrollbar` and `shimmer` utilities. Purely additive — it
+   declares no `--color-*`, `--radius-*`, `--shadow-*` or `--ease-*`, so the
+   @theme block below is untouched by it. The variants match Radix's
+   `data-state="open"` *and* Base's `data-open` in one rule, which is what let
+   the two libraries coexist while this migration was in flight. */
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -15,20 +23,29 @@
  *    supposed to do work. Every one of them, including borders and shadows,
  *    carries the mint hue; nothing here is neutral black or white.
  *
- * 2. Every colour is an opaque token. No `/40` fills, no `white/10%` borders.
- *    An alpha colour composites against whatever happens to be behind it, so
- *    the same class lands differently on the canvas, on a card, and inside the
- *    detail sheet — which is exactly the drift this palette is meant to stop.
- *    Soft fills get their own solid tokens (`--kind-*-soft`, `--destructive-
- *    soft`, `--panel`), and hover states get solid `-hover` tokens.
+ * 2. Every colour is an opaque token, and there is no `dark:` anywhere in the
+ *    app. Those are the same rule seen from two ends. An alpha fill composites
+ *    against whatever happens to be behind it, so the same class lands
+ *    differently on the canvas, on a card, and inside the detail drawer — and
+ *    the usual patch for that is a second, dark-only alpha, which is how a
+ *    palette ends up with two of everything and a `dark:` prefix deciding
+ *    which one you get. Both problems disappear if the token itself changes
+ *    under `.dark`: one class name, one call site, correct in both themes.
+ *
+ *    So soft fills get their own solid tokens (`--kind-*-soft`,
+ *    `--destructive-soft`, `--ai-soft`, `--panel`) and hover states get solid
+ *    `-hover` tokens. The generated components arrive built the other way —
+ *    `bg-input/30`, `bg-destructive/10`, `bg-black/10`, `ring-ring/50`, each
+ *    paired with a `dark:` twin — and are re-tokenised on every pull. That is
+ *    the standing local edit noted at the top of ui/button.tsx.
  *
  *    The deliberate exceptions are things that are *physically* translucent:
  *    `--overlay` (you must see the page through it), the scrim that fades the
  *    page out behind the drop state, and the shadow scale (a shadow that isn't
- *    translucent is a solid block). All are mint-tinted. The colours stay
- *    opaque like everything else and the strengths are named `--opacity-*`
- *    modifiers, so call sites read `bg-overlay/overlay` and
- *    `bg-background/scrim` — a named strength, never a loose `/40`.
+ *    translucent is a solid block). All are mint-tinted, all keep an opaque
+ *    colour, and their strengths are named `--opacity-*` modifiers — so call
+ *    sites read `bg-overlay/overlay` and `bg-background/scrim`, a named
+ *    strength, never a loose `/40`.
  *
  * 3. The canvas lands in the middle of its 8-bit bucket. `oklch()` is resolved
  *    per paint, and the browser draws `--background` through more than one
@@ -106,9 +123,12 @@
   --accent-foreground: oklch(0.295 0.024 172);
 
   --destructive: oklch(0.545 0.18 27);
-  --destructive-foreground: oklch(0.985 0.012 168);
   --destructive-hover: oklch(0.495 0.175 27);
+  /* Still ours: the failed-ingestion chip in item-card and the delete hover in
+     item-detail need a soft red *surface*. The components' own destructive
+     treatment is a tint of `--destructive` and needs no second token. */
   --destructive-soft: oklch(0.955 0.021 27);
+  --destructive-soft-hover: oklch(0.928 0.034 27);
   /* Not shadcn tokens: the sync banner and the sync dot / todo tick need a
      warning and a success surface that belong to this palette. */
   --warning: oklch(0.955 0.035 92);
@@ -156,30 +176,39 @@
   --chart-4: oklch(0.66 0.09 84);
   --chart-5: oklch(0.56 0.08 296);
 
-  /* One opaque overlay colour for both themes: the dark canvas
-     (`oklch(0.192 0.005 174)`) taken a step darker, same chroma and hue. Only
-     the strength differs by theme — `--overlay-alpha`, exposed as the named
-     `--opacity-overlay` modifier in the @theme block below so call sites read
-     `bg-overlay/overlay` rather than a baked-in alpha. Usually whatever sits on
-     top brings its own surface; where it doesn't, the overlay goes to the
-     stronger strength below so it can carry text itself. */
-  --overlay: oklch(0.14 0.005 174);
-  /* A percentage, not a 0–1 alpha: Tailwind compiles the modifier to
-     `color-mix(in oklab, var(--overlay) var(--overlay-alpha), transparent)`,
-     and color-mix only takes percentages. A bare `0.4` makes the declaration
-     invalid, which silently drops it back to the opaque fallback. */
-  --overlay-alpha: 40%;
+  /* The scrim: the full-page fade behind the drop state. Deliberately not an
+     overlay — an overlay dims a page you are still meant to read through, and
+     the drop state isn't read-through, it takes the screen over. So it fades
+     the page toward the canvas instead of darkening it: `--background` at this
+     strength, i.e. `bg-background/scrim`. One strength for both themes — each
+     fades toward its own canvas, so the same number lands the same way either
+     way, and at 90% what shows through is a trace of the page rather than a
+     readable one.
 
-  /* The scrim: the full-page fade behind the drop state. Deliberately *not*
-     `--overlay` — an overlay dims a page you are still meant to read through,
-     and the drop state isn't read-through, it takes the screen over. So it
-     fades the page toward the canvas instead of darkening it: `--background`
-     at this strength, i.e. `bg-background/scrim`. One strength for both
-     themes, unlike `--overlay-alpha` — each theme fades toward its own
-     canvas, so the same number lands the same way either way, and at 90% what
-     shows through is a trace of the page rather than a readable one. A
-     percentage, not a 0–1 alpha, for the color-mix reason above. */
+     A percentage, not a 0–1 alpha: Tailwind compiles the modifier to
+     `color-mix(in oklab, var(--background) var(--scrim-alpha), transparent)`,
+     and color-mix only takes percentages. A bare `0.9` makes the declaration
+     invalid, which silently drops it back to the opaque fallback.
+
+     `--overlay` below is its opposite number and the reason both exist. */
   --scrim-alpha: 90%;
+
+  /* One opaque overlay colour for both themes: the dark canvas taken a step
+     darker, same chroma and hue. Only the strength differs by theme —
+     `--overlay-alpha`, exposed as the named `--opacity-overlay` modifier in the
+     @theme block below so call sites read `bg-overlay/overlay` rather than a
+     baked-in alpha.
+
+     This came back with the Base UI components, which arrived carrying
+     `bg-black/10` plus `supports-backdrop-filter:backdrop-blur-xs` on every
+     backdrop. Neutral black is not in this palette, 10% does not dim a light
+     page enough to separate a panel from it, and a blur across the whole
+     viewport is a full-screen rasterise on every frame of the animation to
+     approximate what dimming already does. One mint-tinted wash, tuned per
+     theme, replaces all three. */
+  --overlay: oklch(0.14 0.005 174);
+  /* A percentage, not a 0–1 alpha, for the color-mix reason above. */
+  --overlay-alpha: 40%;
 
   /* Shadows are mint-tinted, never neutral black. Split into a colour and four
      strengths so the dark theme can re-tune both without touching the scale. */
@@ -211,13 +240,17 @@
   --accent: oklch(0.322 0.02 172);
   --accent-foreground: oklch(0.935 0.006 168);
 
+  /* The overlay colour is shared with light; only its strength changes — the
+     same wash that dims a light page barely registers on a dark one. */
+  --overlay-alpha: 60%;
+
   /* Light enough to read as *text* on the dark canvas (5.10:1 on a card), so
-     as a fill it takes dark ink rather than white — which is what lets us drop
-     shadcn's `dark:bg-destructive/60` alpha hack. */
+     as a fill it takes dark ink rather than white — which is the contrast the
+     generated components reach for a second, dark-only alpha to get. */
   --destructive: oklch(0.665 0.165 27);
-  --destructive-foreground: oklch(0.205 0.045 27);
   --destructive-hover: oklch(0.615 0.17 27);
   --destructive-soft: oklch(0.265 0.042 27);
+  --destructive-soft-hover: oklch(0.318 0.053 27);
   --warning: oklch(0.29 0.045 80);
   --warning-foreground: oklch(0.855 0.085 92);
   --success: oklch(0.29 0.045 160);
@@ -259,10 +292,6 @@
   --chart-3: oklch(0.75 0.075 132);
   --chart-4: oklch(0.76 0.09 84);
   --chart-5: oklch(0.68 0.08 296);
-
-  /* The overlay colour is shared with light; only its strength changes — the
-     same scrim that dims a light page barely registers on a dark one. */
-  --overlay-alpha: 60%;
 
   /* Near-black, still mint-hued; a dark canvas needs much more of it. */
   --shadow-tint: 0 6 4;
@@ -309,9 +338,11 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-hover: var(--destructive-hover);
+  --color-overlay: var(--overlay);
+  --opacity-overlay: var(--overlay-alpha);
   --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-hover: var(--destructive-soft-hover);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-success: var(--success);
@@ -347,14 +378,10 @@
   --color-ai: var(--ai);
   --color-ai-soft: var(--ai-soft);
 
-  --color-overlay: var(--overlay);
-  /* Named opacity modifiers: `bg-overlay/overlay` to dim the page under
-     something that brings its own surface, `bg-background/scrim` to fade the
-     page out entirely. Both point at the `:root` alphas rather than carrying a
-     number, so `.dark` can re-tune a strength at runtime — the overlay needs
-     more of itself to register against a dark canvas than against a light
-     one. */
-  --opacity-overlay: var(--overlay-alpha);
+  /* A named opacity modifier, so the composer's drop state reads
+     `bg-background/scrim` rather than carrying a loose number at the call
+     site. It points at the `:root` alpha rather than inlining one, which is
+     what would let `.dark` re-tune the strength at runtime. */
   --opacity-scrim: var(--scrim-alpha);
 
   --color-chart-1: var(--chart-1);
@@ -431,6 +458,20 @@
 
   body {
     @apply bg-background text-foreground;
+
+    /* The app is a bag of other people's strings: filenames, URLs, pasted
+       tokens, a note typed without a space in it. Any one of them is a single
+       unbreakable word, and CSS's default is to let a word overflow its box
+       rather than break it — which is how a 60-character filename pushed the
+       detail drawer's whole column sideways and turned every heading under it
+       into a horizontal scroll.
+       `anywhere`, not `break-word`: both break a word that would otherwise
+       overflow, but only `anywhere` also shrinks the element's min-content
+       width, which is what stops a long word from forcing a flex or grid item
+       wider than its track in the first place. Inherited, so this one
+       declaration is the default everywhere; `whitespace-nowrap` and
+       `truncate` still win where a call site has asked for one line. */
+    overflow-wrap: anywhere;
   }
 
   /* Nothing here is load-bearing motion — every panel is legible at rest — so
