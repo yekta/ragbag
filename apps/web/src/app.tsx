@@ -239,13 +239,16 @@ function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
  * ends where its column does, which is the shape the single border was already
  * implying.
  *
- * The 8px a side is the sidebar's own: `variant="floating"` holds the panel
- * that far off the window, top, bottom and left (ui/sidebar.tsx). Its right
- * edge is the column's left edge, though (local edit 4 there, which is what
- * makes the cards' gutters symmetric), so the banner spends that distance
- * itself, at both ends: a box standing off the panel exactly as far as the
- * panel stands off the window, rather than a gap at one end and a cut at the
- * other.
+ * The 16px a side is the timeline's own gutter (`md:px-4`, timeline.tsx), so
+ * the box ends where the cards under it end. Two edges on one line is what the
+ * eye reads when a strip sits directly above a card, and the 8px this used to
+ * spend, the distance the panel itself floats at, left them a hair apart
+ * instead. The same number does for both ends because the panel's right edge
+ * *is* the column's left edge now (ui/sidebar.tsx, local edit 4).
+ *
+ * Past `max-w-3xl` the cards stop widening and centre, and this strip does not:
+ * the two line up while the column is narrower than the cap, which is every
+ * width where a card is hard against that gutter at all.
  *
  * Below `md`, and on desktop with the sidebar closed, the column *is* the
  * window: nothing is cutting anything off, so the strip stays edge to edge on
@@ -262,7 +265,7 @@ function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
 function useBannerShell(): string {
   const { open } = useSidebar();
   return `w-auto border-x-0 border-b transition-[margin,border-radius,border-color] duration-450 ease-panel md:border-x ${
-    open ? "md:mx-2 md:rounded-b-md md:border-x-border" : "md:border-x-transparent"
+    open ? "md:mx-4 md:rounded-b-md md:border-x-border" : "md:border-x-transparent"
   }`;
 }
 
