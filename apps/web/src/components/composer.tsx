@@ -391,7 +391,10 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               }}
             />
 
-            <div className="flex items-center justify-between px-2.5 pb-2.5">
+            {/* Top padding, not just the textarea's own: once the text scrolls,
+                its content runs to the very bottom edge of the box, and without
+                a gap here the last line touches the buttons. */}
+            <div className="flex items-center justify-between px-2.5 pb-2.5 pt-2">
               <Button
                 variant="outline"
                 size="icon"
