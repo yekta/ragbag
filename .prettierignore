@@ -6,3 +6,4 @@ coverage/
 pnpm-lock.yaml
 apps/server/drizzle/
 PLAN.md
+plans/

@@ -105,6 +105,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Working plan documents (never committed)
+plans/
+
 # Misc
 *.tgz
 .yarn/cache
