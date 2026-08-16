@@ -239,11 +239,13 @@ function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
  * ends where its column does, which is the shape the single border was already
  * implying.
  *
- * The 8px on the right is the sidebar's own. `variant="floating"` holds the
- * panel that far off the window (ui/sidebar.tsx: `p-2`) while the column starts
- * at the gap's full width, so the banner already sits 8px clear of the panel;
- * matching it on the right makes those one distance rather than a gap on one
- * side and a cut on the other.
+ * The 8px a side is the sidebar's own: `variant="floating"` holds the panel
+ * that far off the window, top, bottom and left (ui/sidebar.tsx). Its right
+ * edge is the column's left edge, though (local edit 4 there, which is what
+ * makes the cards' gutters symmetric), so the banner spends that distance
+ * itself, at both ends: a box standing off the panel exactly as far as the
+ * panel stands off the window, rather than a gap at one end and a cut at the
+ * other.
  *
  * Below `md`, and on desktop with the sidebar closed, the column *is* the
  * window: nothing is cutting anything off, so the strip stays edge to edge on
@@ -260,7 +262,7 @@ function QueueWiring({ sessionOk }: { sessionOk: boolean }) {
 function useBannerShell(): string {
   const { open } = useSidebar();
   return `w-auto border-x-0 border-b transition-[margin,border-radius,border-color] duration-450 ease-panel md:border-x ${
-    open ? "md:mr-2 md:rounded-b-md md:border-x-border" : "md:border-x-transparent"
+    open ? "md:mx-2 md:rounded-b-md md:border-x-border" : "md:border-x-transparent"
   }`;
 }
 
@@ -399,9 +401,10 @@ function Shell({
 /**
  * How long the reopen button outlives the click that opens the sidebar.
  *
- * The panel enters from `-18rem` and the button sits at `0.75rem` with a
- * `2.25rem` body, so the panel's leading edge is past it once it has covered
- * 19% of its travel. `--ease-panel` front-loads that hard: 19% of the distance
+ * The panel enters from `-18.5rem` (its width plus the 8px it parks clear of
+ * the edge, ui/sidebar.tsx) and the button sits at `0.75rem` with a `2.25rem`
+ * body, so the panel's leading edge is past it once it has covered 19% of its
+ * travel. `--ease-panel` front-loads that hard: 19% of the distance
  * is gone in ~20ms of the 450ms. This is that with margin, and short enough
  * that the button is never something the eye watches leave.
  */

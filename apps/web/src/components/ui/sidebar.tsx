@@ -27,6 +27,15 @@ import { PanelLeftIcon } from "lucide-react";
 // 2. The shortcut is ⌘\, not ⌘B, matching what the app documents.
 // 3. Widths track the app's rail (18rem, = the old `w-72`) rather than
 //    shadcn's 16rem default.
+// 4. The floating panel has no right inset (`py-2 pl-2`), and parks 8px further
+//    off-canvas to make up for it. Stock `p-2` floats the panel that far off
+//    the window on all four sides while the gap reserving its slot is the full
+//    `--sidebar-width`, so the app column starts 8px clear of the panel and
+//    every gutter measured inside it comes out 8px wider on that side: the
+//    timeline's cards sat 24px off the panel against 16px off the window edge,
+//    and the `max-w-3xl` cap centred them on that same off-by-8 box. With the
+//    panel's edge *on* the column boundary, one `px-4` in there is the whole
+//    distance either way. Both halves are commented where they are.
 const SIDEBAR_WIDTH = "18rem";
 const SIDEBAR_WIDTH_MOBILE = "19rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -235,10 +244,22 @@ function Sidebar({
           // reopen button be revealed from behind the panel's trailing edge
           // rather than appear in the hole it leaves. Still under every z-50
           // overlay (drawer, dialogs, palette).
-          "fixed inset-y-0 z-40 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-450 ease-panel data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
-          // Adjust the padding for floating and inset variants.
+          // The off-canvas rest position is part of local edit 4: one panel
+          // width used to be exactly enough to hide the panel, and with no
+          // right inset it is one pixel short. The `ring-1` below is drawn
+          // *outside* the box, so at rest it lands at x=0 and paints a hairline
+          // down the edge of the screen for as long as the sidebar is closed
+          // (measured in a headless browser, not theorised). Parking a whole
+          // 8px further out clears the ring and the `shadow-sm` behind it, and
+          // it is the same 8px the panel stopped spending on its right inset,
+          // so the two read as one number. The flush `sidebar` variant, which
+          // has no inset to give up, only travels 8px it did not have to.
+          "fixed inset-y-0 z-40 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-450 ease-panel data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1-(--spacing(2)))] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1-(--spacing(2)))] md:flex",
+          // Adjust the padding for floating and inset variants. Local edit 4:
+          // `py-2 pl-2`, not `p-2`, so the panel's right edge *is* the app
+          // column's left edge.
           variant === "floating" || variant === "inset"
-            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
+            ? "py-2 pl-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
             : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className,
         )}
