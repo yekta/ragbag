@@ -71,6 +71,8 @@ function useRows(items: TimelineRows): Row[] {
 // than news.
 
 const DAY_ROW = 46;
+/** The opening separator, which draws no gap above itself (see the render). */
+const FIRST_DAY_ROW = DAY_ROW - 12;
 /** Card chrome: vertical padding, the footer row, and the gap below the card. */
 const CARD_CHROME = 68;
 /** `leading-relaxed` at the timeline's font size. */
@@ -171,7 +173,8 @@ export function Timeline({
     estimateSize: (i) => {
       const row = rows[i];
       if (!row) return DAY_ROW;
-      return row.type === "day" ? DAY_ROW : estimateItem(row.item, width);
+      if (row.type !== "day") return estimateItem(row.item, width);
+      return i === 0 ? FIRST_DAY_ROW : DAY_ROW;
     },
     overscan: 10,
     getItemKey: (i) => {
@@ -374,7 +377,12 @@ export function Timeline({
                 style={{ transform: `translateY(${v.start - scrollMargin}px)` }}
               >
                 {row.type === "day" ? (
-                  <div className="flex justify-center py-3">
+                  // A separator's `py-3` is the gap between the two cards it
+                  // parts. The one that opens the list has no card above it,
+                  // and the column's top inset has already stood the list off
+                  // the floating controls, so its top half would only push the
+                  // list further down than the chrome asked for.
+                  <div className={`flex justify-center pb-3 ${v.index === 0 ? "" : "pt-3"}`}>
                     {/* The card surface, like the rows it separates: one fill
                         for everything sitting on the canvas. The variant stays
                         for its ink; its own fill is overridden, and its hover

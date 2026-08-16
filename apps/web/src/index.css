@@ -81,17 +81,15 @@
      off the card. */
   --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
 
-  /* The timeline's top padding: the band the floating controls occupy, and
-     nothing on top of it. The controls sit `top-3`, so the band is offset +
+  /* The timeline's top padding: the band the floating controls occupy, plus a
+     little clearance. The controls sit `top-3`, so the band is offset +
      control; nothing else feeds into this number; whatever the first row
      happens to be, it starts below the buttons. Defined here so the padding
      tracks the controls: change their offset or size and it follows.
 
-     No clearance under the band, because the list brings its own: a run always
-     opens with a day separator (timeline.tsx pushes one before the first
-     item), and that row is `py-3`, so the badge already comes to rest 12px
-     below the buttons. The half-rem that used to sit here landed on top of
-     that and read as a gap between the chrome and the list.
+     This clearance is the whole gap between the chrome and the list: the
+     separator that opens the list drops the top half of its `py-3` so it
+     doesn't land on top of this (timeline.tsx).
 
      The two controls are different sizes. The phone's menu / search buttons
      are `size-11`, 44px, what iOS gives a navigation bar button, and the
@@ -100,9 +98,9 @@
      switches on the same breakpoint rather than padding everything by the
      larger of the two. 48rem is that breakpoint: Tailwind's `md`, and
      MOBILE_BREAKPOINT in hooks/use-mobile.ts. */
-  --timeline-inset-top: calc(0.75rem + 2.75rem); /* 3.5rem = 56px */
+  --timeline-inset-top: calc(0.75rem + 2.75rem + 0.5rem); /* 4rem = 64px */
   @media (min-width: 48rem) {
-    --timeline-inset-top: calc(0.75rem + 2.25rem); /* 3rem = 48px */
+    --timeline-inset-top: calc(0.75rem + 2.25rem + 0.5rem); /* 3.5rem = 56px */
   }
 
   /* Bucket-centred (rule 3): 240.931, 242.990, 242.074. */
