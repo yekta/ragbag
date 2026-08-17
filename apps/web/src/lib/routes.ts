@@ -1,7 +1,7 @@
-import { ENTITY_DEFINITIONS, RAIL_ENTITY_KINDS } from "@ragbag/shared";
-import type { AttachmentFace } from "@ragbag/shared";
+import type { AttachmentFace, EntityTypes } from "@ragbag/shared";
 import { useParams } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { declaredSlugs } from "./thing-slugs.js";
 
 // The rail's filters *are* the URL.
 //
@@ -41,19 +41,14 @@ const ATTACHMENT_VIEWS = { images: "image", files: "file" } as const satisfies R
 >;
 
 /**
- * Rows backed by the entity registry, so a new kind gets a URL for free
- * (plan §8.1). Only the kinds that claim a rail row appear here.
+ * Every path segment a build knows without syncing anything.
+ *
+ * No entity slugs among them: a type belongs to a user now, so `/links` is
+ * theirs to rename or delete and this build cannot know it exists. Those come
+ * from the synced set (`entityKindOf` below) and, before the store is open,
+ * from the device's own cache of what it last saw (lib/thing-slugs.ts).
  */
-const ENTITY_VIEWS: Record<string, string> = Object.fromEntries(
-  RAIL_ENTITY_KINDS.map((d) => [d.slug, d.kind]),
-);
-
-/** Every path segment this build recognises as a view, in rail order. */
-export const VIEW_SLUGS = [
-  ...Object.keys(CHAT_VIEWS),
-  ...Object.keys(ATTACHMENT_VIEWS),
-  ...Object.keys(ENTITY_VIEWS),
-] as const;
+export const VIEW_SLUGS = [...Object.keys(CHAT_VIEWS), ...Object.keys(ATTACHMENT_VIEWS)] as const;
 
 /** A view is named by its slug: the URL vocabulary is the only vocabulary. */
 export type ViewFilter = string | null;
@@ -66,8 +61,14 @@ export const EVERYTHING: Filter = { view: null, tagId: null };
 
 const KNOWN = new Set<string>(VIEW_SLUGS);
 
-/** Does this path segment name a view this build knows? (main.tsx rejects the rest.) */
-export const isViewSlug = (slug: string): boolean => KNOWN.has(slug);
+/**
+ * Does this path segment name a view? (main.tsx redirects the rest home.)
+ *
+ * Asked before the local store is open, so a declared type's slug is answered
+ * from what this device last saw synced rather than from the set itself.
+ */
+export const isViewSlug = (slug: string): boolean =>
+  KNOWN.has(slug) || declaredSlugs().includes(slug);
 
 /** True when this view filters the chat rather than replacing it (plan §8.2). */
 export function isChatView(view: ViewFilter): boolean {
@@ -81,14 +82,15 @@ export function attachmentFaceOf(view: ViewFilter): AttachmentFace | null {
     : null;
 }
 
-/** Which entity kind this view shows, if it shows one. */
-export function entityKindOf(view: ViewFilter): string | null {
-  return (view && ENTITY_VIEWS[view]) ?? null;
-}
-
-/** Where an entity kind's own view lives, for a chip that links to its row. */
-export function slugForEntityKind(kind: string): string | undefined {
-  return ENTITY_DEFINITIONS.find((d) => d.kind === kind && d.railRow)?.slug;
+/**
+ * Which entity kind this view shows, if it shows one.
+ *
+ * Resolved against the set rather than a module-level map, because a declared
+ * type's slug arrives over sync (lib/entity-types.tsx): that is what gives a
+ * kind added in Postgres a URL of its own with no code change at all.
+ */
+export function entityKindOf(view: ViewFilter, types: EntityTypes): string | null {
+  return (view && types.bySlug(view)?.kind) ?? null;
 }
 
 /**

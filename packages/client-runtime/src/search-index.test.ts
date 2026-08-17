@@ -6,7 +6,10 @@ function doc(overrides: Partial<SearchDoc> & { targetId: string; type?: DocType 
   return {
     id: `${type}:${overrides.targetId}`,
     type,
-    messageId: overrides.messageId ?? overrides.targetId,
+    // An entity belongs to no single message (SearchDoc.messageId), so it only
+    // gets one here when a test is explicit about it.
+    messageId:
+      type === "entity" ? overrides.messageId : (overrides.messageId ?? overrides.targetId),
     title: "",
     text: "",
     summary: "",
@@ -37,11 +40,13 @@ describe("TimelineSearchIndex", () => {
     index.sync([
       doc({ targetId: "m1", title: "shipping" }),
       doc({ type: "attachment", targetId: "a1", messageId: "m1", body: "shipping label" }),
-      doc({ type: "entity", targetId: "e1", messageId: "m1", entities: "shipping ups" }),
+      doc({ type: "entity", targetId: "e1", entities: "shipping ups" }),
     ]);
     const hits = index.search("shipping");
     expect(hits.map((h) => h.type).toSorted()).toEqual(["attachment", "entity", "message"]);
-    expect(new Set(hits.map((h) => h.messageId))).toEqual(new Set(["m1"]));
+    // The two that live inside a message say which one; the thing does not.
+    expect(hits.filter((h) => h.type !== "entity").map((h) => h.messageId)).toEqual(["m1", "m1"]);
+    expect(hits.find((h) => h.type === "entity")!.messageId).toBeUndefined();
   });
 
   it("matches an entity's exact value, which is what replaced embeddings", () => {
@@ -50,7 +55,6 @@ describe("TimelineSearchIndex", () => {
       doc({
         type: "entity",
         targetId: "e1",
-        messageId: "m1",
         text: "1Z999AA10123456784",
         entities: "ups 1Z999AA10123456784",
       }),

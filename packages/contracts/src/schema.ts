@@ -82,6 +82,59 @@ const attachmentContents = table("attachmentContents")
   })
   .primaryKey("attachmentId");
 
+/**
+ * The user's entity types: what each kind of thing is, for them.
+ *
+ * Synced like any other row they own, and written the same way, through the
+ * `entityType` mutators the settings screen calls. The web app needs all of it
+ * to render a kind's card, its rail row and its Details list, and it syncs
+ * disabled types too: disabling one stops extraction without taking the labels
+ * away from everything it already found.
+ *
+ * The timestamps are deliberately not synced: nothing on the client reads them.
+ */
+const entityTypes = table("entityTypes")
+  .from("entity_types")
+  .columns({
+    id: string(),
+    userId: string().from("user_id"),
+    kind: string(),
+    label: string(),
+    plural: string(),
+    slug: string(),
+    icon: string(),
+    hint: string(),
+    titleTemplate: string().from("title_template").optional(),
+    examples: json<readonly string[]>(),
+    rail: boolean(),
+    enabled: boolean(),
+    /** 'catalog' (one of ours, seeded) or 'user' (you made this). */
+    origin: string(),
+    version: number(),
+  })
+  .primaryKey("id");
+
+/** One field of a type: the jsonb key, its label, its vocabulary. */
+const entityTypeFields = table("entityTypeFields")
+  .from("entity_type_fields")
+  .columns({
+    id: string(),
+    typeId: string().from("type_id"),
+    name: string(),
+    label: string(),
+    // string(), not enumeration<FieldType>(), for the same reason as
+    // `entities.kind` below: a field type a newer build added would otherwise
+    // be a value this client's types cannot represent. As a string it is data,
+    // and `typeFromRows` skips the type rather than breaking on it.
+    type: string(),
+    values: json<readonly string[]>().optional(),
+    required: boolean(),
+    description: string().optional(),
+    position: number(),
+    keyRank: number().from("key_rank").optional(),
+  })
+  .primaryKey("id");
+
 const entities = table("entities")
   .columns({
     id: string(),
@@ -93,9 +146,11 @@ const entities = table("entities")
     kind: string(),
     value: string(),
     normalizedValue: string().from("normalized_value"),
-    // Per-kind structure, shaped by the registry entry for `kind` and
-    // validated there before it is ever written (plan §3.3).
+    // Per-kind structure, shaped by the fields of the type named by `kind` and
+    // validated against them before it is ever written (plan §3.3).
     data: json<ReadonlyJSONObject>(),
+    /** Which `entityTypes.version` last wrote this row. */
+    typeVersion: number().from("type_version"),
     generatedTitle: string().from("generated_title").optional(),
     generatedSummary: string().from("generated_summary").optional(),
     firstSeenAt: number().from("first_seen_at"),
@@ -181,6 +236,13 @@ const attachmentContentRelationships = relationships(attachmentContents, ({ one 
   attachment: one({ sourceField: ["attachmentId"], destField: ["id"], destSchema: attachments }),
 }));
 
+// One direction only: fields are always reached through their type, and a
+// back-reference would have to be called something other than `type`, which is
+// already a column here (Zero rejects the collision outright).
+const entityTypeRelationships = relationships(entityTypes, ({ many }) => ({
+  fields: many({ sourceField: ["id"], destField: ["typeId"], destSchema: entityTypeFields }),
+}));
+
 const entityRelationships = relationships(entities, ({ many }) => ({
   mentions: many({ sourceField: ["id"], destField: ["entityId"], destSchema: messageEntities }),
   tags: many({ sourceField: ["id"], destField: ["entityId"], destSchema: entityTags }),
@@ -221,6 +283,8 @@ export const schema = createSchema({
     attachmentContents,
     entities,
     messageEntities,
+    entityTypes,
+    entityTypeFields,
     tags,
     messageTags,
     attachmentTags,
@@ -230,6 +294,7 @@ export const schema = createSchema({
     messageRelationships,
     attachmentRelationships,
     attachmentContentRelationships,
+    entityTypeRelationships,
     entityRelationships,
     messageEntityRelationships,
     messageTagRelationships,

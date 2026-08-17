@@ -1,5 +1,4 @@
-import { z } from "zod";
-import type { EntityCandidate, EntityDefinition } from "./types.js";
+import type { EntityBehaviour, EntityCandidate } from "./types.js";
 
 // Phone numbers have a signature, but a loose one: any run of digits with
 // spaces in it looks like a number. So the matcher only fires on the two
@@ -17,19 +16,7 @@ function digitsOf(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-export const phoneEntity: EntityDefinition = {
-  kind: "phone",
-  label: "Phone",
-  plural: "Phone numbers",
-  slug: "phones",
-  icon: "phone",
-  railRow: true,
-  promptHint: "A phone number, with whose it is when the text says.",
-  data: z.object({
-    number: z.string(),
-    name: z.string().optional(),
-    country: z.string().optional(),
-  }),
+export const phoneBehaviour: EntityBehaviour = {
   match(text) {
     const found: EntityCandidate[] = [];
     const seen = new Set<string>();

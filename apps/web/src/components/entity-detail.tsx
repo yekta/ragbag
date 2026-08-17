@@ -1,5 +1,4 @@
 import { mutators, queries } from "@ragbag/contracts";
-import { entityLabel } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -10,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, timeLabel } from "@/lib/format";
 import { filterLink, messageLink, useFilter } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
@@ -25,6 +25,7 @@ export function EntityDetail() {
   const zero = useZero();
   const navigate = useNavigate();
   const filter = useFilter();
+  const types = useEntityTypes();
   const [liveEntity] = useQuery(queries.entity({ id }));
   const [allTags] = useQuery(queries.tags());
   const isMobile = useIsMobile();
@@ -46,9 +47,11 @@ export function EntityDetail() {
   const stillLoading = useHeld(!entity, 250);
 
   const data = (entity?.data ?? {}) as Record<string, unknown>;
-  const structured = Object.entries(data).filter(
-    ([, v]) => v !== null && v !== undefined && v !== "",
-  );
+  // The type's own fields, in the order it declares them, under the labels it
+  // gives them: "Postal Code", not `postalCode` in whatever order the jsonb
+  // happened to hold. A key the type no longer declares still shows, humanized,
+  // at the end, so editing a type never blanks data that is already stored.
+  const structured = entity ? types.fieldEntries(entity.kind, data) : [];
 
   return (
     <Drawer
@@ -86,7 +89,7 @@ export function EntityDetail() {
         ) : (
           <>
             <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
-              <span className="text-sm font-medium">{entityLabel(entity.kind)}</span>
+              <span className="text-sm font-medium">{types.label(entity.kind)}</span>
               <span className="text-xs text-muted-foreground">
                 first seen {dayLabel(entity.firstSeenAt)}
               </span>
@@ -122,10 +125,10 @@ export function EntityDetail() {
                 <section>
                   <SectionLabel>Details</SectionLabel>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                    {structured.map(([key, value]) => (
-                      <div key={key} className="contents">
-                        <dt className="text-muted-foreground">{key}</dt>
-                        <dd className="min-w-0 break-words">{String(value)}</dd>
+                    {structured.map((entry) => (
+                      <div key={entry.name} className="contents">
+                        <dt className="text-muted-foreground">{entry.label}</dt>
+                        <dd className="min-w-0 break-words">{entry.value}</dd>
                       </div>
                     ))}
                   </dl>

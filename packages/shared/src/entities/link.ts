@@ -1,11 +1,13 @@
-import { z } from "zod";
 import { normalizeUrl } from "../url.js";
-import type { EntityCandidate, EntityDefinition } from "./types.js";
+import type { EntityBehaviour, EntityCandidate } from "./types.js";
 
 // A bare URL is no longer a kind of dump: it is text that produces a link
 // entity, and the entity is what draws the preview card. Because links are
 // canonical per user, the same URL dumped in five messages is enriched (and
 // snapshotted, plan §6.6) once.
+//
+// The definition lives in the catalog and, once seeded, in the user's own row.
+// What is here is the behaviour that a row cannot carry.
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"'`]+/gi;
 
@@ -37,24 +39,7 @@ function trimTrailing(raw: string): string {
   return url;
 }
 
-export const linkEntity: EntityDefinition = {
-  kind: "link",
-  label: "Link",
-  plural: "Links",
-  slug: "links",
-  icon: "link",
-  railRow: true,
-  promptHint: "A web address worth keeping, with the page it points at.",
-  data: z.object({
-    url: z.string(),
-    title: z.string().optional(),
-    description: z.string().optional(),
-    siteName: z.string().optional(),
-    faviconUrl: z.string().optional(),
-    imageUrl: z.string().optional(),
-    lang: z.string().optional(),
-    isVideo: z.boolean().optional(),
-  }),
+export const linkBehaviour: EntityBehaviour = {
   match(text) {
     const found: EntityCandidate[] = [];
     for (const m of text.matchAll(URL_RE)) {

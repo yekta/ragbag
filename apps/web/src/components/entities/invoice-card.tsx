@@ -5,7 +5,7 @@ export function InvoiceCard({ entity, onOpen }: EntityCardProps) {
   const vendor = str(data, "vendor") ?? entity.generatedTitle ?? entity.value;
   const amount = num(data, "amount");
   const currency = str(data, "currency");
-  const issuedAt = str(data, "issuedAt");
+  const issuedAt = str(data, "issued_at");
   const number = str(data, "number");
   return (
     <EntityShell

@@ -1,10 +1,12 @@
-import { ENTITY_DEFINITIONS, entityTitle, log, matchEntities, snippetAround } from "@ragbag/shared";
+import { log, promptSchema, snippetAround } from "@ragbag/shared";
+import type { EntityTypes } from "@ragbag/shared";
 import { asc, eq } from "drizzle-orm";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { storage } from "../blobs/storage.js";
 import { db } from "../db/client.js";
 import { attachmentContents, attachments, messages } from "../db/schema.js";
+import { loadEntityTypes, seedEntityTypes } from "../entity-types.js";
 import { env } from "../env.js";
 import {
   applyAiTags,
@@ -20,14 +22,17 @@ import { recordUsage } from "./usage.js";
 
 // Phase B (plan §5.4): read the whole message and pull the things out of it.
 //
-//   1. Deterministic pre-pass. Every registry entry with a `match` runs over
+//   0. Pin the type set: every enabled type this user keeps (entity-types.ts).
+//      Everything below reads that one set, so a type added or deleted mid-run
+//      cannot half-apply to this message.
+//   1. Deterministic pre-pass. Every type in the set with a `match` runs over
 //      the text: URLs, emails, phone numbers, tracking-shaped strings. Free,
 //      instant, and it never hallucinates a tracking number out of a random
 //      alphanumeric.
 //   2. One model call. It receives the step-1 candidates to confirm, correct
-//      or reject, plus the registry list with its prompt hints and the exact
-//      shape of each kind's data, for the kinds that need judgment.
-//   3. Per-kind validation against the registry. Anything failing is dropped.
+//      or reject, plus the pinned kinds with their hints and the exact shape of
+//      each one's fields, for the kinds that need judgment.
+//   3. Per-kind validation against those fields. Anything failing is dropped.
 //   4. Link enrichment through the existing page fetcher.
 //   5. The idempotent write (entities.ts).
 //
@@ -36,6 +41,11 @@ import { recordUsage } from "./usage.js";
 // never invents them, and the model's job is confirmation, enrichment and the
 // judgment cases. Model-only extraction confidently labels random
 // alphanumerics as tracking numbers.
+//
+// The set being closed is the other half. There is no `other` kind, so a model
+// that finds something no kind covers leaves it out instead of coining a kind
+// for it: those came back one spelling per message ("marka adı", "slogan"),
+// deduplicated against nothing and browsable nowhere.
 
 /** Multi-label vocabulary for the `type` tags. */
 export const MESSAGE_TYPE_TAGS = [
@@ -72,39 +82,52 @@ export const MESSAGE_TYPE_TAGS = [
   "other",
 ] as const;
 
-const ENTITY_KIND_VALUES = ENTITY_DEFINITIONS.map((d) => d.kind) as [string, ...string[]];
+/**
+ * The structured-output schema, built from the kinds this job pinned.
+ *
+ * `kind` is an enum of exactly those kinds, which is where the set stops being
+ * a suggestion: the model cannot name a type nobody declared, and the
+ * validation in entities.ts would drop it even if it did.
+ *
+ * A user who deleted every type still gets a title, a summary and tags, so the
+ * enum falls back to one kind nothing can be written under rather than to an
+ * empty vocabulary, which no structured-output API accepts.
+ */
+export function buildSynthesisSchema(types: EntityTypes) {
+  const kinds = (types.kinds.length > 0 ? types.kinds : ["none"]) as [string, ...string[]];
+  return z.object({
+    /** Short, for search results, permalinks and grids. */
+    title: z.string(),
+    /** 1-3 plain sentences. Plain text, never markdown: it renders in chips. */
+    summary: z.string(),
+    lang: z.string(),
+    types: z.array(z.enum(MESSAGE_TYPE_TAGS)),
+    topics: z.array(z.string()),
+    entities: z.array(
+      z.object({
+        kind: z.enum(kinds),
+        value: z.string(),
+        /**
+         * The kind's fields as a JSON object, serialized.
+         *
+         * A string rather than a nested object because strict structured
+         * outputs need every property of every object declared up front, and
+         * these differ per kind. Keeping it a string leaves the field rows as
+         * the single authority on the shape: they are what the prompt shows the
+         * model (as JSON Schema) and what validates the answer (as zod).
+         */
+        data_json: z.string(),
+        confidence: z.number(),
+        /** 0 for the message's own text, else the 1-based attachment number. */
+        from_attachment: z.number(),
+        topics: z.array(z.string()),
+      }),
+    ),
+    attachment_topics: z.array(z.object({ index: z.number(), topics: z.array(z.string()) })),
+  });
+}
 
-export const Synthesis = z.object({
-  /** Short, for search results, permalinks and grids. */
-  title: z.string(),
-  /** 1-3 plain sentences. Plain text, never markdown: it renders in chips. */
-  summary: z.string(),
-  lang: z.string(),
-  types: z.array(z.enum(MESSAGE_TYPE_TAGS)),
-  topics: z.array(z.string()),
-  entities: z.array(
-    z.object({
-      kind: z.enum(ENTITY_KIND_VALUES),
-      value: z.string(),
-      /**
-       * The kind's structured fields as a JSON object, serialized.
-       *
-       * A string rather than a nested object because strict structured
-       * outputs need every property of every object declared up front, and
-       * these differ per kind. Keeping it a string leaves the registry's zod
-       * schemas as the single authority on the shape (they are what the
-       * prompt shows the model, and what validates the answer).
-       */
-      data_json: z.string(),
-      confidence: z.number(),
-      /** 0 for the message's own text, else the 1-based attachment number. */
-      from_attachment: z.number(),
-      topics: z.array(z.string()),
-    }),
-  ),
-  attachment_topics: z.array(z.object({ index: z.number(), topics: z.array(z.string()) })),
-});
-export type SynthesisResult = z.infer<typeof Synthesis>;
+export type SynthesisResult = z.infer<ReturnType<typeof buildSynthesisSchema>>;
 
 /** One thing the model reads: the message's own words, or one attachment. */
 export type SynthesisSource = {
@@ -125,6 +148,7 @@ export function buildSynthesisPrompt(input: {
   sources: readonly SynthesisSource[];
   candidates: readonly { kind: string; value: string }[];
   existingTopics: readonly string[];
+  types: EntityTypes;
 }): string {
   const lines: string[] = [
     "You are the synthesis stage of ragbag, a personal info-dump archive. One message was " +
@@ -140,22 +164,27 @@ export function buildSynthesisPrompt(input: {
       "topics below whenever they fit; invent new ones only when nothing does.",
     "- lang: BCP-47 tag of the content's language (e.g. en, de, tr).",
     "- entities: the things in this message, one per occurrence. `value` is the thing as it " +
-      "appears; `data_json` is a JSON object matching that kind's shape below; " +
-      "`from_attachment` is 0 for the owner's own text or the numbered file it came from; " +
-      "`confidence` is 0-1.",
-    "- Never invent a kind. If something matters and no kind below covers it, use `other` and " +
-      "put what you would have called it in data.label.",
+      "appears; `data_json` is a JSON object matching that kind's shape below, with the field " +
+      "names spelled exactly as they are written there; `from_attachment` is 0 for the owner's " +
+      "own text or the numbered file it came from; `confidence` is 0-1.",
+    "- The kinds below are the complete list, and there is no bucket for anything else. If " +
+      "something matters and no kind covers it, leave it out: a kind you invent is a kind " +
+      "nothing can group, browse or merge.",
+    "- Fill a kind's required fields or leave the thing out. An `enum` field takes one of the " +
+      "values listed for it and nothing else.",
     "- Never invent an entity that is not really there. A missing one costs a search; a wrong " +
       "one costs trust.",
     "",
     "Entity kinds:",
   ];
 
-  for (const def of ENTITY_DEFINITIONS) {
-    // The registry's own zod schema is what validates the answer, so it is
-    // also what the model is shown: one source of truth for the shape.
-    const shape = JSON.stringify(z.toJSONSchema(def.data, { io: "input" }));
-    lines.push(`- ${def.kind}: ${def.promptHint} data: ${shape}`);
+  for (const type of input.types.list) {
+    // Generated from the same field rows that validate the answer, so the shape
+    // the model is shown and the shape that is enforced cannot drift. The
+    // labels ride along in each field's description.
+    const shape = JSON.stringify(promptSchema(type.fields));
+    const examples = type.examples?.length ? ` For example: ${type.examples.join(", ")}.` : "";
+    lines.push(`- ${type.kind}: ${type.promptHint}${examples} data: ${shape}`);
   }
 
   if (input.candidates.length > 0) {
@@ -197,6 +226,16 @@ export async function synthesizeMessage(job: {
   const message = await db.query.messages.findFirst({ where: eq(messages.id, job.messageId) });
   if (!message) return notes;
 
+  // 0. The set this job runs against, read once. Every step below takes it as
+  // an argument rather than reaching for a module-level registry, which is what
+  // makes the set fixed for this message even while types are being edited.
+  //
+  // The seed is the safety net for a signup hook that failed and for accounts
+  // created before types were per user. It is gated on `user.types_seeded_at`,
+  // so it fires once per account and never resurrects a type the user deleted.
+  await seedEntityTypes(job.userId);
+  const types = await loadEntityTypes(job.userId);
+
   const parts = await db
     .select({
       id: attachments.id,
@@ -233,8 +272,8 @@ export async function synthesizeMessage(job: {
   // it came from and can carry a snippet of the sentence it appeared in.
   const found = new Map<string, ResolvedEntity>();
   for (const source of sources) {
-    for (const candidate of matchEntities(source.text)) {
-      const resolved = resolveEntity(candidate);
+    for (const candidate of types.match(source.text)) {
+      const resolved = resolveEntity(types, candidate);
       if (!resolved) continue;
       const key = `${resolved.kind}:${resolved.normalizedValue}`;
       if (found.has(key)) continue;
@@ -273,6 +312,7 @@ export async function synthesizeMessage(job: {
     sources,
     candidates: [...found.values()].map((f) => ({ kind: f.kind, value: f.value })),
     existingTopics: await existingTopicNames(job.userId),
+    types,
   });
 
   let result: SynthesisResult | null = null;
@@ -280,7 +320,7 @@ export async function synthesizeMessage(job: {
     const res = await openai.responses.parse({
       model: env.AI_ENRICH_MODEL,
       input: prompt,
-      text: { format: zodTextFormat(Synthesis, "synthesis") },
+      text: { format: zodTextFormat(buildSynthesisSchema(types), "synthesis") },
     });
     await recordUsage({
       userId: job.userId,
@@ -300,12 +340,12 @@ export async function synthesizeMessage(job: {
   }
 
   if (result) {
-    // 3. Per-kind validation. Anything that does not fit its registry entry is
+    // 3. Per-kind validation. Anything that does not fit its type's fields is
     // dropped rather than written.
     const byIndex = new Map(sources.map((s) => [s.index, s]));
     for (const raw of result.entities) {
       const source = byIndex.get(raw.from_attachment) ?? sources[0];
-      const resolved = resolveEntity({
+      const resolved = resolveEntity(types, {
         kind: raw.kind,
         value: raw.value,
         data: parseJson(raw.data_json),
@@ -318,7 +358,7 @@ export async function synthesizeMessage(job: {
       // locality). The pre-pass's job was to make sure it was noticed.
       found.set(key, {
         ...resolved,
-        generatedTitle: entityTitle(resolved.kind, resolved.value, resolved.data),
+        generatedTitle: types.title(resolved.kind, resolved.value, resolved.data),
         topics: raw.topics,
         mention: {
           attachmentId: source?.attachmentId ?? null,
@@ -401,17 +441,20 @@ async function enrichLinks(
     try {
       const page = await fetchPage(url);
       const extracted = extractFromHtml(page.html, page.finalUrl);
+      // snake_case on the way in: the extractor's own type is TypeScript, but
+      // these keys are `entities.data` and every field name there is the
+      // spelling its type declares.
       entity.data = {
         ...entity.data,
         url,
         ...definedOnly({
           title: extracted.title,
           description: extracted.description,
-          siteName: extracted.siteName,
-          faviconUrl: extracted.faviconUrl,
-          imageUrl: extracted.imageUrl,
+          site_name: extracted.siteName,
+          favicon_url: extracted.faviconUrl,
+          image_url: extracted.imageUrl,
           lang: extracted.lang,
-          isVideo: extracted.isVideo,
+          is_video: extracted.isVideo,
         }),
       };
       entity.generatedTitle = extracted.title ?? entity.generatedTitle ?? null;

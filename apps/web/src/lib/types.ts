@@ -31,3 +31,13 @@ export type EntityDetail = QueryResultType<typeof queries.entity>;
 
 export type AttachmentContent = QueryResultType<typeof queries.contents>[number];
 export type TagRow = QueryResultType<typeof queries.tags>[number];
+
+/**
+ * One of the user's entity types, with its fields: what settings edits.
+ *
+ * Not the same thing as `EntityTypeRow` in @ragbag/shared, which is the
+ * structural shape the compiler reads. This is the synced row, ids and all,
+ * because the mutators address a type by its id.
+ */
+export type TypeRow = QueryResultType<typeof queries.entityTypes>[number];
+export type TypeFieldRow = TypeRow["fields"][number];

@@ -7,8 +7,8 @@ export function LinkCard({ entity, onOpen }: EntityCardProps) {
   const data = entity.data as Record<string, unknown>;
   const url = str(data, "url") ?? entity.value;
   const host = hostOf(url);
-  const favicon = str(data, "faviconUrl");
-  const image = str(data, "imageUrl");
+  const favicon = str(data, "favicon_url");
+  const image = str(data, "image_url");
   const description = str(data, "description") ?? entity.generatedSummary ?? undefined;
 
   return (
@@ -20,7 +20,7 @@ export function LinkCard({ entity, onOpen }: EntityCardProps) {
         <>
           <span className="flex items-center gap-1.5 text-[11px]">
             {favicon && <img src={favicon} alt="" className="size-3.5 rounded-xs" loading="lazy" />}
-            <span className="truncate">{str(data, "siteName") ?? host ?? url}</span>
+            <span className="truncate">{str(data, "site_name") ?? host ?? url}</span>
           </span>
           {description && <span className="mt-0.5 line-clamp-2 block">{description}</span>}
         </>

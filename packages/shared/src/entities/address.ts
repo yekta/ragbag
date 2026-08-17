@@ -1,5 +1,4 @@
-import { z } from "zod";
-import type { EntityDefinition } from "./types.js";
+import type { EntityBehaviour } from "./types.js";
 
 // Addresses are kept as they were written (plan §2.2: the model found them,
 // it does not get to rewrite them). We never geocode: a maps *search* URL is
@@ -23,25 +22,7 @@ export function mapsSearchUrl(address: string): string | null {
   return MAPS_SEARCH + encodeURIComponent(query);
 }
 
-export const addressEntity: EntityDefinition = {
-  kind: "address",
-  label: "Address",
-  plural: "Addresses",
-  slug: "addresses",
-  icon: "address",
-  railRow: true,
-  promptHint:
-    "A postal address or a place to go. `value` is the address as written; put the parts you " +
-    "are sure of in data and leave the rest out.",
-  data: z.object({
-    formatted: z.string().optional(),
-    name: z.string().optional(),
-    street: z.string().optional(),
-    locality: z.string().optional(),
-    region: z.string().optional(),
-    postalCode: z.string().optional(),
-    country: z.string().optional(),
-  }),
+export const addressBehaviour: EntityBehaviour = {
   normalize(value, data) {
     const source = typeof data.formatted === "string" && data.formatted ? data.formatted : value;
     // Best effort, and deliberately shy: case, spacing and sentence

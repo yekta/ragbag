@@ -1,5 +1,5 @@
 {
-  "id": "c7537be6-1b38-427b-aec2-316e71264a5d",
+  "id": "b3d1243b-3488-4862-870f-b7e977b44e45",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -642,6 +642,13 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
+        "type_version": {
+          "name": "type_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "generated_title": {
           "name": "generated_title",
           "type": "text",
@@ -783,6 +790,344 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.entity_type_fields": {
+      "name": "entity_type_fields",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "type_id": {
+          "name": "type_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "values": {
+          "name": "values",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "key_rank": {
+          "name": "key_rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "entity_type_fields_type_idx": {
+          "name": "entity_type_fields_type_idx",
+          "columns": [
+            {
+              "expression": "type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "entity_type_fields_key_rank_idx": {
+          "name": "entity_type_fields_key_rank_idx",
+          "columns": [
+            {
+              "expression": "type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key_rank",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "key_rank is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entity_type_fields_type_id_entity_types_id_fk": {
+          "name": "entity_type_fields_type_id_entity_types_id_fk",
+          "tableFrom": "entity_type_fields",
+          "tableTo": "entity_types",
+          "columnsFrom": [
+            "type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "entity_type_fields_name_key": {
+          "name": "entity_type_fields_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "type_id",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "entity_type_fields_name_shape": {
+          "name": "entity_type_fields_name_shape",
+          "value": "\"entity_type_fields\".\"name\" ~ '^[a-z][a-z0-9_]{0,39}$'"
+        },
+        "entity_type_fields_type_known": {
+          "name": "entity_type_fields_type_known",
+          "value": "\"entity_type_fields\".\"type\" in ('text', 'longtext', 'number', 'integer', 'bool', 'date', 'url', 'enum')"
+        },
+        "entity_type_fields_enum_values": {
+          "name": "entity_type_fields_enum_values",
+          "value": "(\"entity_type_fields\".\"type\" = 'enum') = (\"entity_type_fields\".\"values\" is not null and cardinality(\"entity_type_fields\".\"values\") > 0)"
+        },
+        "entity_type_fields_key_rank_positive": {
+          "name": "entity_type_fields_key_rank_positive",
+          "value": "\"entity_type_fields\".\"key_rank\" is null or \"entity_type_fields\".\"key_rank\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.entity_types": {
+      "name": "entity_types",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plural": {
+          "name": "plural",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'sparkles'"
+        },
+        "hint": {
+          "name": "hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_template": {
+          "name": "title_template",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "examples": {
+          "name": "examples",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "rail": {
+          "name": "rail",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "entity_types_user_id_user_id_fk": {
+          "name": "entity_types_user_id_user_id_fk",
+          "tableFrom": "entity_types",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "entity_types_user_kind_key": {
+          "name": "entity_types_user_kind_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "kind"
+          ]
+        },
+        "entity_types_user_slug_key": {
+          "name": "entity_types_user_slug_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "entity_types_kind_shape": {
+          "name": "entity_types_kind_shape",
+          "value": "\"entity_types\".\"kind\" ~ '^[a-z][a-z0-9_]{1,39}$'"
+        },
+        "entity_types_slug_shape": {
+          "name": "entity_types_slug_shape",
+          "value": "\"entity_types\".\"slug\" ~ '^[a-z0-9-]{1,48}$'"
+        },
+        "entity_types_copy_present": {
+          "name": "entity_types_copy_present",
+          "value": "length(btrim(\"entity_types\".\"label\")) > 0 and length(btrim(\"entity_types\".\"plural\")) > 0 and length(btrim(\"entity_types\".\"hint\")) > 0"
+        },
+        "entity_types_origin_known": {
+          "name": "entity_types_origin_known",
+          "value": "\"entity_types\".\"origin\" in ('catalog', 'user')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.ingest_jobs": {
@@ -1462,6 +1807,12 @@
         "is_anonymous": {
           "name": "is_anonymous",
           "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "types_seeded_at": {
+          "name": "types_seeded_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

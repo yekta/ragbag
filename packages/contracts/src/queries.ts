@@ -1,7 +1,6 @@
 import { defineQueries, defineQuery } from "@rocicorp/zero";
 import { z } from "zod";
 import { zql } from "./schema.js";
-import "./context.js";
 
 // Shared synced queries. The same definitions run on the client (against the
 // local store) and on the server (/api/zero/query), where ctx comes from the
@@ -98,4 +97,24 @@ export const queries = defineQueries({
   ),
 
   tags: defineQuery(({ ctx }) => zql.tags.where("userId", ctx.userID).orderBy("name", "asc")),
+
+  /**
+   * The kinds of thing this user keeps: their whole set, seeded at signup and
+   * theirs to edit.
+   *
+   * Disabled types ride along rather than being filtered out here. Disabling a
+   * type means "stop extracting", not "forget what it is": everything it found
+   * stays, and it keeps its labels, its card and its page. The rail and the
+   * prompt are what drop it (`EntityTypes.rail` / `.kinds` in @ragbag/shared),
+   * and settings needs the row to offer turning it back on.
+   *
+   * Alphabetical by label, so the rail's order is stable, and fields by
+   * `position`, so the prompt, the card and Details agree on it.
+   */
+  entityTypes: defineQuery(({ ctx }) =>
+    zql.entityTypes
+      .where("userId", ctx.userID)
+      .related("fields", (f) => f.orderBy("position", "asc"))
+      .orderBy("label", "asc"),
+  ),
 });

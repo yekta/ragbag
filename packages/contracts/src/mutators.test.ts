@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { newId } from "@ragbag/shared";
-import { MAX_ATTACHMENTS, createMessageArgs, mentionArgs, setMessageTagsArgs } from "./mutators.js";
+import { CATALOG, freeName, kindFromLabel, newId, slugFromLabel } from "@ragbag/shared";
+import {
+  MAX_ATTACHMENTS,
+  MAX_TYPE_FIELDS,
+  createEntityTypeArgs,
+  createMessageArgs,
+  mentionArgs,
+  setEntityTypeFieldsArgs,
+  setMessageTagsArgs,
+  updateEntityTypeArgs,
+} from "./mutators.js";
 import { downloadUrlsRequest, presignUploadRequest } from "./payloads.js";
 
 const file = () => ({
@@ -63,6 +72,117 @@ describe("setMessageTagsArgs", () => {
         names: Array.from({ length: 51 }, () => "t"),
       }).success,
     ).toBe(false);
+  });
+});
+
+const field = (over: Record<string, unknown> = {}) => ({
+  name: "title",
+  label: "Title",
+  type: "text",
+  required: true,
+  ...over,
+});
+
+const type = (over: Record<string, unknown> = {}) => ({
+  id: newId(),
+  label: "Trading Card",
+  plural: "Trading Cards",
+  icon: "sparkles",
+  hint: "A trading card someone is after or has spare.",
+  fields: [field()],
+  ...over,
+});
+
+describe("entity type args", () => {
+  it("takes a type with one field and derives what it was not told", () => {
+    const parsed = createEntityTypeArgs.safeParse(type());
+    expect(parsed.success).toBe(true);
+    // Not given, and not required: the mutator derives the slug from the label
+    // and the kind is never the caller's to pick.
+    expect(parsed.success && parsed.data.slug).toBeUndefined();
+    expect(parsed.success && parsed.data.examples).toEqual([]);
+  });
+
+  it("insists a type has fields, and bounds how many", () => {
+    expect(createEntityTypeArgs.safeParse(type({ fields: [] })).success).toBe(false);
+    const many = Array.from({ length: MAX_TYPE_FIELDS + 1 }, (_, i) =>
+      field({ name: `f${i}`, label: `F${i}` }),
+    );
+    expect(createEntityTypeArgs.safeParse(type({ fields: many })).success).toBe(false);
+  });
+
+  it("keeps field names snake_case, because they are the jsonb keys", () => {
+    expect(setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: [field()] }).success).toBe(
+      true,
+    );
+    for (const name of ["Title", "postal code", "2nd", "_x"]) {
+      expect(
+        setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: [field({ name })] }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("refuses two fields that would be one key in the data", () => {
+    const twice = [field(), field({ label: "Also Title" })];
+    expect(setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: twice }).success).toBe(false);
+  });
+
+  it("refuses two fields claiming the same place in the dedupe key", () => {
+    const clash = [field({ keyRank: 1 }), field({ name: "author", label: "Author", keyRank: 1 })];
+    expect(setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: clash }).success).toBe(false);
+    const ordered = [field({ keyRank: 1 }), field({ name: "author", label: "Author", keyRank: 2 })];
+    expect(setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: ordered }).success).toBe(true);
+  });
+
+  it("pairs an enum with its vocabulary, and nothing else with one", () => {
+    const enumField = field({ name: "sector", label: "Sector", type: "enum" });
+    expect(setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: [enumField] }).success).toBe(
+      false,
+    );
+    expect(
+      setEntityTypeFieldsArgs.safeParse({
+        id: newId(),
+        fields: [{ ...enumField, values: ["hvac"] }],
+      }).success,
+    ).toBe(true);
+    expect(
+      setEntityTypeFieldsArgs.safeParse({ id: newId(), fields: [field({ values: ["x"] })] })
+        .success,
+    ).toBe(false);
+  });
+
+  it("keeps a slug spellable in a URL", () => {
+    const id = newId();
+    expect(updateEntityTypeArgs.safeParse({ id, slug: "trading-cards" }).success).toBe(true);
+    expect(updateEntityTypeArgs.safeParse({ id, slug: "Trading Cards" }).success).toBe(false);
+    expect(updateEntityTypeArgs.safeParse({ id, slug: "" }).success).toBe(false);
+  });
+
+  it("has nothing to say about `kind`, because renaming one is not offered", () => {
+    const parsed = updateEntityTypeArgs.safeParse({ id: newId(), kind: "something_else" });
+    expect(parsed.success && "kind" in parsed.data).toBe(false);
+  });
+});
+
+describe("deriving a kind and a slug from a label", () => {
+  it("snake_cases the one and dashes the other", () => {
+    expect(kindFromLabel("Trading Cards")).toBe("trading_cards");
+    expect(slugFromLabel("Trading Cards")).toBe("trading-cards");
+  });
+
+  it("always lands on something the check constraints accept", () => {
+    const shape = /^[a-z][a-z0-9_]{1,39}$/;
+    for (const label of ["X", "3D Prints", "Şarkı Listesi", "汉字", "  ", "a".repeat(80)]) {
+      expect(kindFromLabel(label)).toMatch(shape);
+      expect(slugFromLabel(label)).toMatch(/^[a-z0-9-]{1,48}$/);
+    }
+  });
+
+  it("steps aside rather than landing on a kind that carries behaviour", () => {
+    const taken = CATALOG.map((def) => def.kind);
+    expect(freeName(kindFromLabel("Link"), taken)).toBe("link_2");
+    expect(freeName(kindFromLabel("Trading Cards"), taken)).toBe("trading_cards");
+    expect(freeName("links", ["links", "links-2"], { separator: "-", max: 48 })).toBe("links-3");
   });
 });
 

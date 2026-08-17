@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { Icon, entityIcon } from "@/components/icon";
+import { Icon, iconNamed } from "@/components/icon";
 import { Button } from "@/components/ui/button";
+import { useEntityTypes } from "@/lib/entity-types";
 import type { EntityFields } from "@/lib/types";
 
 // What every entity card is made of. One shell so the strip on a message
@@ -40,6 +41,9 @@ export function EntityShell({
   media?: ReactNode;
   onOpen?: () => void;
 }) {
+  // Declared kinds carry their icon in Postgres, so it is looked up per render
+  // rather than baked into a map at module scope.
+  const icon = iconNamed(useEntityTypes().icon(kind));
   return (
     <div
       className={`flex gap-3 rounded-lg border bg-panel p-3 transition ${onOpen ? "cursor-pointer hover:bg-accent" : ""}`}
@@ -53,7 +57,7 @@ export function EntityShell({
       }
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <Icon name={entityIcon(kind)} className="size-4" />
+        <Icon name={icon} className="size-4" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{title}</p>

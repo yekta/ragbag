@@ -1,9 +1,10 @@
-import { entityPlural, faceForMime } from "@ragbag/shared";
+import { faceForMime } from "@ragbag/shared";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, type RefObject } from "react";
 import { EntityCard } from "@/components/entities";
 import { FACE_ICON, Icon } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
+import { useEntityTypes } from "@/lib/entity-types";
 import { attachmentFaceOf, entityKindOf, entityLink, messageLink, useFilter } from "@/lib/routes";
 import { dayLabel, formatBytes } from "@/lib/format";
 import type { Attachment, Drop, EntityRows, Message } from "@/lib/types";
@@ -30,7 +31,7 @@ export function ThingsView({
 }) {
   const filter = useFilter();
   const face = attachmentFaceOf(filter.view);
-  const kind = entityKindOf(filter.view);
+  const kind = entityKindOf(filter.view, useEntityTypes());
 
   return (
     <div className="relative flex flex-1 flex-col px-3 pt-(--timeline-inset-top) pb-12 md:px-4">
@@ -127,6 +128,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
 function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }) {
   const filter = useFilter();
   const navigate = useNavigate();
+  const types = useEntityTypes();
 
   // Mentions to deleted messages are already excluded by the query, so an
   // entity with none left simply is not here: a deleted message cannot leave
@@ -139,7 +141,7 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
     [entities, kind],
   );
 
-  if (rows.length === 0) return <Empty what={entityPlural(kind).toLowerCase()} />;
+  if (rows.length === 0) return <Empty what={types.plural(kind).toLowerCase()} />;
 
   return (
     <ul className="flex flex-col gap-1.5">

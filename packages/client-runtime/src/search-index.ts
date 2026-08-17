@@ -24,8 +24,17 @@ export type SearchDoc = {
   /** `${type}:${id}`, because an entity and a message can share neither. */
   id: string;
   type: DocType;
-  /** The message this doc belongs to, so results can group and collapse. */
-  messageId: string;
+  /**
+   * The message this doc belongs to, so message and attachment hits can collapse
+   * into one row.
+   *
+   * Absent on an entity doc, and that absence is the point: a thing is canonical
+   * across every message that mentions it, so it belongs to none of them. It
+   * used to be indexed once per mentioning message under the same doc id, which
+   * meant the last one written silently decided which message the thing "was
+   * in".
+   */
+  messageId?: string;
   /** The row's own id: the message, the attachment, or the entity. */
   targetId: string;
   title: string;
@@ -42,7 +51,8 @@ export type SearchDoc = {
 export type SearchHit = {
   id: string;
   type: DocType;
-  messageId: string;
+  /** Absent on an entity hit; see `SearchDoc.messageId`. */
+  messageId?: string;
   targetId: string;
   score: number;
   /** Query terms that matched, for highlighting. */
@@ -122,7 +132,8 @@ export class TimelineSearchIndex {
       .map((r) => ({
         id: String(r.id),
         type: r.type as DocType,
-        messageId: String(r.messageId),
+        // Stored, so absent rather than the string "undefined" on entity docs.
+        messageId: typeof r.messageId === "string" ? r.messageId : undefined,
         targetId: String(r.targetId),
         score: r.score,
         terms: r.terms,

@@ -1,5 +1,4 @@
-import { z } from "zod";
-import type { EntityCandidate, EntityDefinition } from "./types.js";
+import type { EntityBehaviour, EntityCandidate } from "./types.js";
 
 // Parcel tracking numbers, the clearest case for hybrid extraction (plan
 // §5.4): the strong carrier formats are unmistakable and free to find, while
@@ -51,21 +50,7 @@ export function trackingUrl(carrier: string, number: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(`${carrier} ${number} tracking`.trim())}`;
 }
 
-export const trackingEntity: EntityDefinition = {
-  kind: "tracking",
-  label: "Tracking",
-  plural: "Tracking numbers",
-  slug: "tracking",
-  icon: "package",
-  railRow: true,
-  promptHint:
-    "A parcel tracking number, with its carrier if identifiable. Never invent one from a " +
-    "random alphanumeric: an order number or a reference code is not a tracking number.",
-  data: z.object({
-    number: z.string(),
-    carrier: z.string().optional(),
-    status: z.string().optional(),
-  }),
+export const trackingBehaviour: EntityBehaviour = {
   match(text) {
     const found: EntityCandidate[] = [];
     const seen = new Set<string>();

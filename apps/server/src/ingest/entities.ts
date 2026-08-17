@@ -1,5 +1,5 @@
-import { log, newId, normalizeEntity, parseEntityData } from "@ragbag/shared";
-import type { MentionSource } from "@ragbag/shared";
+import { log, newId } from "@ragbag/shared";
+import type { EntityTypes, MentionSource } from "@ragbag/shared";
 import { and, eq, inArray, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
@@ -23,9 +23,11 @@ export type ResolvedEntity = {
   kind: string;
   /** The display form, as found. */
   value: string;
-  /** Per-kind structure; already validated against the registry. */
+  /** Per-kind structure; already validated against the type's fields. */
   data: Record<string, unknown>;
   normalizedValue: string;
+  /** The `entity_types.version` that validated it; 0 for the built-in kinds. */
+  typeVersion: number;
   generatedTitle?: string | null;
   generatedSummary?: string | null;
   /** Topic tags the model put on the thing itself. */
@@ -39,23 +41,31 @@ export type ResolvedEntity = {
 };
 
 /**
- * Validate one candidate against its registry entry. Anything that fails is
- * dropped rather than written: a card that cannot render its own data is
- * worse than a missing entity, and a normalizer that is unsure would rather
+ * Validate one candidate against the type set this job pinned. Anything that
+ * fails is dropped rather than written: a card that cannot render its own data
+ * is worse than a missing entity, and a normalizer that is unsure would rather
  * miss a merge than make a wrong one.
+ *
+ * A kind the set does not carry fails here, which is what closes the set: with
+ * no `other` to fall into, a kind nobody declared cannot be written at all.
  */
-export function resolveEntity(input: {
-  kind: string;
-  value: string;
-  data: unknown;
-}): { kind: string; value: string; data: Record<string, unknown>; normalizedValue: string } | null {
+export function resolveEntity(
+  types: EntityTypes,
+  input: { kind: string; value: string; data: unknown },
+): Omit<ResolvedEntity, "mention"> | null {
   const value = input.value.trim();
   if (!value) return null;
-  const data = parseEntityData(input.kind, input.data);
+  const data = types.parseData(input.kind, input.data);
   if (!data) return null;
-  const normalizedValue = normalizeEntity(input.kind, value, data);
+  const normalizedValue = types.normalize(input.kind, value, data);
   if (!normalizedValue) return null;
-  return { kind: input.kind, value, data, normalizedValue };
+  return {
+    kind: input.kind,
+    value,
+    data,
+    normalizedValue,
+    typeVersion: types.get(input.kind)?.version ?? 0,
+  };
 }
 
 /**
@@ -103,9 +113,6 @@ export async function writeEntities(input: {
     );
 
   for (const found of input.found) {
-    // `data = entities.data || excluded.data` merges rather than replaces: a
-    // later run that learned less about a link (no page fetch, say) must not
-    // throw away the title an earlier one found.
     const [row] = await db
       .insert(entities)
       .values({
@@ -115,13 +122,26 @@ export async function writeEntities(input: {
         value: found.value,
         normalizedValue: found.normalizedValue,
         data: found.data,
+        typeVersion: found.typeVersion,
         generatedTitle: found.generatedTitle ?? null,
         generatedSummary: found.generatedSummary ?? null,
       })
       .onConflictDoUpdate({
         target: [entities.userId, entities.kind, entities.normalizedValue],
         set: {
-          data: dsql`${entities.data} || excluded.data`,
+          // Under the same type version the two are merged rather than
+          // replaced: a later run that learned less about a link (no page
+          // fetch, say) must not throw away the title an earlier one found.
+          //
+          // A newer version replaces instead, because the shape itself moved.
+          // Merging there would leave a renamed or deleted field's old spelling
+          // in the jsonb forever, and Details would show both.
+          data: dsql`case
+            when ${entities.typeVersion} is distinct from excluded.type_version
+            then excluded.data
+            else ${entities.data} || excluded.data
+          end`,
+          typeVersion: dsql`excluded.type_version`,
           value: dsql`excluded.value`,
           generatedTitle: dsql`coalesce(excluded.generated_title, ${entities.generatedTitle})`,
           generatedSummary: dsql`coalesce(excluded.generated_summary, ${entities.generatedSummary})`,

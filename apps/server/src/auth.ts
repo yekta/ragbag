@@ -1,8 +1,10 @@
+import { log } from "@ragbag/shared";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous } from "better-auth/plugins";
 import { db } from "./db/client.js";
 import { account, session, user, verification } from "./db/schema.js";
+import { seedEntityTypes } from "./entity-types.js";
 import { env } from "./env.js";
 
 // Google OAuth is the only sign-in method (plan §9). The anonymous plugin is
@@ -19,6 +21,24 @@ export const auth = betterAuth({
     schema: { user, session, account, verification },
   }),
   trustedOrigins: [env.WEB_ORIGIN],
+  // A new account starts with the catalog's eight kinds of thing, which is what
+  // makes an archive useful from its first dump (plan §6). Seeding is not a
+  // precondition for signing up: if this fails, the account is still fine and
+  // the first ingestion job seeds it instead (ingest/synthesis.ts).
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (created) => {
+          await seedEntityTypes(created.id).catch((err: unknown) => {
+            log.warn("could not seed entity types at signup", {
+              userId: created.id,
+              err: String(err),
+            });
+          });
+        },
+      },
+    },
+  },
   // Where a failed auth round trip lands the browser. Without this, better-auth
   // falls back to `Location: /?error=...`, a *relative* redirect, resolved
   // against baseURL, which is the API host. api.ragbag.app serves no web app,

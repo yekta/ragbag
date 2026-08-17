@@ -18,6 +18,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-client";
 import { useArchiveHintWriter, useArchiveState, useStableRows } from "@/lib/archive-state";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
+import { EntityTypesProvider, useEntityTypes } from "@/lib/entity-types";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
 import { registerMediaWorker, requestPersistence } from "@/lib/media";
 import { isChatView, useFilter } from "@/lib/routes";
@@ -188,6 +189,9 @@ const preloadArchive = (zero: Zero<Schema>) => {
   }
   zero.preload(queries.tags(), { ttl: "forever" });
   zero.preload(queries.entities(), { ttl: "forever" });
+  // Tiny, and everything with a kind on it needs it to draw itself: the rail
+  // rows, the cards, the Details labels (lib/entity-types.tsx).
+  zero.preload(queries.entityTypes(), { ttl: "forever" });
   const drop = zero.preload(queries.drop(WHOLE_ARCHIVE), { ttl: "forever" });
   void drop.complete.then(() => {
     zero.preload(queries.contents(), { ttl: "forever" });
@@ -233,12 +237,14 @@ function Workspace({
     <ZeroProvider {...opts} init={preloadArchive}>
       <BlobQueueProvider value={queue}>
         <QueueWiring sessionOk={status === "ok"} />
-        <Shell
-          email={identity.email}
-          meta={meta}
-          status={status}
-          onSignOut={() => void signOut()}
-        />
+        <EntityTypesProvider>
+          <Shell
+            email={identity.email}
+            meta={meta}
+            status={status}
+            onSignOut={() => void signOut()}
+          />
+        </EntityTypesProvider>
       </BlobQueueProvider>
     </ZeroProvider>
   );
@@ -478,7 +484,10 @@ function ShellBody({
   // Has the app ever been on screen this session? Only then is a cover a
   // transition rather than the boot.
   const revealed = useLatch(state !== "opening");
-  const searchIndex = useTimelineSearch(messages, contents);
+  // Things are indexed from the canonical rows rather than from the messages
+  // that mention them, and their fields are labelled by their type, so the index
+  // needs both (lib/search.ts).
+  const searchIndex = useTimelineSearch(messages, contents, entities, useEntityTypes());
   const { setSearchOpen } = useViewStore();
   const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
   // Chat-shaped rows filter the chat; thing-shaped rows replace it with a grid
@@ -616,7 +625,7 @@ function ShellBody({
         <Composer canAttach={meta?.blobs ?? true} />
       </SidebarInset>
 
-      <SearchOverlay index={searchIndex} messages={messages} />
+      <SearchOverlay index={searchIndex} messages={messages} entities={entities} />
       <Toaster position="top-center" />
       <Outlet />
     </>

@@ -8,9 +8,10 @@ The unit of capture is a **message**: free text plus up to ten ordered attachmen
 one action, exactly like a chat. Ingestion runs in two phases: each attachment is
 understood on its own (vision on images, the text layer or the model on PDFs, transcription
 on audio), then a synthesis pass reads the whole message and pulls out **entities**: links,
-addresses, tracking numbers, invoices, emails, phones, as canonical, deduplicated things
-with their own titles, summaries and tags. Search is local only, and it is complete: the
-whole archive lives on every device.
+addresses, tracking numbers, invoices, emails, phones, IBANs, books, plus whatever kinds you
+add yourself, as canonical, deduplicated things with their own titles, summaries and tags.
+Search is local only, and it is complete: the whole archive lives on every device, and it
+answers in two sections, the messages that matched and the things that matched.
 
 **Stack:** TypeScript pnpm monorepo · React web (also the Electron renderer, later) · Expo
 mobile (later) · Node/Hono API · Postgres · [Zero](https://zero.rocicorp.dev) for local-first
@@ -24,19 +25,74 @@ apps/
   server/         Hono API: auth, Zero /query + /mutate, blob presigning, media, ingestion
 packages/
   contracts/      Zero schema, shared synced queries + custom mutators, zod API payloads
-  shared/         Pure utilities (ids, urls, mime, time, logging) and the entity registry
+  shared/         Pure utilities (ids, urls, mime, time, logging) and the entity types
   client-runtime/ Per-platform Zero glue: store setup, blob upload queue + cache,
                   local search index
 ```
 
 Internal packages export raw `.ts`: no build step for packages.
 
-**The entity registry** (`packages/shared/src/entities/`) is the one place a kind of thing is
-defined: its matcher, its normalizer (the dedupe key), the zod schema for its structured
-fields, its prompt hint, its rail row and its URL. Adding a kind is one file and zero
-migrations, because `entities.kind` is an open text column and the per-kind fields live in
-`data jsonb`. A kind this build has never heard of renders through a generic card rather
-than breaking.
+## Kinds of thing
+
+**Every kind of thing is a row you own**, in `entity_types` plus `entity_type_fields`. A new
+account is seeded with the eight in the catalog (`packages/shared/src/entities/catalog.ts`):
+`link`, `tracking`, `address`, `phone`, `email`, `invoice`, `iban`, `book`. From then on they
+are yours: rename them, re-word what the model is told to look for, add fields, add kinds of
+your own, disable the ones you do not want read for, delete the ones you do not want at all.
+That is `/settings/types` in the app, and it is ordinary mutations over rows every client
+already syncs: no migration, no deploy, no restart. The next synthesis job reads the table, so
+the model is asked for a new kind immediately, and the web app syncs the same rows for its
+card, its rail row, its URL and its Details labels.
+
+A type is a **definition** and, for a few kinds, some **behaviour**:
+
+- The definition is data, and it is the whole story for most kinds: a hint telling the model
+  what to look for, the fields it fills in, which of them make two of them the same thing, and
+  the labels the UI prints. A type with only a definition works end to end.
+- The behaviour is code that a row cannot express, attached by kind name
+  (`packages/shared/src/entities/behaviours.ts`): the URL matcher and the page fetcher behind
+  `link`, the carrier patterns behind `tracking`, the rule that says two invoices are the same
+  bill, the IBAN that is one account however it was pasted. Those kinds keep their behaviour
+  however you rename them, and their field lists are read-only in settings, because the link
+  fetcher writes `site_name` and friends itself.
+
+Field names are snake_case, because one spelling has to serve the `data jsonb` key, the wire
+and the prompt; `label` is what a person sees ("Postal Code"), and it defaults to the
+humanized name. `key_rank` names the fields that make the thing unique, in order: a thing with
+an empty _first_ key field is dropped rather than merged on half a key, and a missing later
+one is fine (a book with no author still keys on its title). `type` is one of `text`,
+`longtext`, `number`, `integer`, `bool`, `date`, `url`, `enum`, and the check constraints on
+these two tables are the whole meta-schema, which is why nothing has to parse or re-validate a
+config file.
+
+**The set is closed for any given job.** The synthesis job reads one user's enabled types once,
+and the model's `kind` is an enum of exactly those kinds. There is no `other` bucket: a model
+allowed to invent kinds invents one spelling per message ("marka adı", "slogan"), and those
+merge with nothing, browse nowhere and answer no search. A kind that is not in the set (one you
+deleted, or one a newer build declared) is still data, and renders through a generic card.
+
+Adding a type only affects messages ingested after it. To re-read one user's archive with it,
+queue synthesis again, which is one model call per message and therefore an operator action
+rather than a button:
+
+```sql
+insert into ingest_jobs (id, message_id, attachment_id, stage, user_id, status, attempts,
+                         run_after, created_at, updated_at)
+select gen_random_uuid(), m.id, null, 'synthesis', m.user_id, 'queued', 0, now(), now(), now()
+  from messages m where m.deleted_at is null and m.user_id = $1
+on conflict (message_id, attachment_id, stage) do update
+  set status = 'queued', attempts = 0, run_after = now(), last_error = null, updated_at = now();
+select pg_notify('ingest_wake', '');
+```
+
+Editing a type bumps `entity_types.version` (a trigger, so it holds however the row was
+written), and a re-ingest under a newer version replaces an entity's `data` instead of merging
+into it: a renamed or deleted field does not leave its old spelling behind.
+
+Seeding happens once, in better-auth's user-create hook, and is recorded as
+`user.types_seeded_at` rather than inferred from "has no types", so a kind you deleted stays
+deleted. A job whose user was never seeded (a hook that failed, an account older than the
+feature) seeds before it reads the set.
 
 ## Development
 

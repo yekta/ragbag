@@ -1,8 +1,15 @@
-import { TimelineSearchIndex } from "@ragbag/client-runtime";
-import type { SearchDoc, SearchHit } from "@ragbag/client-runtime";
-import { entityLabel, faceForMime } from "@ragbag/shared";
+import { groupHits, TimelineSearchIndex } from "@ragbag/client-runtime";
+import type { ResultGroup, SearchDoc, SearchHit } from "@ragbag/client-runtime";
+import type { EntityTypes } from "@ragbag/shared";
 import { useEffect, useMemo, useRef } from "react";
-import type { AttachmentContent, Drop, Message } from "./types.js";
+import type {
+  Attachment,
+  AttachmentContent,
+  Drop,
+  EntityRow,
+  EntityRows,
+  Message,
+} from "./types.js";
 
 // Feeds the local index (client-runtime) from Zero's live queries. Three doc
 // types share one index (plan §7), built in two passes:
@@ -14,6 +21,10 @@ import type { AttachmentContent, Drop, Message } from "./types.js";
 //
 // `TimelineSearchIndex.sync()` is diff-based, so the second pass is the same
 // call with richer docs and only the changed ones are touched.
+//
+// Results come back in two sections, Messages and Things (client-runtime's
+// `groupHits`): a message and its files are one row, and a thing is always its
+// own row rather than folded into whichever message happened to match too.
 
 function messageDoc(message: Message): SearchDoc {
   return {
@@ -56,27 +67,36 @@ function attachmentDocs(message: Message, bodies: ReadonlyMap<string, string>): 
   }));
 }
 
-function entityDocs(message: Message): SearchDoc[] {
-  const seen = new Set<string>();
+/**
+ * One doc per thing, from the canonical rows rather than from the messages that
+ * mention it: a thing is one row in the Things section no matter how many
+ * messages carry it, and it has no `messageId` at all.
+ *
+ * The type's own vocabulary rides along, so "brand" finds every brand and a
+ * field's label finds what is under it.
+ */
+function entityDocs(entities: EntityRows, types: EntityTypes): SearchDoc[] {
   const docs: SearchDoc[] = [];
-  for (const mention of message.mentions) {
-    const entity = mention.entity;
-    if (!entity || seen.has(entity.id)) continue;
-    seen.add(entity.id);
+  for (const entity of entities) {
+    // An entity with no live mention is not in any view, so it is not a result.
+    if (entity.mentions.length === 0) continue;
+    const data = entity.data as Record<string, unknown>;
+    const fields = types.fieldEntries(entity.kind, data);
     docs.push({
       id: `entity:${entity.id}`,
       type: "entity",
-      messageId: message.id,
       targetId: entity.id,
       title: entity.generatedTitle ?? entity.value,
       text: entity.value,
       summary: entity.generatedSummary ?? "",
-      tags: entityLabel(entity.kind),
-      // The structured fields, flattened: a vendor, a locality, a carrier are
-      // all things people search for by name.
-      entities: Object.values(entity.data ?? {})
-        .filter((v) => typeof v === "string" || typeof v === "number")
-        .join(" "),
+      tags: [
+        types.label(entity.kind),
+        types.plural(entity.kind),
+        ...entity.tags.map((t) => t.tag?.name).filter(Boolean),
+      ].join(" "),
+      // The fields, with their labels: a vendor, a locality, a carrier, a
+      // tagline are all things people search for by name.
+      entities: fields.map((field) => `${field.label} ${field.value}`).join(" "),
       body: "",
     });
   }
@@ -86,91 +106,83 @@ function entityDocs(message: Message): SearchDoc[] {
 export function buildSearchDocs(
   messages: Drop,
   contents: readonly AttachmentContent[],
+  entities: EntityRows,
+  types: EntityTypes,
 ): SearchDoc[] {
   const bodies = new Map(contents.map((c) => [c.attachmentId, c.contentMd]));
   const docs: SearchDoc[] = [];
   for (const message of messages) {
     docs.push(messageDoc(message));
     docs.push(...attachmentDocs(message, bodies));
-    docs.push(...entityDocs(message));
   }
+  docs.push(...entityDocs(entities, types));
   return docs;
 }
 
 export function useTimelineSearch(
   messages: Drop,
   contents: readonly AttachmentContent[],
+  entities: EntityRows,
+  types: EntityTypes,
 ): TimelineSearchIndex {
   const indexRef = useRef<TimelineSearchIndex | null>(null);
   indexRef.current ??= new TimelineSearchIndex();
 
   useEffect(() => {
-    indexRef.current!.sync(buildSearchDocs(messages, contents));
-  }, [messages, contents]);
+    indexRef.current!.sync(buildSearchDocs(messages, contents, entities, types));
+  }, [messages, contents, entities, types]);
 
   return indexRef.current;
 }
 
-/** The groups results are shown under, in the order they are shown. */
-export const RESULT_GROUPS = ["messages", "images", "files", "things"] as const;
-export type ResultGroup = (typeof RESULT_GROUPS)[number];
+export { RESULT_GROUPS } from "@ragbag/client-runtime";
+export type { ResultGroup } from "@ragbag/client-runtime";
 
+/** One row of results: a message (with the file that matched, if one did), or a thing. */
 export type Result = {
   group: ResultGroup;
-  message: Message;
-  /** Which hit put it here: the message itself, or something inside it. */
+  /** Which hit put it here, for its score and the terms it matched. */
   hit: SearchHit;
-  /** Set for an attachment hit: which file matched. */
-  attachmentId?: string;
-  /** Set for an entity hit: which thing matched. */
-  entityId?: string;
+  /** A Messages row: the message, and the file inside it that matched. */
+  message?: Message;
+  attachment?: Attachment;
+  /** A Things row: the thing itself. */
+  entity?: EntityRow;
 };
 
 /**
- * Hits joined back to their live messages, grouped, and collapsed.
+ * Hits joined back to their live rows, grouped and collapsed.
  *
- * Collapsing is the point: an attachment or entity hit whose message also hit
- * folds into the message row rather than appearing twice. Without it, one
- * screenshot of a shipping email answers a query three times over.
+ * The grouping itself is `groupHits` in client-runtime (pure, and tested there);
+ * this is the part that needs Zero: which messages and things still exist, and
+ * the rows to render them from.
  */
 export function useSearchResults(
   index: TimelineSearchIndex,
   messages: Drop,
+  entities: EntityRows,
   query: string,
 ): Result[] {
   return useMemo(() => {
     const hits = index.search(query);
     if (hits.length === 0) return [];
-    const byId = new Map(messages.map((m) => [m.id, m]));
-    const matchedMessages = new Set(
-      hits.filter((h) => h.type === "message").map((h) => h.messageId),
-    );
+    const byMessage = new Map(messages.map((m) => [m.id, m]));
+    const byEntity = new Map(entities.map((e) => [e.id, e]));
 
-    const results: Result[] = [];
-    const seen = new Set<string>();
-    for (const hit of hits) {
-      const message = byId.get(hit.messageId);
-      if (!message) continue; // deleted since it was indexed
-      // Fold into the message row when that row is already a result.
-      if (hit.type !== "message" && matchedMessages.has(hit.messageId)) continue;
-      const key = `${hit.type}:${hit.targetId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      if (hit.type === "message") {
-        results.push({ group: "messages", message, hit });
-      } else if (hit.type === "entity") {
-        results.push({ group: "things", message, hit, entityId: hit.targetId });
-      } else {
-        const attachment = message.attachments.find((a) => a.id === hit.targetId);
-        results.push({
-          group: faceForMime(attachment?.mime ?? "") === "image" ? "images" : "files",
-          message,
-          hit,
-          attachmentId: hit.targetId,
-        });
-      }
-    }
-    return results;
-  }, [index, messages, query]);
+    return groupHits(hits, {
+      hasMessage: (id) => byMessage.has(id),
+      hasEntity: (id) => byEntity.has(id),
+    }).map((row) => {
+      const message = row.messageId ? byMessage.get(row.messageId) : undefined;
+      return {
+        group: row.group,
+        hit: row.hit,
+        message,
+        attachment: row.attachmentId
+          ? message?.attachments.find((a) => a.id === row.attachmentId)
+          : undefined,
+        entity: row.entityId ? byEntity.get(row.entityId) : undefined,
+      };
+    });
+  }, [index, messages, entities, query]);
 }

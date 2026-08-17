@@ -1,8 +1,8 @@
 import type { TimelineSearchIndex } from "@ragbag/client-runtime";
-import { entityLabel, faceForMime } from "@ragbag/shared";
+import { faceForMime } from "@ragbag/shared";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FACE_ICON, Icon, entityIcon } from "@/components/icon";
+import { FACE_ICON, Icon, iconNamed } from "@/components/icon";
 import {
   Command,
   CommandDialog,
@@ -11,54 +11,70 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel } from "@/lib/format";
 import { entityLink, messageLink, useFilter } from "@/lib/routes";
 import { RESULT_GROUPS, useSearchResults, type Result, type ResultGroup } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
-import type { Drop } from "@/lib/types";
+import type { Drop, EntityRows } from "@/lib/types";
 
 // The single search box: a ⌘K overlay over the local index. Instant,
 // search-as-you-type, fully offline.
 //
-// Results group under Messages / Images / Files / Things, and collapse: an
-// attachment or entity hit whose message also hit folds into the message row
-// rather than appearing twice (lib/search.ts).
+// Two sections, and the split is the point (lib/search.ts, and `groupHits` in
+// client-runtime):
+//
+//   Messages  which dump was this in. A message and the files inside it are one
+//             row, naming the file when the file is why it is here.
+//   Things    what is this thing. One row per thing, never folded into a message,
+//             opening the thing's own page.
 //
 // cmdk owns keyboard navigation, selection and focus; `shouldFilter={false}`
 // because the ranking is ours (minisearch), not cmdk's substring match.
 
 const GROUP_LABEL: Record<ResultGroup, string> = {
   messages: "Messages",
-  images: "Images",
-  files: "Files",
   things: "Things",
 };
 
 /** One line describing what matched, and what it belongs to. */
-function describe(result: Result): {
+function useDescribe(result: Result): {
   icon: React.ComponentProps<typeof Icon>["name"];
   title: string;
   context: string;
+  when: number | null;
 } {
-  const { message } = result;
+  const types = useEntityTypes();
+
+  if (result.entity) {
+    const { entity } = result;
+    const mentions = entity.mentions.length;
+    return {
+      icon: iconNamed(types.icon(entity.kind)),
+      title: entity.generatedTitle ?? entity.value,
+      context: [types.label(entity.kind), mentions > 1 ? `seen in ${mentions} messages` : null]
+        .filter(Boolean)
+        .join(" · "),
+      when: entity.firstSeenAt,
+    };
+  }
+
+  const message = result.message;
+  if (!message) return { icon: "inbox", title: "", context: "", when: null };
   const messageTitle = message.generatedTitle ?? message.text?.split("\n")[0] ?? "(no text)";
 
-  if (result.attachmentId) {
-    const attachment = message.attachments.find((a) => a.id === result.attachmentId);
+  // A file matched inside it: the message is still the row, but the file is what
+  // to say, because "matched in scan.pdf" is the useful half.
+  if (result.attachment) {
+    const { attachment } = result;
     return {
-      icon: FACE_ICON[faceForMime(attachment?.mime ?? "")],
-      title: attachment?.generatedTitle ?? attachment?.filename ?? "file",
-      context: messageTitle,
+      icon: FACE_ICON[faceForMime(attachment.mime)],
+      title: messageTitle,
+      context: attachment.generatedTitle ?? attachment.filename,
+      when: message.createdAt,
     };
   }
-  if (result.entityId) {
-    const entity = message.mentions.find((m) => m.entityId === result.entityId)?.entity;
-    return {
-      icon: entityIcon(entity?.kind ?? ""),
-      title: entity?.generatedTitle ?? entity?.value ?? "thing",
-      context: entity ? entityLabel(entity.kind) : messageTitle,
-    };
-  }
+
   return {
     icon: "inbox",
     title: messageTitle,
@@ -68,11 +84,12 @@ function describe(result: Result): {
         .map((m) => m.entity?.value)
         .filter(Boolean)
         .join(" · "),
+    when: message.createdAt,
   };
 }
 
 function ResultRow({ result, onPick }: { result: Result; onPick: () => void }) {
-  const { icon, title, context } = describe(result);
+  const { icon, title, context, when } = useDescribe(result);
   return (
     <CommandItem value={result.hit.id} onSelect={onPick} className="gap-3 rounded-lg px-3 py-2.5">
       <span className="flex size-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -84,19 +101,27 @@ function ResultRow({ result, onPick }: { result: Result; onPick: () => void }) {
         <span className="block truncate text-sm font-medium">{title}</span>
         {context && <span className="block truncate text-xs text-muted-foreground">{context}</span>}
       </span>
-      <span className="shrink-0 text-[11px] text-muted-foreground">
-        {dayLabel(result.message.createdAt)}
-      </span>
+      {when !== null && (
+        <span className="shrink-0 text-[11px] text-muted-foreground">{dayLabel(when)}</span>
+      )}
     </CommandItem>
   );
 }
 
-export function SearchOverlay({ index, messages }: { index: TimelineSearchIndex; messages: Drop }) {
+export function SearchOverlay({
+  index,
+  messages,
+  entities,
+}: {
+  index: TimelineSearchIndex;
+  messages: Drop;
+  entities: EntityRows;
+}) {
   const { searchOpen, setSearchOpen } = useViewStore();
   const navigate = useNavigate();
   const filter = useFilter();
   const [query, setQuery] = useState("");
-  const results = useSearchResults(index, messages, query);
+  const results = useSearchResults(index, messages, entities, query);
 
   const grouped = useMemo(
     () =>
@@ -125,14 +150,15 @@ export function SearchOverlay({ index, messages }: { index: TimelineSearchIndex;
 
   const pick = (result: Result) => {
     setSearchOpen(false);
-    // A thing opens its own page; everything else opens the message it is in.
-    // Either way the overlay opens over the view the search was called from,
-    // and closing it lands back there.
-    void navigate(
-      result.entityId
-        ? entityLink(result.entityId, filter)
-        : messageLink(result.message.id, filter),
-    );
+    // A thing opens its own page; a message opens the message. Either way the
+    // overlay opens over the view the search was called from, and closing it
+    // lands back there.
+    const to = result.entity
+      ? entityLink(result.entity.id, filter)
+      : result.message
+        ? messageLink(result.message.id, filter)
+        : null;
+    if (to) void navigate(to);
   };
 
   const blank = query.trim() === "";

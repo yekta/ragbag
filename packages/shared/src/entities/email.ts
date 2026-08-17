@@ -1,22 +1,9 @@
-import { z } from "zod";
-import type { EntityCandidate, EntityDefinition } from "./types.js";
+import type { EntityBehaviour, EntityCandidate } from "./types.js";
 
 const EMAIL_RE =
   /\b[A-Za-z0-9._%+'-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z]{2,})+/g;
 
-export const emailEntity: EntityDefinition = {
-  kind: "email",
-  label: "Email",
-  plural: "Email addresses",
-  slug: "emails",
-  icon: "mail",
-  railRow: true,
-  promptHint: "An email address, with whose it is when the text says.",
-  data: z.object({
-    address: z.string(),
-    name: z.string().optional(),
-    role: z.string().optional(),
-  }),
+export const emailBehaviour: EntityBehaviour = {
   match(text) {
     const found: EntityCandidate[] = [];
     for (const m of text.matchAll(EMAIL_RE)) {

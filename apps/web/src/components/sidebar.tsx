@@ -1,12 +1,12 @@
 import type { BlobQueueState } from "@ragbag/client-runtime";
 import { mutators } from "@ragbag/contracts";
 import type { MetaResponse } from "@ragbag/contracts";
-import { RAIL_ENTITY_KINDS, faceForMime } from "@ragbag/shared";
+import { faceForMime } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Icon, entityIcon } from "@/components/icon";
+import { Icon, iconNamed } from "@/components/icon";
 import { StoragePanel } from "@/components/storage-panel";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
+import { useEntityTypes } from "@/lib/entity-types";
 import { EVERYTHING, filterLink, useFilter, type Filter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
 import type { SyncStatus } from "@/lib/sync-status";
@@ -150,6 +151,7 @@ export function Sidebar({
 }) {
   const { setSearchOpen } = useViewStore();
   const filter = useFilter();
+  const types = useEntityTypes();
   // On a phone the drawer exists to pick one thing and get back to the
   // timeline, so every pick closes it. (No-op on desktop.)
   const { setOpenMobile } = useSidebar();
@@ -186,17 +188,17 @@ export function Sidebar({
     return counts;
   }, [entities]);
 
-  // Every row hides at count zero, which is also the growth path: promoting a
-  // new entity kind out of `other` makes its row appear on its own, with no
-  // code change here at all.
+  // Every row hides at count zero, which is also the growth path: declaring a
+  // kind in Postgres makes its row appear here the moment its first thing
+  // exists, with no code change at all.
   const thingRows = [
     { view: "images", label: "Images", icon: "image" as const, count: attachmentCounts.images },
     { view: "files", label: "Files", icon: "file" as const, count: attachmentCounts.files },
-    ...RAIL_ENTITY_KINDS.map((def) => ({
-      view: def.slug,
-      label: def.plural,
-      icon: entityIcon(def.kind),
-      count: entityCounts.get(def.kind) ?? 0,
+    ...types.rail.map((type) => ({
+      view: type.slug,
+      label: type.plural,
+      icon: iconNamed(type.icon),
+      count: entityCounts.get(type.kind) ?? 0,
     })),
   ].filter((row) => row.count > 0);
 
@@ -378,6 +380,16 @@ export function Sidebar({
             <SyncDot sync={sync} />
           </div>
           <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            title="Kinds of thing"
+            nativeButton={false}
+            render={<Link to="/settings/types" onClick={closeDrawer} />}
+          >
+            <Icon name="settings" className="size-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

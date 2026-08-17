@@ -11,6 +11,7 @@ import "./index.css";
 import { App } from "@/app";
 import { EntityDetail } from "@/components/entity-detail";
 import { MessageDetail } from "@/components/message-detail";
+import { TypeSettings } from "@/components/settings/type-settings";
 import { isViewSlug } from "@/lib/routes";
 
 // The screens, and how they nest:
@@ -19,6 +20,7 @@ import { isViewSlug } from "@/lib/routes";
 //   /{-$view}/tags/$tagId           /tags/<id>  ·  /links/tags/<id>
 //   …/m/$id                         the message overlay, over either of those
 //   …/e/$id                         the entity overlay, same
+//   /settings/types                 the kinds of thing this archive keeps
 //
 // The rail's filters are the path (lib/routes.ts), and a detail view is an
 // overlay drawn above whichever filter is behind it, so the routes nest the way
@@ -100,6 +102,15 @@ const tagEntityRoute = createRoute({
   component: EntityDetail,
 });
 
+// Settings is not a view of the archive, so it sits *beside* `viewRoute` rather
+// than inside it: a static segment outranks the optional param, which is what
+// keeps `/settings` from being read as a filter slug and bounced home.
+const typeSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "settings/types",
+  component: TypeSettings,
+});
+
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     viewRoute.addChildren([
@@ -107,6 +118,7 @@ const router = createRouter({
       entityRoute,
       tagRoute.addChildren([tagMessageRoute, tagEntityRoute]),
     ]),
+    typeSettingsRoute,
   ]),
   defaultNotFoundComponent: () => null,
 });
