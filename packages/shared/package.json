@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ulid": "catalog:"
+    "uuid": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:",

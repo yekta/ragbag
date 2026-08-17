@@ -1,9 +1,11 @@
-// M4 acceptance check: the ingestion pipeline end to end against the live dev
-// stack: dump items through Zero like a client would, then watch the worker
-// classify → extract → (enrich) → index, with results replicating back.
+// Acceptance check for the ingestion pipeline end to end against the live dev
+// stack: drop messages through Zero like a client would, then watch the worker
+// run phase A (per attachment) and phase B (the whole message), with results
+// replicating back.
 //
-// Runs WITHOUT an OpenAI key: extraction and chunk indexing are asserted;
-// AI enrichment is asserted only when the server has a key configured.
+// Runs WITHOUT an OpenAI key: local extraction, the deterministic entity
+// pre-pass, status aggregation and the job queue are all asserted either way.
+// The model-dependent parts are asserted only when the server has a key.
 //
 // Run with the dev stack up (postgres, server :3001, zero-cache :4848):
 //   pnpm --filter server exec tsx scripts/ingest-proof.mts
@@ -17,6 +19,7 @@ import postgres from "postgres";
 const SERVER = "http://localhost:3001";
 const CACHE = "http://localhost:4848";
 const DB = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/ragbag";
+const WHOLE_ARCHIVE = { limit: null };
 
 function fail(msg: string): never {
   console.error(`FAIL ${msg}`);
@@ -91,8 +94,7 @@ function chunk(type: string, data: Buffer): Buffer {
 /**
  * A real greyscale PNG (encoded here so the repo carries no binary fixture):
  * big black block letters on white, which the vision model must both describe
- * and transcribe. Deliberately high-contrast and generously padded so the OCR
- * assertion tests our pipeline, not the model's eyesight.
+ * and transcribe, and which sharp must be able to transcode and thumbnail.
  */
 function buildTestPng(word: string, scale = 14): Uint8Array {
   const glyphW = 5;
@@ -151,7 +153,10 @@ const cookie = signIn.headers
   .join("; ");
 console.log(`OK   anonymous session for user ${user.id}`);
 
-const serverMeta = (await (await fetch(`${SERVER}/api/meta`)).json()) as { blobs: boolean };
+const serverMeta = (await (await fetch(`${SERVER}/api/meta`)).json()) as {
+  blobs: boolean;
+  ai: boolean;
+};
 const zero = new Zero({
   schema,
   mutators,
@@ -163,7 +168,9 @@ const zero = new Zero({
 });
 const sql = postgres(DB, { onnotice: () => {} });
 
-async function uploadBlob(bytes: Uint8Array, mime: string, name: string): Promise<string> {
+type Attach = { id: string; blobId: string; filename: string; mime: string; size: number };
+
+async function uploadBlob(bytes: Uint8Array, mime: string, name: string): Promise<Attach> {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const presign = await fetch(`${SERVER}/api/blobs/presign-upload`, {
     method: "POST",
@@ -183,111 +190,123 @@ async function uploadBlob(bytes: Uint8Array, mime: string, name: string): Promis
     });
     if (!put.ok) fail(`upload ${name}: ${put.status}`);
   }
-  return blobId;
+  return { id: newId(), blobId, filename: name, mime, size: bytes.length };
 }
 
-async function dump(args: Parameters<typeof mutators.item.create>[0]): Promise<string> {
-  const result = await zero.mutate(mutators.item.create(args)).server;
-  if (result.type === "error") fail(`server rejected ${args.kind}: ${JSON.stringify(result)}`);
-  return args.id;
+async function drop(text: string | undefined, attachments: Attach[] = []): Promise<string> {
+  const id = newId();
+  const result = await zero.mutate(mutators.message.create({ id, text, attachments })).server;
+  if (result.type === "error") fail(`server rejected a message: ${JSON.stringify(result)}`);
+  return id;
 }
 
-// --- dump one of everything the keyless pipeline can prove ---
-const noteId = await dump({
-  id: newId(),
-  kind: "note",
-  text: "remember: local-first sync makes offline a non-feature",
-});
-const linkId = await dump({ id: newId(), kind: "link", url: "https://example.com" });
-const blockedId = await dump({ id: newId(), kind: "link", url: "http://192.168.0.1/admin" });
-// Text kinds the owner chose explicitly: no extraction to do, and ingestion
-// must leave the chosen kind alone.
-const todoId = await dump({
-  id: newId(),
-  kind: "todo",
-  text: "call the vet about the booster shot",
-});
-const addressId = await dump({
-  id: newId(),
-  kind: "address",
-  text: "Karl-Marx-Allee 90, 10243 Berlin",
-});
-// A plain note that is really a task; enrichment may promote it to a todo.
-const promotableId = await dump({
-  id: newId(),
-  kind: "note",
-  text: "pick up the parcel from the depot before Friday and pay the customs fee",
-});
+// --- one of everything the pipeline has to handle ---
 
-let fileId: string | null = null;
-let pdfId: string | null = null;
-let imageId: string | null = null;
-let badImageId: string | null = null;
+// A message that is only the owner's words, carrying three things with strong
+// syntactic signatures. These must be found with or without an OpenAI key.
+const TRACKING = "1Z999AA10123456784";
+const LINK = "https://example.com";
+const EMAIL = "ada.lovelace@example.com";
+const textOnlyId = await drop(
+  `parcel ${TRACKING} arriving thursday, details at ${LINK}, ask ${EMAIL} if it is late`,
+);
+
+// The same link again, in a different message: one canonical entity, two
+// mentions. That split is the whole reason entities and mentions are separate
+// tables (plan §2.3).
+const secondLinkId = await drop(`re-reading ${LINK} tonight`);
+
+// A link that the SSRF guard must refuse to fetch. It is still a link entity;
+// only its enrichment fails, and the message still finishes.
+const blockedId = await drop("internal dashboard at http://192.168.0.1/admin");
+
+let albumId: string | null = null;
+let corruptId: string | null = null;
 let unuploadedId: string | null = null;
+let imageAttachmentId: string | null = null;
+let pdfAttachmentId: string | null = null;
+let fileAttachmentId: string | null = null;
+
 if (serverMeta.blobs) {
-  const textBytes = new TextEncoder().encode(
-    "meeting notes\n\nragbag ingestion pipeline review: queue claims with skip locked, " +
-      "notify wakes the worker, chunks feed pgvector when available.",
+  const textFile = await uploadBlob(
+    new TextEncoder().encode(
+      "meeting notes\n\nragbag ingestion review: the queue claims with skip locked, " +
+        "notify wakes the worker, and synthesis waits on its own parts.",
+    ),
+    "text/plain",
+    "notes.txt",
   );
-  fileId = await dump({
-    id: newId(),
-    kind: "file",
-    blobId: await uploadBlob(textBytes, "text/plain", "notes.txt"),
-  });
-  pdfId = await dump({
-    id: newId(),
-    kind: "pdf",
-    blobId: await uploadBlob(
-      buildTinyPdf("ragbag pdf extraction works: this page carries a real text layer"),
-      "application/pdf",
-      "proof.pdf",
-    ),
-  });
-  imageId = await dump({
-    id: newId(),
-    kind: "image",
-    blobId: await uploadBlob(buildTestPng(OCR_WORD), "image/png", "sign.png"),
-  });
+  const pdf = await uploadBlob(
+    buildTinyPdf("ragbag pdf extraction works: this page carries a real text layer"),
+    "application/pdf",
+    "proof.pdf",
+  );
+  const image = await uploadBlob(buildTestPng(OCR_WORD), "image/png", "sign.png");
+  fileAttachmentId = textFile.id;
+  pdfAttachmentId = pdf.id;
+  imageAttachmentId = image.id;
+
+  // One send, three files, in this order: `position` is what makes the chat
+  // render them "exactly as it was sent".
+  albumId = await drop("everything in one message", [textFile, pdf, image]);
+
   // Bytes that are not an image at all: the vision API rejects these with a
-  // 4xx, which must fail the item immediately rather than retry.
-  badImageId = await dump({
-    id: newId(),
-    kind: "image",
-    blobId: await uploadBlob(
-      new TextEncoder().encode("this is definitely not a png"),
-      "image/png",
-      "corrupt.png",
-    ),
-  });
-  // Offline capture: the item syncs with a client-minted blobId BEFORE the
+  // 4xx, which must fail that ATTACHMENT immediately (no retries) and leave
+  // the message `partial` rather than `failed`.
+  const corrupt = await uploadBlob(
+    new TextEncoder().encode("this is definitely not a png"),
+    "image/png",
+    "corrupt.png",
+  );
+  corruptId = await drop("a broken picture", [corrupt]);
+
+  // Offline capture: the message syncs with a client-minted blobId BEFORE the
   // upload queue has presigned anything, so no blob row (and no bytes) exist
   // yet. The worker must park the job, not fail or crash on it.
-  unuploadedId = await dump({ id: newId(), kind: "image", blobId: newId() });
+  unuploadedId = await drop("still uploading", [
+    { id: newId(), blobId: newId(), filename: "later.png", mime: "image/png", size: 1 },
+  ]);
 }
 console.log(
-  "OK   dumped note + todo + address + link + private-address link" +
-    (serverMeta.blobs ? " + text file + pdf + image + corrupt image" : ""),
+  "OK   dropped a text-only message, a repeated link, a blocked link" +
+    (serverMeta.blobs ? ", a three-file album, a corrupt image and an un-uploaded one" : ""),
 );
 
 // --- wait for the worker ---
-type Snapshot = Map<
-  string,
-  { kind: string; status: string; title?: string; text?: string; error?: string }
->;
-async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promise<Snapshot> {
+type Row = {
+  status: string;
+  title?: string;
+  summary?: string;
+  error?: string;
+  attachments: { id: string; filename: string; status: string; error?: string }[];
+  entities: { kind: string; value: string; attachmentId: string | null }[];
+};
+type Snapshot = Map<string, Row>;
+
+async function poll(until: (s: Snapshot) => boolean, timeoutMs = 90_000): Promise<Snapshot> {
   const deadline = Date.now() + timeoutMs;
   let snapshot: Snapshot = new Map();
   while (Date.now() < deadline) {
-    const timeline = await zero.run(queries.timeline());
+    const rows = await zero.run(queries.drop(WHOLE_ARCHIVE));
     snapshot = new Map(
-      timeline.map((i) => [
-        i.id,
+      rows.map((m) => [
+        m.id,
         {
-          kind: i.kind,
-          status: i.content?.status ?? "missing",
-          title: i.content?.title ?? undefined,
-          text: i.content?.extractedText ?? undefined,
-          error: i.content?.error ?? undefined,
+          status: m.status,
+          title: m.generatedTitle ?? undefined,
+          summary: m.generatedSummary ?? undefined,
+          error: m.error ?? undefined,
+          attachments: m.attachments.map((a) => ({
+            id: a.id,
+            filename: a.filename,
+            status: a.status,
+            error: a.error ?? undefined,
+          })),
+          entities: m.mentions.map((mention) => ({
+            kind: mention.entity?.kind ?? "?",
+            value: mention.entity?.value ?? "?",
+            attachmentId: mention.attachmentId ?? null,
+          })),
         },
       ]),
     );
@@ -297,293 +316,263 @@ async function poll(until: (s: Snapshot) => boolean, timeoutMs = 60_000): Promis
   return snapshot;
 }
 
-// The un-uploaded item never settles by design; it is asserted separately.
-const watched = [
-  noteId,
-  linkId,
-  blockedId,
-  todoId,
-  addressId,
-  promotableId,
-  fileId,
-  pdfId,
-  imageId,
-  badImageId,
-].filter((x): x is string => Boolean(x));
+// The un-uploaded message never settles by design; it is asserted separately.
+const watched = [textOnlyId, secondLinkId, blockedId, albumId, corruptId].filter((x): x is string =>
+  Boolean(x),
+);
+const TERMINAL = ["done", "partial", "failed"];
 const settled = await poll((s) =>
-  watched.every((id) => ["done", "failed"].includes(s.get(id)?.status ?? "")),
+  watched.every((id) => TERMINAL.includes(s.get(id)?.status ?? "")),
 );
 for (const id of watched) {
   console.log(`     ${id.slice(-6)}: ${JSON.stringify(settled.get(id))}`);
 }
 
 // --- assertions ---
-const note = settled.get(noteId)!;
-if (note.status !== "done") fail(`note not done: ${JSON.stringify(note)}`);
-console.log("OK   note ingested (no-op extraction)");
 
-// Todos and addresses ride the note path (no extraction), and the kind the
-// owner picked survives ingestion. That fence is what makes AI promotion safe:
-// promoteNoteKind only ever matches kind = 'note'.
-const todo = settled.get(todoId)!;
-const address = settled.get(addressId)!;
-for (const [label, row, kind] of [
-  ["todo", todo, "todo"],
-  ["address", address, "address"],
-] as const) {
-  if (row.status !== "done") fail(`${label} not done: ${JSON.stringify(row)}`);
-  if (row.kind !== kind) fail(`ingestion overwrote an explicit ${label} kind: ${row.kind}`);
+// 1. The deterministic pre-pass: three kinds with strong signatures, found
+// with no AI at all, each mentioned from the message's own text.
+const textOnly = settled.get(textOnlyId)!;
+if (!TERMINAL.includes(textOnly.status)) fail(`text message never settled: ${textOnly.status}`);
+for (const kind of ["tracking", "link", "email"]) {
+  if (!textOnly.entities.some((e) => e.kind === kind)) {
+    fail(`the pre-pass missed a ${kind}: ${JSON.stringify(textOnly.entities)}`);
+  }
 }
-console.log("OK   todo + address ingested; explicitly chosen kinds untouched by ingestion");
-
-// Promotion is a model judgement, so it is treated like the OCR assertion
-// below: the MECHANISM is asserted (a note may only move to a text kind), the
-// model's verdict is logged for a human rather than pinned to a threshold.
-const promotable = settled.get(promotableId)!;
-const [promotableContent] = await sql<{ ai_summary: string | null }[]>`
-  select ai_summary from item_content where item_id = ${promotableId}`;
-if (!promotableContent?.ai_summary) {
-  console.log("SKIP note→todo promotion (server has no OpenAI key, or no budget left)");
-} else if (!["note", "todo", "address"].includes(promotable.kind)) {
-  fail(`a note was promoted out of the text kinds: ${promotable.kind}`);
-} else {
-  console.log(
-    `OK   enriched task-shaped note settled as kind ${JSON.stringify(promotable.kind)} ` +
-      `(advisory; "todo" is what the prompt asks for here)`,
-  );
+if (textOnly.entities.some((e) => e.attachmentId !== null)) {
+  fail("a mention from the message text claimed to come from an attachment");
 }
+console.log("OK   link + email + tracking found by the deterministic pre-pass (no AI needed)");
 
-const link = settled.get(linkId)!;
-if (link.status !== "done") fail(`link not done: ${JSON.stringify(link)}`);
-if (!link.title?.includes("Example Domain")) fail(`link title wrong: ${link.title}`);
-if (!link.text || !link.text.toLowerCase().includes("domain")) {
-  fail(`link extracted text missing readability content: ${link.text?.slice(0, 200)}`);
+// 2. One entity, two mentions: the split that makes "seen in 2 messages"
+// possible and stops the rail growing a duplicate row.
+const [linkEntity] = await sql<{ id: string; kind: string; normalized_value: string }[]>`
+  select id, kind, normalized_value from entities
+  where user_id = ${user.id} and kind = 'link' and normalized_value = ${LINK}`;
+if (!linkEntity) fail(`no canonical link entity for ${LINK}`);
+const [mentionCount] = await sql<{ n: string }[]>`
+  select count(*) as n from message_entities where entity_id = ${linkEntity.id}`;
+if (Number(mentionCount?.n ?? 0) !== 2) {
+  fail(`the same link in two messages produced ${mentionCount?.n} mentions, want 2`);
 }
-console.log("OK   link extracted: og/readability title + article text synced to the client");
+console.log("OK   the same link in two messages is one entity with two mentions");
 
+// 3. The SSRF guard: the link is still an entity, its enrichment is what
+// failed, and the message finished rather than dying with it.
 const blocked = settled.get(blockedId)!;
-if (blocked.status !== "failed")
-  fail(`private-address link should fail: ${JSON.stringify(blocked)}`);
-if (!blocked.error?.includes("refusing")) fail(`unexpected error: ${blocked.error}`);
-console.log("OK   private-address link permanently failed by the SSRF guard");
+if (blocked.status === "failed") fail(`a link that could not be fetched failed the message`);
+if (!blocked.entities.some((e) => e.kind === "link")) fail("the blocked link produced no entity");
+console.log("OK   an unfetchable link still becomes an entity; the message still finishes");
 
-if (fileId) {
-  const file = settled.get(fileId)!;
-  if (file.status !== "done") fail(`file not done: ${JSON.stringify(file)}`);
-  if (file.title !== "notes.txt") fail(`file title should be its name: ${file.title}`);
-  if (!file.text?.includes("skip locked")) fail(`file text missing: ${file.text}`);
-  console.log("OK   text file extracted (title from original name, content indexed)");
-}
-if (pdfId) {
-  const pdf = settled.get(pdfId)!;
-  if (pdf.status !== "done") fail(`pdf not done: ${JSON.stringify(pdf)}`);
-  if (!pdf.text?.includes("real text layer")) fail(`pdf text layer missing: ${pdf.text}`);
-  console.log("OK   pdf text layer extracted via pdfjs");
-}
+if (albumId) {
+  // 4. Phase A ran per attachment, in send order, and each wrote content_md.
+  const album = settled.get(albumId)!;
+  if (album.attachments.map((a) => a.filename).join(",") !== "notes.txt,proof.pdf,sign.png") {
+    fail(`attachments came back out of order: ${JSON.stringify(album.attachments)}`);
+  }
+  const contents = await sql<{ attachment_id: string; content_md: string }[]>`
+    select attachment_id, content_md from attachment_contents
+    where attachment_id = any(${[fileAttachmentId, pdfAttachmentId].filter(Boolean) as string[]})`;
+  const byId = new Map(contents.map((c) => [c.attachment_id, c.content_md]));
+  if (!byId.get(fileAttachmentId!)?.includes("skip locked")) {
+    fail(`the text file's content_md is missing its own bytes`);
+  }
+  if (!byId.get(fileAttachmentId!)?.startsWith("```")) {
+    fail("a textual file's content_md must be fenced (plan §5.3)");
+  }
+  if (!byId.get(pdfAttachmentId!)?.includes("real text layer")) {
+    fail("the PDF's text layer did not reach content_md");
+  }
+  if (!byId.get(pdfAttachmentId!)?.includes("## Page 1")) {
+    fail("the PDF's content_md is missing its page markers (plan §5.3)");
+  }
+  console.log("OK   every attachment extracted on its own, in one content_md shape");
 
-// Images: the vision call is the only thing that makes an image searchable.
-// A recorded `vision` usage row on the good image proves the server has a
-// working key and had budget; the corrupt one can't prove it itself, since
-// its call fails before any usage is metered.
-const [visionMetered] = imageId
-  ? await sql<{ n: string }[]>`
-      select count(*) as n from ai_usage where item_id = ${imageId} and kind = 'vision'`
-  : [];
-const visionExercised = Number(visionMetered?.n ?? 0) > 0;
-
-if (imageId && !visionExercised) {
-  console.log("SKIP image vision (server has no OpenAI key, or no budget left)");
-} else if (imageId) {
-  const image = settled.get(imageId)!;
-  if (image.status !== "done") fail(`image not done: ${JSON.stringify(image)}`);
-  if (!image.title || image.title === "sign.png") {
-    fail(`vision did not title the image (still ${JSON.stringify(image.title)})`);
+  // 5. Derivatives: true dimensions, both variants, and a placeholder that
+  // makes cache eviction invisible.
+  const [imageRow] = await sql<
+    {
+      width: number | null;
+      height: number | null;
+      variants: { display?: boolean; thumb?: boolean };
+      placeholder: string | null;
+      status: string;
+    }[]
+  >`
+    select width, height, variants, placeholder, status from attachments
+    where id = ${imageAttachmentId!}`;
+  if (imageRow?.status !== "done") fail(`the image attachment is ${imageRow?.status}`);
+  if (!imageRow.width || !imageRow.height) fail("the derivatives pass recorded no dimensions");
+  if (!imageRow.variants?.display || !imageRow.variants?.thumb) {
+    fail(`derivatives missing: ${JSON.stringify(imageRow.variants)}`);
   }
-  // Description + OCR text land in extracted_text and feed both search tiers.
-  if (!image.text || image.text.length < 20) {
-    fail(`vision produced no usable description: ${JSON.stringify(image.text)}`);
-  }
-  // What we own is the round-trip: pipeline.ts joins the model's description
-  // and ocr_text with a blank line into extracted_text. Assert that STRUCTURE,
-  // a description followed by its own transcription field, and not the
-  // transcription's fidelity. A 5x7 bitmap font is genuinely hard to read:
-  // the same image has come back as "RASBEG", "RAGBRS" and "RAGERS" across
-  // runs, so any similarity threshold fails on model variance rather than on
-  // our bugs. Drift is logged for a human, never asserted.
-  const [description, ...rest] = image.text.split("\n\n");
-  const ocrText = rest.at(-1)?.trim() ?? "";
-  if (!description || description.length < 20) {
-    fail(`no description ahead of the OCR text: ${JSON.stringify(image.text)}`);
-  }
-  if (!/^[A-Z0-9 ]{3,20}$/.test(ocrText)) {
-    fail(`ocr_text did not round-trip as its own field: ${JSON.stringify(image.text)}`);
-  }
-  const drift = editDistance(ocrText.replace(/\s/g, ""), OCR_WORD);
+  if (!imageRow.placeholder) fail("no placeholder was computed for the image");
   console.log(
-    `OK   image described + OCR'd by vision (title: ${JSON.stringify(image.title)}, ` +
-      `read ${JSON.stringify(ocrText)} vs "${OCR_WORD}": ${drift} char(s) of model drift)`,
+    `OK   image derivatives written (${imageRow.width}x${imageRow.height}, ` +
+      `${Object.keys(imageRow.variants).join("+")}, ${imageRow.placeholder.length}-char placeholder)`,
   );
+
+  // The media URL serves them, which is the only thing that ever goes in a src.
+  const [blobRow] = await sql<{ blob_id: string }[]>`
+    select blob_id from attachments where id = ${imageAttachmentId!}`;
+  for (const variant of ["thumb", "display", "original"]) {
+    const res = await fetch(`${SERVER}/api/media/${blobRow!.blob_id}/${variant}`, {
+      headers: { cookie },
+      redirect: "manual",
+    });
+    if (res.status !== 302) fail(`/api/media/.../${variant}: ${res.status}, want 302`);
+  }
+  console.log("OK   /api/media serves thumb, display and original for the same blob id");
 }
 
-// The offline-capture path: parked, not failed, not counted as an attempt,
-// and above all it must not crash the worker (it once did: the wait
-// deadline was computed in JS from a raw-SQL timestamp, which is a string).
+if (corruptId) {
+  // 6. A part that cannot be read fails alone: the message is `partial`, not
+  // `failed`, and the 4xx is not retried.
+  const corrupt = settled.get(corruptId)!;
+  const part = corrupt.attachments[0];
+  if (!serverMeta.ai) {
+    console.log("SKIP corrupt-image handling (server has no OpenAI key)");
+  } else {
+    if (part?.status !== "failed") fail(`corrupt image should fail: ${JSON.stringify(part)}`);
+    if (corrupt.status !== "partial") {
+      fail(`one failed part should leave the message partial, got ${corrupt.status}`);
+    }
+    const [job] = await sql<{ attempts: number }[]>`
+      select attempts from ingest_jobs where attachment_id = ${part.id}`;
+    if (job?.attempts !== 1) {
+      fail(`corrupt image burned ${job?.attempts} attempts; a 4xx must not be retried`);
+    }
+    console.log("OK   a failed part fails alone: message `partial`, no wasted retries");
+  }
+}
+
 if (unuploadedId) {
+  // 7. The offline-capture path: parked, not failed, not counted as an
+  // attempt, and above all it must not crash the worker.
   const [job] = await sql<{ status: string; attempts: number; last_error: string | null }[]>`
-    select status, attempts, last_error from ingest_job where item_id = ${unuploadedId}`;
-  if (!job) fail("no ingest_job row for the un-uploaded item");
+    select j.status, j.attempts, j.last_error from ingest_jobs j
+    where j.message_id = ${unuploadedId} and j.stage = 'attachment'`;
+  if (!job) fail("no attachment job for the un-uploaded message");
   if (job.status !== "queued") {
-    fail(`item awaiting its upload should stay queued, got ${JSON.stringify(job)}`);
+    fail(`a message awaiting its upload should stay queued, got ${JSON.stringify(job)}`);
   }
   if (job.attempts !== 0) fail(`waiting must not burn attempts, got ${job.attempts}`);
   if (!job.last_error?.includes("waiting for the file upload")) {
     fail(`unexpected wait reason: ${job.last_error}`);
   }
-  const content = settled.get(unuploadedId);
-  if (content && content.status !== "pending") {
-    fail(`item awaiting upload should read as pending, got ${JSON.stringify(content)}`);
+  // Synthesis must be waiting on it rather than racing ahead of it.
+  const [synthesis] = await sql<{ status: string; last_error: string | null }[]>`
+    select status, last_error from ingest_jobs
+    where message_id = ${unuploadedId} and stage = 'synthesis'`;
+  if (synthesis?.status !== "queued" || !synthesis.last_error?.includes("waiting for")) {
+    fail(`synthesis did not wait for its parts: ${JSON.stringify(synthesis)}`);
   }
-  // The server is still alive: a crash here used to take the whole API down.
   const health = await fetch(`${SERVER}/health`).catch(() => null);
   if (!health?.ok) fail("the API server died while handling a waiting job");
-  console.log("OK   item whose blob has not uploaded yet parks (queued, 0 attempts, API alive)");
+  console.log("OK   an un-uploaded part parks, synthesis waits for it, and the API is alive");
 }
 
-if (badImageId && visionExercised) {
-  const bad = settled.get(badImageId)!;
-  if (bad.status !== "failed") fail(`corrupt image should fail fast: ${JSON.stringify(bad)}`);
-  if (!bad.error?.includes("could not be read")) fail(`unexpected error: ${bad.error}`);
-  const [job] = await sql<{ attempts: number }[]>`
-    select attempts from ingest_job where item_id = ${badImageId}`;
-  if (job?.attempts !== 1) {
-    fail(`corrupt image burned ${job?.attempts} attempts; a 4xx must not be retried`);
-  }
-  console.log("OK   corrupt image failed permanently on attempt 1 (no wasted retries)");
-}
-
-// --- chunks (server-side, so straight SQL) ---
-const chunkCounts = await sql<{ item_id: string; n: string }[]>`
-  select item_id, count(*) as n from item_chunk
-  where item_id = any(${watched}) group by item_id`;
-const chunksByItem = new Map(chunkCounts.map((r) => [r.item_id, Number(r.n)]));
-if (!chunksByItem.get(noteId)) fail("note text was not chunk-indexed");
-if (!chunksByItem.get(linkId)) fail("link article was not chunk-indexed");
-
-// tsvector is generated by Postgres, server-side keyword search works with
-// no AI at all.
-const [tsHit] = await sql<{ n: string }[]>`
-  select count(*) as n from item_chunk
-  where item_id = ${linkId} and tsv @@ plainto_tsquery('simple', 'domain')`;
-if (Number(tsHit?.n ?? 0) === 0) fail("item_chunk.tsv did not match a term from the article");
-console.log(`OK   item_chunk rows written; generated tsv matches server-side keyword search`);
-
-// --- embeddings (Tier-2 groundwork) ---
-// Expectations are derived from what the SERVER can do, not this script's
-// env: an ai_summary proves the server has a working key and had budget, so
-// the same item's chunks must carry embeddings wherever pgvector exists.
-const [vectorReady] = await sql<{ n: string }[]>`
-  select count(*) as n from information_schema.columns
-  where table_name = 'item_chunk' and column_name = 'embedding'`;
-const hasVector = Number(vectorReady?.n ?? 0) > 0;
-const enriched = await sql<{ item_id: string }[]>`
-  select item_id from item_content
-  where item_id = any(${watched}) and ai_summary is not null`;
-const enrichedIds = enriched.map((r) => r.item_id);
-
-if (!hasVector || enrichedIds.length === 0) {
-  console.log(
-    `SKIP embeddings (pgvector ${hasVector ? "present" : "absent"}, ` +
-      `server AI enrichment ${enrichedIds.length > 0 ? "ran" : "did not run"})`,
-  );
+// 8. The model-dependent half. Asserted only where the server can deliver it;
+// a metered usage row is what proves the key works and the call actually ran.
+const [enrichMetered] = await sql<{ n: string }[]>`
+  select count(*) as n from ai_usage_events
+  where user_id = ${user.id} and kind = 'enrich'`;
+if (Number(enrichMetered?.n ?? 0) === 0) {
+  console.log("SKIP synthesis assertions (server has no OpenAI key)");
 } else {
-  console.log(`OK   AI enrichment ran on ${enrichedIds.length}/${watched.length} items`);
-  const [embedded] = await sql<{ total: string; with_emb: string; dims: number | null }[]>`
-    select count(*) as total,
-           count(embedding) as with_emb,
-           max(vector_dims(embedding)) as dims
-    from item_chunk where item_id = any(${enrichedIds})`;
-  if (Number(embedded?.with_emb ?? 0) === 0)
-    fail("pgvector is installed but no chunk was embedded");
-  if (Number(embedded?.total) !== Number(embedded?.with_emb)) {
-    fail(`only ${embedded?.with_emb}/${embedded?.total} enriched chunks embedded`);
+  const enriched = settled.get(textOnlyId)!;
+  if (!enriched.title || !enriched.summary) {
+    fail(`synthesis produced no title/summary: ${JSON.stringify(enriched)}`);
   }
-  if (embedded?.dims !== 1536) fail(`embedding dims ${embedded?.dims}, want 1536 (§8)`);
-  console.log(`OK   all ${embedded.total} chunks embedded as vector(1536) via pgvector`);
-
-  // The point of the vectors: nearest-neighbour retrieval. Probe with a
-  // chunk's own embedding: it must rank itself first, at ~zero distance.
-  const probeItemId = enrichedIds[0]!;
-  const [probe] = await sql<{ embedding: string }[]>`
-    select embedding::text as embedding from item_chunk
-    where item_id = ${probeItemId} and embedding is not null order by idx limit 1`;
-  if (!probe) fail("no probe embedding available");
-  const neighbours = await sql<{ item_id: string; distance: number }[]>`
-    select item_id, (embedding <=> ${probe.embedding}::vector) as distance
-    from item_chunk
-    where user_id = ${user.id} and embedding is not null
-    order by embedding <=> ${probe.embedding}::vector
-    limit 3`;
-  if (neighbours[0]?.item_id !== probeItemId) {
-    fail(`nearest neighbour was ${neighbours[0]?.item_id}, want the probe item itself`);
-  }
-  if (!(Number(neighbours[0].distance) < 1e-6)) {
-    fail(`self-distance should be ~0, got ${neighbours[0].distance}`);
-  }
-  if (neighbours.some((n) => !Number.isFinite(Number(n.distance)))) {
-    fail("cosine distances are not finite numbers");
-  }
+  const [tagCount] = await sql<{ n: string }[]>`
+    select count(*) as n from message_tags
+    where message_id = ${textOnlyId} and source = 'ai'`;
+  if (Number(tagCount?.n ?? 0) === 0) fail("synthesis wrote no AI tags");
   console.log(
-    `OK   cosine ANN search works: self-distance ${Number(neighbours[0].distance).toFixed(6)}, ` +
-      `next ${neighbours[1] ? Number(neighbours[1].distance).toFixed(4) : "n/a"}`,
+    `OK   synthesis titled, summarized and tagged (title: ${JSON.stringify(enriched.title)})`,
   );
 
-  // The HNSW index must be *usable* for cosine ordering, i.e. the opclass
-  // matches the operator this query uses. On a table this small the planner
-  // rightly prefers a seq scan, so ask it to avoid one before reading the
-  // plan; that isolates "is the index valid" from "is it worth using".
-  await sql`set enable_seqscan = off`;
-  const plan = await sql<{ "QUERY PLAN": string }[]>`
-    explain (costs off)
-    select item_id from item_chunk
-    order by embedding <=> ${probe.embedding}::vector limit 5`;
-  await sql`set enable_seqscan = on`;
-  const planText = plan
-    .map((r) => r["QUERY PLAN"])
-    // Plans echo the whole probe vector; keep failures readable.
-    .map((line) => line.replace(/'\[[-\d.,e ]+\]'/g, "'[…]'"))
-    .join("\n");
-  if (!planText.includes("item_chunk_embedding_idx")) {
-    fail(`HNSW index unusable for cosine ordering:\n${planText}`);
+  // The tracking number should have come back with its carrier: that is the
+  // model's half of hybrid extraction, adding structure the regex cannot know.
+  const [tracked] = await sql<{ data: { carrier?: string } }[]>`
+    select data from entities where user_id = ${user.id} and kind = 'tracking'`;
+  console.log(
+    `     tracking entity data: ${JSON.stringify(tracked?.data ?? null)} (advisory: the carrier is the model's judgment)`,
+  );
+
+  if (imageAttachmentId) {
+    const [image] = await sql<{ generated_title: string | null; content_md: string | null }[]>`
+      select a.generated_title, c.content_md from attachments a
+      left join attachment_contents c on c.attachment_id = a.id
+      where a.id = ${imageAttachmentId}`;
+    if (!image?.generated_title || image.generated_title === "sign.png") {
+      fail(`vision did not title the image (still ${JSON.stringify(image?.generated_title)})`);
+    }
+    if (!image.content_md?.includes("## What this shows")) {
+      fail(`the image's content_md is not in the documented shape: ${image.content_md}`);
+    }
+    // What we own is the round-trip, not the model's eyesight: a 5x7 bitmap
+    // font has come back as "RASBEG" and "RAGERS" across runs, so drift is
+    // logged for a human rather than pinned to a threshold.
+    const ocr = /## Text in the image\n\n([\s\S]*)$/.exec(image.content_md)?.[1]?.trim() ?? "";
+    const drift = editDistance(ocr.replace(/\s/g, "").toUpperCase(), OCR_WORD);
+    console.log(
+      `OK   vision described + OCR'd the image (read ${JSON.stringify(ocr)} vs "${OCR_WORD}": ` +
+        `${drift} char(s) of model drift)`,
+    );
   }
-  console.log("OK   HNSW index is valid for cosine ANN ordering (seqscan disabled)");
 }
 
-// --- retry mutator round-trip on the failed item ---
-const retry = await zero.mutate(mutators.item.retryIngest({ id: blockedId })).server;
-if (retry.type === "error") fail(`retryIngest rejected: ${JSON.stringify(retry)}`);
-const refailed = await poll((s) => s.get(blockedId)?.status === "failed", 30_000);
-if (refailed.get(blockedId)?.status !== "failed") {
-  fail(`retried item did not re-process: ${JSON.stringify(refailed.get(blockedId))}`);
-}
-console.log("OK   item.retryIngest re-queued the job (and the guard failed it again)");
+// 9. The tombstone: dismiss a mention, re-run ingestion, and it stays gone.
+// This is what makes re-ingestion safe to offer at all (plan §2.3).
+const dismissTarget = await sql<{ entity_id: string; attachment_id: string | null }[]>`
+  select entity_id, attachment_id from message_entities
+  where message_id = ${textOnlyId} limit 1`;
+if (dismissTarget[0]) {
+  const dismissed = await zero.mutate(
+    mutators.entity.dismiss({
+      messageId: textOnlyId,
+      entityId: dismissTarget[0].entity_id,
+      attachmentId: dismissTarget[0].attachment_id,
+    }),
+  ).server;
+  if (dismissed.type === "error") fail(`entity.dismiss rejected: ${JSON.stringify(dismissed)}`);
 
-// --- jobs table sanity ---
-const jobs = await sql<{ status: string; n: string }[]>`
-  select status, count(*) as n from ingest_job
-  where item_id = any(${watched}) group by status`;
-const jobSummary = Object.fromEntries(jobs.map((j) => [j.status, Number(j.n)]));
-// Expected failures: the private-address link always, plus the corrupt image
-// once vision is actually reachable. Everything else must have completed.
-const expectedFailures = 1 + (badImageId && visionExercised ? 1 : 0);
-if ((jobSummary.failed ?? 0) !== expectedFailures) {
-  fail(`expected ${expectedFailures} failed job(s), got ${JSON.stringify(jobSummary)}`);
-}
-if ((jobSummary.done ?? 0) !== watched.length - (jobSummary.failed ?? 0)) {
-  fail(`unfinished jobs remain: ${JSON.stringify(jobSummary)}`);
-}
-console.log(`OK   ingest_job states: ${JSON.stringify(jobSummary)}`);
+  const retry = await zero.mutate(mutators.message.retryIngest({ id: textOnlyId })).server;
+  if (retry.type === "error") fail(`retryIngest rejected: ${JSON.stringify(retry)}`);
+  await poll((s) => TERMINAL.includes(s.get(textOnlyId)?.status ?? ""), 60_000);
 
-console.log("\nPASS ingest proof: dump → queue → worker → extract → index → sync back");
+  const [stillDismissed] = await sql<{ n: string }[]>`
+    select count(*) as n from message_entities
+    where message_id = ${textOnlyId} and entity_id = ${dismissTarget[0].entity_id}
+      and dismissed_at is not null`;
+  if (Number(stillDismissed?.n ?? 0) !== 1) {
+    fail("a dismissed mention came back after re-ingestion");
+  }
+  const [duplicates] = await sql<{ n: string }[]>`
+    select count(*) as n from message_entities
+    where message_id = ${textOnlyId} and entity_id = ${dismissTarget[0].entity_id}`;
+  if (Number(duplicates?.n ?? 0) !== 1) {
+    fail(`re-ingestion accumulated ${duplicates?.n} rows for one mention instead of converging`);
+  }
+  console.log("OK   re-ingestion converges, and a dismissed mention stays dismissed");
+}
+
+// 10. Job states, per stage: every message has exactly one synthesis job and
+// one job per attachment, and nothing is stranded.
+const jobs = await sql<{ stage: string; status: string; n: string }[]>`
+  select stage, status, count(*) as n from ingest_jobs
+  where message_id = any(${watched}) group by stage, status`;
+const summary = Object.fromEntries(jobs.map((j) => [`${j.stage}:${j.status}`, Number(j.n)]));
+if ((summary["synthesis:done"] ?? 0) !== watched.length) {
+  fail(`not every message got through synthesis: ${JSON.stringify(summary)}`);
+}
+if ((summary["attachment:running"] ?? 0) > 0 || (summary["synthesis:running"] ?? 0) > 0) {
+  fail(`jobs left stranded in 'running': ${JSON.stringify(summary)}`);
+}
+console.log(`OK   ingest_jobs per stage: ${JSON.stringify(summary)}`);
+
+console.log("\nPASS ingest proof: drop → fan-out → phase A → phase B → entities → sync back");
 zero.close();
 await sql.end();
 process.exit(0);

@@ -1,11 +1,11 @@
-import { kindForMime, newId } from "@ragbag/shared";
-import type { ItemKind } from "@ragbag/shared";
+import { faceForMime, newId } from "@ragbag/shared";
+import type { AttachmentFace } from "@ragbag/shared";
 import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
 
-// The persistent blob upload queue + lazy blob cache (plan §6): Zero syncs
-// rows, not files. Capture stores the bytes in IndexedDB and returns a
-// client-minted blobId IMMEDIATELY: the item is created and syncs before any
-// network happens, offline included. A background flush presigns, PUTs the
+// The persistent blob upload queue + lazy blob cache: Zero syncs rows, not
+// files. Capture stores the bytes in IndexedDB and returns a client-minted
+// blobId IMMEDIATELY: the message is created and syncs before any network
+// happens, offline included. A background flush presigns, PUTs the
 // bytes to the object store, and survives app restarts (the constructor
 // resumes whatever is still pending). Downloaded blobs land in a bounded LRU
 // cache so other devices only fetch originals once.
@@ -28,11 +28,12 @@ export type CapturedBlob = {
   mime: string;
   size: number;
   originalName?: string | undefined;
-  kind: Extract<ItemKind, "image" | "pdf" | "file">;
+  /** How it renders and which extraction path it will take. */
+  face: AttachmentFace;
   /**
    * True when capture matched bytes already queued on this device: the
-   * blobId belongs to an earlier attachment (possibly an already-sent item),
-   * so removing this attachment must NOT cancel the shared upload.
+   * blobId belongs to an earlier attachment (possibly an already-sent
+   * message), so removing this attachment must NOT cancel the shared upload.
    */
   reused: boolean;
 };
@@ -65,7 +66,9 @@ export type BlobQueueState = {
 
 type UploadRecord = {
   blobId: string;
-  itemId?: string;
+  /** Set on send: the bytes now belong to a message and are not ours to drop. */
+  messageId?: string;
+  attachmentId?: string;
   sha256: string;
   mime: string;
   size: number;
@@ -232,7 +235,7 @@ export class BlobQueue {
    */
   async cancel(blobId: string): Promise<void> {
     const record = await this.#getUpload(blobId);
-    if (record?.itemId) return; // sent: the item needs its bytes
+    if (record?.messageId) return; // sent: the message needs its bytes
     const wasInflight = this.#aborts.has(blobId);
     this.#cancelled.add(blobId);
     this.#aborts.get(blobId)?.(); // an in-flight attempt unwinds via #finishCancelled
@@ -396,7 +399,7 @@ export class BlobQueue {
         mime: existing.mime,
         size: existing.size,
         originalName: existing.originalName,
-        kind: kindForMime(existing.mime),
+        face: faceForMime(existing.mime),
         reused: true,
       };
     }
@@ -421,15 +424,20 @@ export class BlobQueue {
       mime,
       size: file.size,
       originalName,
-      kind: kindForMime(mime),
+      face: faceForMime(mime),
       reused: false,
     };
   }
 
-  /** Remember which item a captured blob belongs to (for dedupe relinks). */
-  async linkItem(blobId: string, itemId: string): Promise<void> {
+  /**
+   * Remember which attachment a captured blob belongs to, once the message
+   * has been sent. That is what makes `cancel` refuse to drop it: an
+   * attachment removed from the composer is ours to abort, an attachment on a
+   * sent message still needs its bytes to reach the bucket.
+   */
+  async linkAttachment(blobId: string, messageId: string, attachmentId: string): Promise<void> {
     const record = await this.#getUpload(blobId);
-    if (record) await this.#putUpload({ ...record, itemId });
+    if (record) await this.#putUpload({ ...record, messageId, attachmentId });
   }
 
   // --- flush (the background upload loop) ---

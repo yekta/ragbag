@@ -151,56 +151,22 @@ export function useBlobUrl(blobId: string | null | undefined): string | null {
   return blobId ? url : null;
 }
 
-// Remembered image shapes, so a picture's box is the right size before the
-// picture is there, including on the next visit, before its bytes have been
-// read back out of IndexedDB. Without it, every image card grows from a fixed
-// placeholder to its real height as it loads, which re-flows the rows below and
-// makes the virtualizer re-measure the document under the reader.
-const ASPECT_KEY = "ragbag:blob-aspect";
-/** Bounded: a personal archive's worth of ratios, oldest evicted first. */
-const ASPECT_MAX = 500;
+// Image geometry comes off the synced row (plan §8.3).
+//
+// v1 kept the aspect ratio in this device's localStorage, learned from an
+// `onLoad`, which meant a new device laid out garbage on its first load and
+// every picture grew from a fixed placeholder to its real height as it
+// decoded, re-flowing the rows below it. `width`/`height` are columns now:
+// the capturing device measures them before it sends, the derivatives pass
+// confirms them with EXIF orientation baked in, and every device gets the
+// same box before any bytes arrive.
 
-const aspects = new Map<string, number>(loadAspects());
-
-function loadAspects(): [string, number][] {
-  try {
-    const raw = localStorage.getItem(ASPECT_KEY);
-    if (!raw) return [];
-    return Object.entries(JSON.parse(raw) as Record<string, number>).filter(
-      ([, ratio]) => typeof ratio === "number" && ratio > 0,
-    );
-  } catch {
-    return [];
-  }
-}
-
-let persistTimer: ReturnType<typeof setTimeout> | undefined;
-function persistAspects(): void {
-  clearTimeout(persistTimer);
-  // Debounced: a screenful of images all load within a few frames of each other.
-  persistTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(ASPECT_KEY, JSON.stringify(Object.fromEntries(aspects)));
-    } catch {
-      // Quota or private mode: the ratios just don't survive the session.
-    }
-  }, 1_000);
-}
-
-/** Width ÷ height for a blob this device has displayed before, if it has. */
-export function blobAspect(blobId: string | null | undefined): number | undefined {
-  return blobId ? aspects.get(blobId) : undefined;
-}
-
-/** Called from an image's `load`: the only place the true ratio is known. */
-export function rememberBlobAspect(blobId: string | null | undefined, img: HTMLImageElement): void {
-  if (!blobId || !img.naturalWidth || !img.naturalHeight) return;
-  const ratio = img.naturalWidth / img.naturalHeight;
-  if (aspects.get(blobId) === ratio) return;
-  aspects.delete(blobId);
-  aspects.set(blobId, ratio);
-  while (aspects.size > ASPECT_MAX) aspects.delete(aspects.keys().next().value!);
-  persistAspects();
+/** Width ÷ height for an attachment, when its dimensions are known. */
+export function aspectOf(
+  width: number | null | undefined,
+  height: number | null | undefined,
+): number | undefined {
+  return width && height && width > 0 && height > 0 ? width / height : undefined;
 }
 
 /**
@@ -210,11 +176,31 @@ export function rememberBlobAspect(blobId: string | null | undefined, img: HTMLI
  * column happens to be, at any viewport, without React measuring anything.
  */
 export function mediaBox(
-  blobId: string | null | undefined,
+  width: number | null | undefined,
+  height: number | null | undefined,
   maxHeight: string,
 ): { width: string; aspectRatio: number } | undefined {
-  const aspect = blobAspect(blobId);
+  const aspect = aspectOf(width, height);
   return aspect
     ? { width: `min(100%, calc(${maxHeight} * ${aspect}))`, aspectRatio: aspect }
     : undefined;
+}
+
+/**
+ * The dimensions of a picked image, read on the capturing device before it is
+ * sent, so its own chat bubble has the right geometry from the first frame and
+ * so does every other device the row syncs to. Null when the browser cannot
+ * decode the file (a .ico, a HEIC on a non-Safari browser), in which case the
+ * derivatives pass fills them in server-side.
+ */
+export async function measureImage(file: Blob): Promise<{ width: number; height: number } | null> {
+  if (typeof createImageBitmap !== "function") return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const size = { width: bitmap.width, height: bitmap.height };
+    bitmap.close();
+    return size.width > 0 && size.height > 0 ? size : null;
+  } catch {
+    return null;
+  }
 }

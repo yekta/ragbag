@@ -4,7 +4,6 @@ import { auth } from "../auth.js";
 import { bucketCorsStatus, storage } from "../blobs/storage.js";
 import { sql } from "../db/client.js";
 import { env, localBlobDir, r2Configured } from "../env.js";
-import { hasVectorColumn } from "../ingest/indexing.js";
 import { spentLast24h } from "../ingest/usage.js";
 import { ingestHeartbeat } from "../ingest/worker.js";
 import { getAuthData } from "../session.js";
@@ -149,24 +148,37 @@ export const debugRoutes = new Hono()
   .get("/ingest", async (c) => {
     const heartbeat = ingestHeartbeat();
 
-    const counts = Object.fromEntries(
-      (
-        await sql<{ status: string; count: number }[]>`
-          select status, count(*)::int as count from ingest_job group by status`
-      ).map((r) => [r.status, r.count]),
-    );
+    // Per stage as well as per status: "40 queued" reads very differently
+    // when they are all synthesis jobs waiting on parts that never extracted.
+    const counts = (
+      await sql<{ stage: string; status: string; count: number }[]>`
+        select stage, status, count(*)::int as count from ingest_jobs group by stage, status`
+    ).reduce<Record<string, Record<string, number>>>((acc, r) => {
+      (acc[r.stage] ??= {})[r.status] = r.count;
+      return acc;
+    }, {});
     const [oldest] = await sql<{ age: number | null }[]>`
       select extract(epoch from now() - min(created_at))::int as age
-      from ingest_job where status = 'queued'`;
+      from ingest_jobs where status = 'queued'`;
     const recentErrors = (
       await sql<
-        { item_id: string; status: string; attempts: number; last_error: string; at: string }[]
+        {
+          message_id: string;
+          attachment_id: string | null;
+          stage: string;
+          status: string;
+          attempts: number;
+          last_error: string;
+          at: string;
+        }[]
       >`
-        select item_id, status, attempts, last_error, updated_at::text as at
-        from ingest_job where last_error is not null
+        select message_id, attachment_id, stage, status, attempts, last_error, updated_at::text as at
+        from ingest_jobs where last_error is not null
         order by updated_at desc limit 5`
     ).map((r) => ({
-      itemId: r.item_id,
+      messageId: r.message_id,
+      attachmentId: r.attachment_id,
+      stage: r.stage,
       status: r.status,
       attempts: r.attempts,
       lastError: r.last_error,
@@ -191,15 +203,16 @@ export const debugRoutes = new Hono()
       ai: {
         configured: Boolean(env.OPENAI_API_KEY),
         enrichModel: env.AI_ENRICH_MODEL,
-        embedModel: env.AI_EMBED_MODEL,
-        vectorColumn: await hasVectorColumn().catch(() => false),
+        transcribeModel: env.AI_TRANSCRIBE_MODEL,
+        pdfDetail: env.AI_PDF_DETAIL,
+        pdfMaxPages: env.AI_PDF_MAX_PAGES,
         // Reporting only: spend is metered, never capped.
         ...(authData
           ? { yourSpendLast24hUsd: await spentLast24h(authData.userID).catch(() => null) }
           : {}),
       },
       note: env.OPENAI_API_KEY
-        ? "AI is configured. If items still lack summaries, check recentErrors above and each item's detail view."
-        : "AI is NOT configured (no OPENAI_API_KEY), so every job completes extraction-only: no summaries, no tags.",
+        ? "AI is configured. If messages still lack summaries, check recentErrors above and the message's own detail view."
+        : "AI is NOT configured (no OPENAI_API_KEY), so every job completes extraction-only: no summaries, no tags, no entities.",
     });
   });

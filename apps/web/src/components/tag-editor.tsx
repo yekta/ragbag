@@ -1,28 +1,27 @@
-import { mutators } from "@ragbag/contracts";
-import { useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-// Edits the user's own topic tags on an item (full-replacement set: the
-// tag.setForItem mutator). AI tags are not editable here; ingestion owns them.
+// Edits the user's own topic tags on one thing (full-replacement set). AI
+// tags are not editable here; ingestion owns them and replaces them wholesale
+// on every run.
+//
+// Three things are taggable now (messages, attachments, entities) through
+// three join tables, so the caller passes the mutation rather than an id: the
+// editor itself has nothing to say about which of the three it is editing.
 
 export function TagEditor({
-  itemId,
   userTagNames,
   suggestions,
+  onSave,
 }: {
-  itemId: string;
   userTagNames: readonly string[];
   suggestions: readonly string[];
+  onSave: (names: string[]) => void;
 }) {
-  const zero = useZero();
   const [draft, setDraft] = useState("");
-
-  const save = (names: string[]) => {
-    void zero.mutate(mutators.tag.setForItem({ itemId, names }));
-  };
+  const save = onSave;
 
   const add = (raw: string) => {
     const name = raw.trim().toLowerCase();

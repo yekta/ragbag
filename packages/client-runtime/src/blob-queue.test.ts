@@ -53,7 +53,7 @@ describe("BlobQueue", () => {
     });
 
     const captured = await queue.capture(file("hello"), "photo.png");
-    expect(captured.kind).toBe("image");
+    expect(captured.face).toBe("image");
     expect(captured.reused).toBe(false);
     // No IndexedDB here: the queue must say so rather than pretend.
     expect(queue.state.ephemeral).toBe(true);
@@ -121,7 +121,7 @@ describe("BlobQueue", () => {
 
     const loose = await queue.capture(file("loose"));
     const sent = await queue.capture(file("sent"));
-    await queue.linkItem(sent.blobId, "item-1");
+    await queue.linkAttachment(sent.blobId, "message-1", "attachment-1");
 
     await queue.cancel(loose.blobId);
     expect(queue.state.blobs[loose.blobId]).toBeUndefined();

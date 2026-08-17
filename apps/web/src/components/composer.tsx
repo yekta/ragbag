@@ -1,21 +1,23 @@
 import type { CapturedBlob } from "@ragbag/client-runtime";
-import { MAX_BLOB_BYTES, mutators } from "@ragbag/contracts";
-import { kindForMime, newId, normalizeUrl, parseTextCapture } from "@ragbag/shared";
+import { MAX_ATTACHMENTS, MAX_BLOB_BYTES, mutators } from "@ragbag/contracts";
+import { faceForMime, newId } from "@ragbag/shared";
+import type { AttachmentFace } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Icon } from "@/components/icon";
+import { AudioRecorder } from "@/components/audio-recorder";
+import { FACE_ICON, Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useBlobQueue, useBlobQueueState, useBlobUploadState } from "@/lib/blobs";
-import { useDictation } from "@/lib/dictation";
+import { measureImage, useBlobQueue, useBlobQueueState, useBlobUploadState } from "@/lib/blobs";
 import { formatBytes } from "@/lib/format";
+import { seedMediaCache } from "@/lib/media";
 import { isTouch } from "@/lib/touch";
 
-// The dump box (plan §1: zero friction). Text → note; a bare URL → link;
-// a "todo:"/"[ ]" marker → todo; attached files → one item per file through
-// the persistent blob queue: capture is local-only, so dumping works offline
-// and uploads follow later.
+// The dump box. One send is one message: free text plus up to ten ordered
+// attachments, exactly like a chat composer. There is no type picker and no
+// kind guessing, because a message has no kind: a bare URL is just text that
+// will produce a link entity, and that entity is what draws the preview card.
 //
 // Attachments behave like a chat composer's: a fixed square tile (with its
 // image preview) appears the instant a file is picked; hashing, local
@@ -23,13 +25,9 @@ import { isTouch } from "@/lib/touch";
 // tile (reading spinner → upload progress ring → done, or a red state with the
 // classified reason and a retry). Nothing here waits silently: every async
 // stage has a deadline, and a failure is a state on the tile, not a mystery.
-//
-// Floats over the timeline: "+" bottom-left opens the file picker, and the
-// bottom-right control is a mic while the box is empty, becoming send as soon
-// as there is something to dump. The kind is always guessed; there is no
-// type picker to get in the way.
+// That machinery exists because uploads once died silently in production.
 
-const PLACEHOLDER = "Dump anything: a thought, a link, a file…";
+const PLACEHOLDER = "Drop anything: a thought, a link, a file…";
 
 type Attachment = {
   /** Chip identity from the moment of pick, before any blobId exists. */
@@ -37,9 +35,15 @@ type Attachment = {
   file: File;
   name: string;
   size: number;
-  kind: "image" | "pdf" | "file";
+  face: AttachmentFace;
   /** Object URL for image previews, created synchronously on pick. */
   previewUrl: string | null;
+  /** Measured on this device, so the bubble has its geometry before the send. */
+  width?: number;
+  height?: number;
+  /** Recordings only, measured here so no device decodes audio to draw one. */
+  durationMs?: number;
+  waveform?: number[];
   /** The local stage: hashing+persisting ("reading") until a blobId exists. */
   status: "reading" | "ready" | "error";
   error?: string;
@@ -94,7 +98,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
-  const dictation = useDictation(setDraft);
 
   /** Hash + persist one picked file, then settle its chip. */
   const captureOne = useCallback(
@@ -142,19 +145,63 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     [queue, setAttachments],
   );
 
+  /**
+   * A finished recording joins the attachments like any other file, carrying
+   * the duration and waveform this device measured (plan §8.5).
+   */
+  const addRecording = useCallback(
+    (recording: { file: File; durationMs: number; waveform: number[] }) => {
+      const localId = newId();
+      setAttachments((prev) => [
+        ...prev,
+        {
+          localId,
+          file: recording.file,
+          name: recording.file.name,
+          size: recording.file.size,
+          face: "audio",
+          previewUrl: null,
+          durationMs: recording.durationMs,
+          waveform: recording.waveform,
+          status: "reading",
+        },
+      ]);
+      captureOne(localId, recording.file);
+    },
+    [captureOne, setAttachments],
+  );
+
   const addFiles = useCallback(
-    (files: Iterable<File>) => {
-      for (const file of files) {
+    (picked: Iterable<File>) => {
+      const files = [...picked];
+      // Never a silent truncation (plan §8.5): dropping fifteen files attaches
+      // the first ten and says what happened to the other five.
+      const room = MAX_ATTACHMENTS - attachmentsRef.current.length;
+      if (room <= 0) {
+        toast.error(`${MAX_ATTACHMENTS} files max`, {
+          description: "Send this message first, then attach the rest.",
+        });
+        return;
+      }
+      const accepted = files.slice(0, room);
+      if (files.length > accepted.length) {
+        const dropped = files.length - accepted.length;
+        toast.warning(`${MAX_ATTACHMENTS} files max`, {
+          description: `${dropped} file${dropped === 1 ? " wasn't" : "s weren't"} added.`,
+        });
+      }
+
+      for (const file of accepted) {
         const localId = newId();
-        const kind = kindForMime(file.type || "application/octet-stream");
+        const face = faceForMime(file.type || "application/octet-stream");
         // The preview exists before any async work: the whole point.
-        const previewUrl = kind === "image" ? URL.createObjectURL(file) : null;
+        const previewUrl = face === "image" ? URL.createObjectURL(file) : null;
         const base: Attachment = {
           localId,
           file,
-          name: file.name || kind,
+          name: file.name || face,
           size: file.size,
-          kind,
+          face,
           previewUrl,
           status: "reading",
         };
@@ -182,6 +229,18 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
 
         setAttachments((prev) => [...prev, base]);
         captureOne(localId, file);
+        // Dimensions are a column now (plan §8.3), and the capturing device
+        // is the first place that can know them, so the bubble is laid out
+        // correctly on this device before the server has even seen the bytes.
+        // The derivatives pass confirms them later with EXIF baked in.
+        if (face === "image") {
+          void measureImage(file).then((size) => {
+            if (!size) return;
+            setAttachments((prev) =>
+              prev.map((a) => (a.localId === localId ? { ...a, ...size } : a)),
+            );
+          });
+        }
       }
     },
     [captureOne, setAttachments],
@@ -268,8 +327,8 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     setAttachments((prev) => prev.filter((a) => a.localId !== localId));
     if (!gone) return;
     if (gone.previewUrl) URL.revokeObjectURL(gone.previewUrl);
-    // A fresh capture with no item yet is ours to abort; a reused blobId may
-    // belong to an already-sent item, so its upload must keep running.
+    // A fresh capture with no message yet is ours to abort; a reused blobId
+    // may belong to an already-sent message, so its upload must keep running.
     if (gone.captured && !gone.captured.reused) void queue.cancel(gone.captured.blobId);
   };
 
@@ -286,44 +345,42 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   const reading = attachments.some((a) => a.status === "reading");
   const failed = attachments.some((a) => a.status === "error");
   const canSend = hasContent && !reading && !failed;
+  const full = attachments.length >= MAX_ATTACHMENTS;
 
   const send = () => {
     const text = draft.trim();
     if (!canSend) return;
-    dictation.stop();
 
-    if (attachments.length > 0) {
-      attachments.forEach(({ captured, name }, i) => {
-        if (!captured) return; // unreachable: send is gated on every chip being ready
-        const id = newId();
-        watchServer(
-          zero.mutate(
-            mutators.item.create({
-              id,
-              kind: captured.kind,
-              blobId: captured.blobId,
-              // The name is already on this device; the card should not have to
-              // wait for the server to learn it.
-              title: name,
-              // The typed text rides along as the comment on the first file.
-              text: i === 0 && text ? text : undefined,
-            }),
-          ),
-        );
-        void queue.linkItem(captured.blobId, id);
-      });
-    } else {
-      const parsed = parseTextCapture(text);
-      watchServer(
-        zero.mutate(
-          mutators.item.create({
-            id: newId(),
-            kind: parsed.kind,
-            text: parsed.text,
-            url: parsed.url ? normalizeUrl(parsed.url)! : undefined,
-          }),
-        ),
-      );
+    // One message, one mutation: the attachments go with the text rather than
+    // the text riding on the first of N separate items, which is what v1 did.
+    const messageId = newId();
+    const parts = attachments.map((a) => ({
+      id: newId(),
+      blobId: a.captured!.blobId,
+      filename: a.name,
+      mime: a.file.type || "application/octet-stream",
+      size: a.size,
+      width: a.width,
+      height: a.height,
+      durationMs: a.durationMs,
+      waveform: a.waveform,
+    }));
+
+    watchServer(
+      zero.mutate(
+        mutators.message.create({
+          id: messageId,
+          text: text || undefined,
+          attachments: parts,
+        }),
+      ),
+    );
+    for (const [i, part] of parts.entries()) {
+      void queue.linkAttachment(part.blobId, messageId, part.id);
+      // The capturing device already holds the bytes, so it writes its own
+      // copies into the media caches under the very keys it is about to ask
+      // for (plan §6.4). Its own photos never round-trip.
+      void seedMediaCache(part.blobId, attachments[i]!.file);
     }
 
     for (const a of attachments) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
@@ -331,8 +388,6 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     setDraft("");
     textareaRef.current?.focus();
   };
-
-  const showSend = hasContent || !dictation.supported;
 
   return (
     <>
@@ -347,11 +402,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
             only strip where a scrolling card would otherwise be cut off by the
             viewport edge, plus 1rem that tucks behind the card. Solid
             `--background`, not a gradient: nothing translucent, and its top
-            edge is invisible anyway (behind the card in the middle, background
-            over background either side, since the timeline column is inset
-            further than this card). Sized off the gap rather than the card
-            because the card grows with its content while the gap is constant.
-            `relative` on the card below keeps it painting on top. */}
+            edge is invisible anyway. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--composer-inset)_+_1rem)] bg-background" />
         <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
@@ -380,7 +431,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               // opens.
               autoFocus={!isTouch}
               className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base"
-              placeholder={dictation.listening ? "Listening…" : PLACEHOLDER}
+              placeholder={PLACEHOLDER}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -395,16 +446,33 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                 its content runs to the very bottom edge of the box, and without
                 a gap here the last line touches the buttons. */}
             <div className="flex items-center justify-between px-2.5 pb-2.5 pt-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full text-muted-foreground"
-                title={canAttach ? "Attach files" : "Blob storage is not configured on the server"}
-                disabled={!canAttach}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Icon name="plus" className="size-5" />
-              </Button>
+              <span className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full text-muted-foreground"
+                  title={
+                    !canAttach
+                      ? "Blob storage is not configured on the server"
+                      : full
+                        ? `${MAX_ATTACHMENTS} files max in one message`
+                        : "Attach files"
+                  }
+                  disabled={!canAttach || full}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Icon name="plus" className="size-5" />
+                </Button>
+                {/* The limit, said out loud, from the first file on. A cap
+                    nobody can see is a cap that surprises you at ten. */}
+                {attachments.length > 0 && (
+                  <span
+                    className={`text-xs tabular-nums ${full ? "text-warning-foreground" : "text-muted-foreground"}`}
+                  >
+                    {attachments.length}/{MAX_ATTACHMENTS}
+                  </span>
+                )}
+              </span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -416,7 +484,10 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                 }}
               />
 
-              {showSend ? (
+              {/* The mic is the right-hand control while there is nothing to
+                  send, and send takes over the moment there is: the same swap
+                  v1 made for dictation, except what it produces is a file. */}
+              {hasContent ? (
                 <Button
                   size="icon"
                   className="rounded-full"
@@ -425,7 +496,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                       ? "Remove or retry the failed attachment first"
                       : reading
                         ? "Still reading an attachment…"
-                        : "Dump (Enter)"
+                        : "Drop (Enter)"
                   }
                   disabled={!canSend}
                   onClick={send}
@@ -433,17 +504,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                   <Icon name="send" className="size-5" />
                 </Button>
               ) : (
-                <Button
-                  variant={dictation.listening ? "destructive" : "outline"}
-                  size="icon"
-                  className={`rounded-full ${
-                    dictation.listening ? "animate-pulse" : "text-muted-foreground"
-                  }`}
-                  title={dictation.listening ? "Stop dictation" : "Dictate a note"}
-                  onClick={() => (dictation.listening ? dictation.stop() : dictation.start(draft))}
-                >
-                  <Icon name="mic" className="size-5" />
-                </Button>
+                <AudioRecorder onRecorded={addRecording} />
               )}
             </div>
           </div>
@@ -508,7 +569,7 @@ function AttachmentChip({
       stage = "Queued";
     }
   }
-  // upload absent or done → bare tile; the timeline shows the item next.
+  // upload absent or done → bare tile; the timeline shows the message next.
 
   const retry =
     a.status === "error" && a.retryable !== false
@@ -537,18 +598,17 @@ function AttachmentChip({
     <span className={`group/att relative shrink-0 ${TILE}`}>
       <span
         // `relative` is what makes the clip mean anything: the scrim below is
-        // `inset-0`, and without a containing block here it resolves against the
-        // outer span instead, escaping the rounding, and painting over the
+        // `inset-0`, and without a containing block here it resolves against
+        // the outer span instead, escaping the rounding and painting over the
         // failed tile's red border.
         //
         // A picture also gets an inner edge. The 1px border is `--border`,
         // which is a *lighter* line than the canvas: it reads against a dark
         // photo and against a dark theme, and disappears against the white
         // screenshot that is half of what gets dumped here. So a preview adds a
-        // second hairline inside it, drawn from the shadow family (the palette's
-        // one sanctioned translucent set, index.css) rather than a flat colour,
+        // second hairline inside it, drawn from the shadow family (the
+        // palette's one sanctioned translucent set) rather than a flat colour,
         // because only a tinted line reads over content it cannot predict.
-        // Between the two the tile has an edge whatever the photo does.
         className={`relative block size-full overflow-hidden rounded-xl border bg-muted ${
           failedReason
             ? "border-destructive"
@@ -587,10 +647,7 @@ function AttachmentChip({
       </span>
       {/* Keeps the base's full 44px: at 24px on a corner this is the fiddliest
           target on a phone, and it has room: the bleed to the right lands on
-          the next tile, which is inert and paints over this anyway. The one
-          consequence is on a failed tile, where the retry scrim below loses its
-          top-right corner to this. That is the right winner: the ✕ is sitting
-          on it. */}
+          the next tile, which is inert and paints over this anyway. */}
       <Button
         variant="outline"
         size="icon-xs"
@@ -615,7 +672,7 @@ function FileFace({ attachment: a }: { attachment: Attachment }) {
     <span className="flex size-full flex-col justify-between bg-card p-2.5 text-left">
       <span className="line-clamp-2 break-all text-[11px] font-medium leading-tight">{a.name}</span>
       <span className="flex items-center gap-1 text-muted-foreground">
-        <Icon name={a.kind === "pdf" ? "pdf" : "file"} className="size-3.5 shrink-0" />
+        <Icon name={FACE_ICON[a.face]} className="size-3.5 shrink-0" />
         {ext && <span className="truncate text-[10px] font-medium uppercase">{ext}</span>}
       </span>
     </span>
@@ -662,10 +719,7 @@ function ProgressRing({ value }: { value?: number }) {
 function DropOverlay() {
   return (
     // The scrim is the surface: it fades the whole page out toward the canvas,
-    // and the icon and label sit straight on it, no card. `bg-background`
-    // rather than `bg-overlay` because this state replaces the page rather
-    // than dimming something you still read through, which also means ordinary
-    // `text-foreground` ink under both themes: it's the canvas underneath.
+    // and the icon and label sit straight on it, no card.
     <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/scrim p-6 text-center text-foreground">
       <Icon name="filePlus" className="size-12" />
       <p className="text-lg font-medium">Drop the files to add to your message</p>

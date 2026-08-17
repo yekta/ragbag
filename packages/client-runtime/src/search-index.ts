@@ -1,39 +1,58 @@
 import MiniSearch from "minisearch";
 
-// Tier-1 search (plan §8): keyword/prefix matching over titles, tags, AI
-// summaries, the user's text, and truncated extracted text. Runs on-device
-// against this in-memory index, kept live from Zero's query results,
-// instant, search-as-you-type, fully offline. It punches above its weight
-// because ingestion did semantic work at write time: AI tags + summaries are
-// part of the corpus, so "sleep caffeine" hits the caffeine article even when
-// its title never says either word.
+// Local search, and only local search (plan §7). No chunk table, no tsvector,
+// no server endpoint. The extracted text still lives in Postgres because
+// Postgres is the source of truth and re-ingestion reads it, but nothing
+// indexes it there.
+//
+// The reasoning: v1 truncated synced text at 8,000 chars purely as a
+// sync-payload guard, and that truncation was the only thing making local
+// search incomplete. Sync the full content and local search covers the entire
+// archive, at which point a server tier answers a question nobody asked.
+//
+// Dropping embeddings is safe because entities recover most of what they were
+// for. `1Z999AA10123456784` matches a tracking entity exactly, "amazon"
+// matches an invoice's vendor, "the place in Kadıköy" matches an address's
+// locality. The semantic work moved from query time to write time, which is
+// cheaper, faster and offline.
+
+/** What a hit is about. Three doc types share one index (plan §7). */
+export const DOC_TYPES = ["message", "attachment", "entity"] as const;
+export type DocType = (typeof DOC_TYPES)[number];
 
 export type SearchDoc = {
+  /** `${type}:${id}`, because an entity and a message can share neither. */
   id: string;
-  kind: string;
+  type: DocType;
+  /** The message this doc belongs to, so results can group and collapse. */
+  messageId: string;
+  /** The row's own id: the message, the attachment, or the entity. */
+  targetId: string;
   title: string;
-  /** The user's own words: note body or dump comment. */
+  /** The user's own words, or a filename, or an entity's value. */
   text: string;
   summary: string;
-  /** All tag names (user + AI), space-joined. */
   tags: string;
-  site: string;
-  url: string;
-  /** Extracted article/PDF/OCR text, already truncated for sync. */
-  extracted: string;
+  /** Entity values on a message doc; the structured fields on an entity doc. */
+  entities: string;
+  /** Attachment names and titles on a message doc; `content_md` on its own. */
+  body: string;
 };
 
 export type SearchHit = {
   id: string;
+  type: DocType;
+  messageId: string;
+  targetId: string;
   score: number;
   /** Query terms that matched, for highlighting. */
   terms: string[];
 };
 
-const INDEX_FIELDS = ["title", "tags", "text", "summary", "site", "extracted", "url"] as const;
+const INDEX_FIELDS = ["title", "tags", "text", "summary", "entities", "body"] as const;
 
 /** Cap what goes into the index per field; keeps memory flat at scale. */
-const MAX_FIELD_CHARS = 4_000;
+const MAX_FIELD_CHARS = 32_000;
 
 function clamp(value: string): string {
   return value.length > MAX_FIELD_CHARS ? value.slice(0, MAX_FIELD_CHARS) : value;
@@ -42,9 +61,11 @@ function clamp(value: string): string {
 export class TimelineSearchIndex {
   #mini = new MiniSearch<SearchDoc>({
     fields: [...INDEX_FIELDS],
-    storeFields: [],
+    // `type` and `messageId` come back on the hit, so the overlay can group
+    // and collapse results without a second lookup per row.
+    storeFields: ["type", "messageId", "targetId"],
     searchOptions: {
-      boost: { title: 3, tags: 2.5, text: 2, summary: 1.5, site: 1.2 },
+      boost: { title: 3, tags: 2.5, entities: 2.5, text: 2, summary: 1.5, body: 1 },
       prefix: true,
       fuzzy: 0.15,
       combineWith: "AND",
@@ -58,9 +79,14 @@ export class TimelineSearchIndex {
   }
 
   /**
-   * Reconcile the index with the current timeline. Cheap to call on every
-   * Zero update: unchanged docs are skipped, edited ones replaced, deleted
-   * ones discarded.
+   * Reconcile the index with the current archive. Cheap to call on every Zero
+   * update: unchanged docs are skipped, edited ones replaced, deleted ones
+   * discarded.
+   *
+   * Being diff-based is what makes the two-pass build (plan §7) free: the
+   * first pass indexes titles, summaries, tags, entity values and filenames,
+   * and the second is this same call with the document bodies filled in. Only
+   * the docs that actually changed are touched.
    */
   sync(docs: readonly SearchDoc[]): void {
     const seen = new Set<string>();
@@ -68,7 +94,8 @@ export class TimelineSearchIndex {
       const doc: SearchDoc = {
         ...raw,
         text: clamp(raw.text),
-        extracted: clamp(raw.extracted),
+        entities: clamp(raw.entities),
+        body: clamp(raw.body),
       };
       seen.add(doc.id);
       const serialized = JSON.stringify(doc);
@@ -86,12 +113,19 @@ export class TimelineSearchIndex {
     }
   }
 
-  search(query: string, limit = 50): SearchHit[] {
+  search(query: string, limit = 80): SearchHit[] {
     const q = query.trim();
     if (!q) return [];
     return this.#mini
       .search(q)
       .slice(0, limit)
-      .map((r) => ({ id: String(r.id), score: r.score, terms: r.terms }));
+      .map((r) => ({
+        id: String(r.id),
+        type: r.type as DocType,
+        messageId: String(r.messageId),
+        targetId: String(r.targetId),
+        score: r.score,
+        terms: r.terms,
+      }));
   }
 }

@@ -1,7 +1,8 @@
-// M2 acceptance check for the blob path: presigned upload → content-addressed
-// dedupe → presigned download, exactly the sequence the web composer and the
-// client-runtime BlobQueue perform. Works against either storage driver
-// (local disk in dev, R2 when configured).
+// Acceptance check for the blob path: presigned upload → content-addressed
+// dedupe → presigned download → the stable media URL, exactly the sequence the
+// web composer, the client-runtime BlobQueue and the media service worker
+// perform. Works against either storage driver (local disk in dev, R2 when
+// configured).
 //
 // Run with the dev stack up (postgres, server :3001):
 //   pnpm --filter server exec tsx scripts/blob-proof.mts
@@ -119,7 +120,48 @@ const tampered = await fetch(`${url}x`);
 if (tampered.ok) fail("tampered download URL was accepted");
 console.log("OK   tampered presigned URLs are rejected");
 
-// 8. An image item pointing at the blob syncs like any other item.
+// 8. The batch presign the media worker uses: up to ~100 ids in one request,
+// a map back, and nothing for ids this user does not own.
+const batch = await fetch(`${SERVER}/api/blobs/download-urls`, {
+  method: "POST",
+  headers: { "content-type": "application/json", cookie, origin: "http://localhost:5173" },
+  body: JSON.stringify({ blobIds: [clientBlobId, otherBlobId, newId()], variant: "original" }),
+});
+if (!batch.ok) fail(`download-urls: ${batch.status} ${await batch.text()}`);
+const { urls } = (await batch.json()) as { urls: Record<string, string> };
+if (!urls[clientBlobId] || !urls[otherBlobId]) fail("batch presign missed an owned blob");
+if (Object.keys(urls).length !== 2) fail("batch presign leaked a blob the caller does not own");
+console.log("OK   batch presign answers many ids at once and only for their owner");
+
+// 9. The media URL: one stable string per picture, which is the only thing
+// that ever goes in a `src`. It must 302 to a presigned GET, and refuse
+// without a session. `redirect: manual` so the redirect itself is the subject.
+const anonMedia = await fetch(`${SERVER}/api/media/${clientBlobId}/original`, {
+  redirect: "manual",
+});
+if (anonMedia.status !== 401) fail(`/api/media without session: ${anonMedia.status}, want 401`);
+
+const media = await fetch(`${SERVER}/api/media/${clientBlobId}/original`, {
+  headers: { cookie, origin: "http://localhost:5173" },
+  redirect: "manual",
+});
+if (media.status !== 302) fail(`/api/media: ${media.status}, want a 302 to a presigned GET`);
+const target = media.headers.get("location");
+if (!target) fail("/api/media redirected to nothing");
+const mediaBytes = Buffer.from(await (await fetch(target)).arrayBuffer());
+if (!mediaBytes.equals(bytes)) fail("the media URL resolved to different bytes");
+console.log("OK   /api/media/<id>/<variant> 302s to the bytes, and 401s without a session");
+
+// 9b. A variant that has not been generated yet falls back to the original
+// rather than 404ing: a photo is browsed before ingestion has finished it.
+const thumb = await fetch(`${SERVER}/api/media/${clientBlobId}/thumb`, {
+  headers: { cookie, origin: "http://localhost:5173" },
+  redirect: "manual",
+});
+if (thumb.status !== 302) fail(`/api/media thumb: ${thumb.status}, want 302`);
+console.log("OK   a missing derivative falls back to the original instead of 404ing");
+
+// 10. A message whose attachment points at the blob syncs like any other.
 const zero = new Zero({
   schema,
   mutators,
@@ -129,22 +171,37 @@ const zero = new Zero({
   cacheURL: CACHE,
   kvStore: "mem",
 });
-const itemId = newId();
+const messageId = newId();
+const attachmentId = newId();
 const write = zero.mutate(
-  mutators.item.create({ id: itemId, kind: "image", blobId: clientBlobId, text: "blob proof" }),
+  mutators.message.create({
+    id: messageId,
+    text: "blob proof",
+    attachments: [
+      {
+        id: attachmentId,
+        blobId: clientBlobId,
+        filename: "proof.png",
+        mime,
+        size: bytes.length,
+      },
+    ],
+  }),
 );
 const result = await write.server;
-if (result.type === "error") fail(`server rejected image item: ${JSON.stringify(result)}`);
+if (result.type === "error") fail(`server rejected the message: ${JSON.stringify(result)}`);
 const deadline = Date.now() + 20_000;
 let synced = false;
 while (Date.now() < deadline && !synced) {
-  const timeline = await zero.run(queries.timeline());
-  synced = timeline.some((i) => i.id === itemId && i.blobId === clientBlobId);
+  const drop = await zero.run(queries.drop({ limit: null }));
+  synced = drop.some(
+    (m) => m.id === messageId && m.attachments.some((a) => a.blobId === clientBlobId),
+  );
   if (!synced) await new Promise((r) => setTimeout(r, 250));
 }
-if (!synced) fail("image item with blobId did not sync back");
-console.log("OK   image item referencing the blob synced end to end");
+if (!synced) fail("the message's attachment did not sync back");
+console.log("OK   a message whose attachment references the blob synced end to end");
 
-console.log("\nPASS blob proof: presign → upload → dedupe → download → item sync");
+console.log("\nPASS blob proof: presign → upload → dedupe → download → batch → media URL → sync");
 zero.close();
 process.exit(0);

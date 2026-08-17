@@ -56,14 +56,20 @@ const shape = {
   R2_BUCKET: z.string().optional(),
   LOCAL_BLOB_DIR: z.string().optional(),
 
-  // OpenAI powers enrichment + embeddings (plan §7/§8): a core feature, not
-  // an add-on: REQUIRED in production (see the guard below; a keyless deploy
-  // silently produced no summaries/tags for a day before anyone noticed).
+  // OpenAI powers every AI stage (plan §5): a core feature, not an add-on,
+  // and REQUIRED in production (see the guard below; a keyless deploy
+  // silently produced no summaries or tags for a day before anyone noticed).
   // Optional in dev/test so the stack boots without credentials.
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),
+  // Vision, the scanned-PDF pass and synthesis all share this one.
   AI_ENRICH_MODEL: z.string().default("gpt-5.6-luna"),
-  AI_EMBED_MODEL: z.string().default("text-embedding-3-small"),
+  AI_TRANSCRIBE_MODEL: z.string().default("gpt-4o-transcribe"),
+  // How a PDF handed to the model is rendered. The real cost lever: `auto`
+  // means high-quality rendering and more input tokens per page (plan §5.2).
+  AI_PDF_DETAIL: z.enum(["auto", "low", "high"]).default("low"),
+  /** Past this many pages a PDF is truncated rather than sent whole (§5.2). */
+  AI_PDF_MAX_PAGES: z.coerce.number().int().min(1).max(500).default(50),
 
   // The ingestion worker runs inside the API process for now; the flag is
   // the groundwork for a dedicated worker instance (plan §11).

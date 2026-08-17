@@ -1,74 +1,73 @@
+import { useLocation } from "@tanstack/react-router";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { toBlocks } from "@/components/attachment-album";
 import { Icon } from "@/components/icon";
-import { ItemCard } from "@/components/item-card";
+import { MessageCard } from "@/components/message-card";
 import { Badge } from "@/components/ui/badge";
 import type { ArchiveState } from "@/lib/archive-state";
-import { blobAspect } from "@/lib/blobs";
+import { aspectOf } from "@/lib/blobs";
 import { dayKey, dayLabel } from "@/lib/format";
 import { useFilter } from "@/lib/routes";
 import { BUDGET, usePatient } from "@/lib/settle";
 import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
-import type { Timeline as TimelineRows, TimelineItem } from "@/lib/types";
+import type { Drop, Message } from "@/lib/types";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
-// bottom like a messenger. Virtualized (plan §10): the full personal archive
-// is in memory via Zero, only visible cards are in the DOM.
+// bottom like a messenger. Virtualized: the full personal archive is in memory
+// via Zero, only visible cards are in the DOM.
 //
-// The *window* is the scroller. The list is ordinary
-// flow content, so the browser sees a real document scroll and every native
-// affordance that hangs off one, Safari collapsing its URL bar first among
-// them. Two rules come with that: nothing between <body> and this list may set
-// `overflow` (it would capture the sticky chrome above and below), and the
-// virtualizer needs `scrollMargin` to know where in the document the list
-// starts.
+// The *window* is the scroller. The list is ordinary flow content, so the
+// browser sees a real document scroll and every native affordance that hangs
+// off one, Safari collapsing its URL bar first among them. Two rules come with
+// that: nothing between <body> and this list may set `overflow` (it would
+// capture the sticky chrome above and below), and the virtualizer needs
+// `scrollMargin` to know where in the document the list starts.
 //
 // What to show when there is no stream is decided upstream, in one place
 // (lib/archive-state.ts): nothing here infers "the archive is empty" from an
 // empty query result, which is what used to make it flash a sync spinner at a
 // device that had every row on disk.
 
-type Row = { type: "day"; key: string; label: string } | { type: "item"; item: TimelineItem };
+type Row = { type: "day"; key: string; label: string } | { type: "message"; message: Message };
 
-/** How close to the newest item still counts as being at the newest item. */
+/** How close to the newest message still counts as being at the newest one. */
 const AT_END_PX = 120;
 
 /** Keys that move the page. Any other keystroke is someone typing a dump. */
 const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
 
-function useRows(items: TimelineRows): Row[] {
+function useRows(messages: Drop): Row[] {
   // The URL is the filter (lib/routes.ts).
   const { view, tagId } = useFilter();
   return useMemo(() => {
-    // Items arrive newest-first from the shared query; the chat renders
+    // Messages arrive newest-first from the shared query; the chat renders
     // oldest-first.
-    let filtered = items.toReversed();
-    if (view === "favorites") filtered = filtered.filter((i) => i.favorite);
-    else if (view) filtered = filtered.filter((i) => i.kind === view);
-    if (tagId) filtered = filtered.filter((i) => i.itemTags.some((t) => t.tagId === tagId));
+    let filtered = messages.toReversed();
+    if (view === "favorites") filtered = filtered.filter((m) => m.favorite);
+    if (tagId) filtered = filtered.filter((m) => m.tags.some((t) => t.tagId === tagId));
 
     const rows: Row[] = [];
     let lastDay = "";
-    for (const item of filtered) {
-      const key = dayKey(item.createdAt);
+    for (const message of filtered) {
+      const key = dayKey(message.createdAt);
       if (key !== lastDay) {
-        rows.push({ type: "day", key, label: dayLabel(item.createdAt) });
+        rows.push({ type: "day", key, label: dayLabel(message.createdAt) });
         lastDay = key;
       }
-      rows.push({ type: "item", item });
+      rows.push({ type: "message", message });
     }
     return rows;
-  }, [items, view, tagId]);
+  }, [messages, view, tagId]);
 }
 
 // Row geometry, estimated from what is known before layout.
 //
-// This used to be a flat 140px for every item, which is wrong in both
-// directions at once (a one-line todo against an image card) and the
-// virtualizer pays for the error by resizing the document under the reader as
-// real measurements land, dragging the scroll offset with it. None of this has
-// to be exact. It has to be close enough that the corrections are gossip rather
-// than news.
+// A message is a sum now, not a switch on a kind: its text, plus every
+// attachment's contribution, plus the chrome. None of this has to be exact. It
+// has to be close enough that the virtualizer's corrections are gossip rather
+// than news, because it pays for the error by resizing the document under the
+// reader as real measurements land, dragging the scroll offset with it.
 
 const DAY_ROW = 46;
 /** The opening separator, which draws no gap above itself (see the render). */
@@ -79,12 +78,20 @@ const CARD_CHROME = 68;
 const LINE = 26;
 /** Average glyph advance, for turning a character count into lines. */
 const CHAR_PX = 7.4;
+/** Keep in step with SINGLE_MAX_H in attachment-album.tsx. */
 const MEDIA_MAX_H = 320;
-const LINK_PREVIEW = 96;
+/** Gap between the album's tiles, and between one block and the next. */
+const TILE_GAP = 4;
+const BLOCK_GAP = 6;
+const AUDIO_BUBBLE = 62;
 const FILE_ROW = 66;
-const ADDRESS_BOX = 116;
-/** The todo checkbox and its gap, which the text wraps beside. */
-const CHECKBOX = 30;
+/** One entity card in the strip, plus its "found in this" heading. */
+const ENTITY_CARD = 72;
+const ENTITY_HEADING = 26;
+/** What we assume of a picture whose dimensions have not synced yet. */
+const DEFAULT_ASPECT = 4 / 3;
+/** Past this many tiles the album stops growing (attachment-album.tsx). */
+const GRID_CAP = 6;
 
 function textHeight(text: string | null | undefined, width: number): number {
   if (!text) return 0;
@@ -97,50 +104,61 @@ function textHeight(text: string | null | undefined, width: number): number {
   );
 }
 
-function estimateItem(item: TimelineItem, width: number): number {
-  // Todos and addresses own their text; for every other kind it is a comment
-  // above the body.
-  const comment =
-    item.kind === "todo" || item.kind === "address" ? 0 : textHeight(item.text, width);
-  switch (item.kind) {
-    case "todo":
-      return CARD_CHROME + textHeight(item.text, width - CHECKBOX);
-    case "address":
-      return CARD_CHROME + ADDRESS_BOX;
-    case "link":
-      return CARD_CHROME + comment + LINK_PREVIEW;
-    case "image": {
-      // Exact for any image this device has already displayed (lib/blobs.tsx
-      // remembers the ratio); otherwise assume something roughly landscape.
-      const aspect = blobAspect(item.blobId) ?? 4 / 3;
-      return CARD_CHROME + comment + Math.min(MEDIA_MAX_H, width / aspect);
+export function estimateMessage(message: Message, width: number): number {
+  let height = CARD_CHROME + textHeight(message.text, width);
+
+  for (const block of toBlocks(message.attachments)) {
+    height += BLOCK_GAP;
+    if (block.type === "one") {
+      height += block.face === "audio" ? AUDIO_BUBBLE : FILE_ROW;
+      continue;
     }
-    case "pdf":
-    case "file":
-      return CARD_CHROME + comment + FILE_ROW;
-    default:
-      return CARD_CHROME + comment;
+    const items = block.items;
+    if (items.length === 1) {
+      // Exact for any picture whose dimensions have synced, which is every
+      // picture the moment its message arrives (plan §8.3).
+      const only = items[0]!;
+      const aspect = aspectOf(only.width, only.height) ?? DEFAULT_ASPECT;
+      height += Math.min(MEDIA_MAX_H, width / aspect);
+    } else {
+      // Square tiles in a 2- or 3-column grid.
+      const columns = items.length <= 4 ? 2 : 3;
+      const tile = (width - TILE_GAP * (columns - 1)) / columns;
+      const rows = Math.ceil(Math.min(items.length, GRID_CAP) / columns);
+      height += rows * tile + (rows - 1) * TILE_GAP;
+    }
   }
+
+  // The strip only exists when something was found, and it is deduped by
+  // entity, the same way the card draws it.
+  const entities = new Set(message.mentions.map((m) => m.entityId));
+  if (entities.size > 0) height += ENTITY_HEADING + entities.size * ENTITY_CARD;
+
+  return height;
 }
 
 export function Timeline({
-  items,
+  messages,
   state,
   sync,
   listRef,
 }: {
-  items: TimelineRows;
+  messages: Drop;
   /** What the workspace is doing. Nothing here second-guesses it. */
   state: ArchiveState;
   sync: SyncStatus | null;
   /** Owned by the shell, which watches it to know when the page has settled. */
   listRef: RefObject<HTMLDivElement | null>;
 }) {
-  const rows = useRows(items);
+  const rows = useRows(messages);
   // The list element only exists when there is something to draw; effects that
   // observe it have to re-run when it appears.
   const hasRows = rows.length > 0;
   const { view, tagId } = useFilter();
+  // "Show in chat", from a thing-shaped view or a detail overlay: the message
+  // id rides in the hash, which is what makes the jump a real, shareable URL
+  // rather than a piece of transient state.
+  const { hash } = useLocation();
   const [scrollMargin, setScrollMargin] = useState(0);
   const [width, setWidth] = useState(700);
 
@@ -158,8 +176,8 @@ export function Timeline({
     const measure = () => {
       const box = listRef.current?.getBoundingClientRect();
       setScrollMargin(box ? box.top + window.scrollY : 0);
-      // Minus the card's own horizontal padding: this is the text column, which
-      // is what the row estimates wrap against.
+      // Minus the card's own horizontal padding: this is the content column,
+      // which is what the row estimates lay out against.
       if (box && box.width > 0) setWidth(box.width - 60);
     };
     measure();
@@ -173,19 +191,19 @@ export function Timeline({
     estimateSize: (i) => {
       const row = rows[i];
       if (!row) return DAY_ROW;
-      if (row.type !== "day") return estimateItem(row.item, width);
+      if (row.type !== "day") return estimateMessage(row.message, width);
       return i === 0 ? FIRST_DAY_ROW : DAY_ROW;
     },
     overscan: 10,
     getItemKey: (i) => {
       const row = rows[i]!;
-      return row.type === "day" ? `day-${row.key}` : row.item.id;
+      return row.type === "day" ? `day-${row.key}` : row.message.id;
     },
     scrollMargin,
     // Chat anchoring, from the library rather than by hand: hold the view at
-    // the newest item while lazy measurements land, hold the *reader's* item
-    // still when older ones sync in above, and follow new dumps when they are
-    // already at the end. The threshold is deliberately generous: the
+    // the newest message while lazy measurements land, hold the *reader's*
+    // message still when older ones sync in above, and follow new dumps when
+    // they are already at the end. The threshold is deliberately generous: the
     // end-of-document arithmetic uses `innerHeight`, which on iOS tracks the
     // visual viewport, so a tight one reads as "not at the end" while the URL
     // bar is expanded, and new dumps would quietly stop following.
@@ -202,10 +220,10 @@ export function Timeline({
     useFlushSync: false,
   });
 
-  // Open at the newest item, and go back there when a filter swaps the row set
-  // out from under the anchor. This covers mount too: Zero can hand over the
-  // whole archive on the first render, and `followOnAppend` only fires on a
-  // change.
+  // Open at the newest message, and go back there when a filter swaps the row
+  // set out from under the anchor. This covers mount too: Zero can hand over
+  // the whole archive on the first render, and `followOnAppend` only fires on
+  // a change.
   //
   // Pinning the *scroll* is not the whole job, and measurement showed why:
   // when the archive lands, the offset is already right and the rows are not:
@@ -215,12 +233,29 @@ export function Timeline({
   // is revealed on a settled layout rather than on the arrival of data
   // (lib/settle.ts).
   useLayoutEffect(() => {
+    // A hash asks for a specific message; the effect below takes it there.
+    if (hash) return;
     virtualizer.scrollToEnd();
-  }, [view, tagId, virtualizer]);
+  }, [view, tagId, virtualizer, hash]);
 
-  // Was the reader at the newest item? Sampled while scrolling, because by the
-  // time a resize arrives it is too late to ask: the new viewport height has
-  // already moved the end of the document out from under them.
+  // Jump to one message and hold there. Handled once per hash: `rows` changes
+  // identity on every sync tick, and re-running would drag the reader back to
+  // the jump target every time anything in the archive moved.
+  const jumpedTo = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!hash || jumpedTo.current === hash) return;
+    const index = rows.findIndex((r) => r.type === "message" && r.message.id === hash);
+    if (index < 0) return;
+    jumpedTo.current = hash;
+    // The reader asked to be somewhere specific, so the end-anchoring below
+    // must stop pulling them back to the newest message.
+    readerScrolled.current = true;
+    virtualizer.scrollToIndex(index, { align: "center" });
+  }, [hash, rows, virtualizer]);
+
+  // Was the reader at the newest message? Sampled while scrolling, because by
+  // the time a resize arrives it is too late to ask: the new viewport height
+  // has already moved the end of the document out from under them.
   const atEndRef = useRef(true);
   useEffect(() => {
     const onScroll = () => {
@@ -231,7 +266,7 @@ export function Timeline({
   }, [virtualizer]);
 
   // Has the reader taken the scroll for themselves yet? Until they do, the
-  // newest item is where the view belongs, full stop.
+  // newest message is where the view belongs, full stop.
   //
   // Each of these is narrowed to the gesture that actually means "I'll take it
   // from here", because a false positive costs the load: it hands the scroll
@@ -266,18 +301,15 @@ export function Timeline({
     };
   }, []);
 
-  // Keep the newest item in view while the archive changes shape underneath it.
+  // Keep the newest message in view while the archive changes shape underneath.
   //
-  // Rows grow after they first lay out (an image's bytes arrive and a 160px
-  // placeholder becomes a 320px picture, an item finishes ingesting and drops a
-  // chip) and each growth below the fold pushes the end of the document further
-  // away. The virtualizer's own end-anchoring gives up once the gap exceeds
-  // `scrollEndThreshold`, so a handful of images was enough to ratchet the view
-  // hundreds of pixels short of the newest card and leave it there: a fresh load
-  // that opens in the middle of the archive (measured: 484–671px short, varying
-  // per load, on an archive with three images). Stability is not the same as
-  // correctness: the layout had stopped moving, it had just stopped in the
-  // wrong place.
+  // Rows grow after they first lay out (an image's bytes arrive, a message
+  // finishes ingesting and drops a chip) and each growth below the fold pushes
+  // the end of the document further away. The virtualizer's own end-anchoring
+  // gives up once the gap exceeds `scrollEndThreshold`, so a handful of images
+  // was enough to ratchet the view hundreds of pixels short of the newest card
+  // and leave it there. Stability is not the same as correctness: the layout
+  // had stopped moving, it had just stopped in the wrong place.
   //
   // So: re-pin on every height change until the reader takes over, and after
   // that only while they are still at the end, which is exactly how a chat
@@ -295,8 +327,8 @@ export function Timeline({
 
   // Every viewport change moves the end of the document: the keyboard opening,
   // a rotation, a window being dragged, the URL bar sliding away. Someone who
-  // was at the newest item should still be there afterwards, or the newest card
-  // ends up behind the composer.
+  // was at the newest message should still be there afterwards, or the newest
+  // card ends up behind the composer.
   //
   // Three guards, because a resize is not by itself an instruction to scroll.
   // They have to have been at the end when it arrived (`atEndRef`, sampled
@@ -347,14 +379,9 @@ export function Timeline({
     // behind them while scrolling, it may never come to rest under them. The
     // bottom is not an inset (the composer sits in the flow below this column
     // and takes real space) but coming to rest one row gap from it read as
-    // cramped. This padding lands on top of the last row's own `pb-3`, so the
-    // newest card settles 3.75rem clear of the composer: the breathing room a
-    // chat UI leaves between what was said and what you are typing.
-    // The gutter is the composer's, and it is out here for the same reason it
-    // is out there: it has to sit *outside* the column cap, or the cards come
-    // out narrower than the card you type into by exactly this padding: 1rem a
-    // side on a wide screen, where both are pinned at the cap and only the
-    // cards pay for it.
+    // cramped. The gutter is the composer's, and it is out here for the same
+    // reason it is out there: it has to sit *outside* the column cap, or the
+    // cards come out narrower than the card you type into.
     <div className="relative flex flex-1 flex-col px-3 pt-(--timeline-inset-top) pb-12 md:px-4">
       {rows.length > 0 ? (
         <div
@@ -384,10 +411,7 @@ export function Timeline({
                   // list further down than the chrome asked for.
                   <div className={`flex justify-center pb-3 ${v.index === 0 ? "" : "pt-3"}`}>
                     {/* The card surface, like the rows it separates: one fill
-                        for everything sitting on the canvas. The variant stays
-                        for its ink; its own fill is overridden, and its hover
-                        is anchor-only, so nothing here reacts to a pointer
-                        passing over. */}
+                        for everything sitting on the canvas. */}
                     <Badge
                       variant="secondary"
                       className="bg-card px-3 text-[11px] text-muted-foreground"
@@ -397,7 +421,7 @@ export function Timeline({
                   </div>
                 ) : (
                   <div className="pb-3">
-                    <ItemCard item={row.item} />
+                    <MessageCard message={row.message} highlight={row.message.id === hash} />
                   </div>
                 )}
               </div>
@@ -405,7 +429,7 @@ export function Timeline({
           })}
         </div>
       ) : (
-        <Placeholder filtered={items.length > 0} state={state} sync={sync} />
+        <Placeholder filtered={messages.length > 0} state={state} sync={sync} />
       )}
     </div>
   );
@@ -421,7 +445,7 @@ function Placeholder({
   state,
   sync,
 }: {
-  /** There are items; this filter just doesn't match any of them. */
+  /** There are messages; this filter just doesn't match any of them. */
   filtered: boolean;
   state: ArchiveState;
   sync: SyncStatus | null;
@@ -455,8 +479,8 @@ function Placeholder({
           {isSyncPaused(sync)
             ? // No spinner: sync is refused or offline, so nothing is in fact in
               // progress. The banner above says why.
-              "Nothing on this device yet. Dump anything below. It syncs once the connection is back."
-            : "Your ragbag is empty. Dump anything below. It syncs everywhere."}
+              "Nothing dropped on this device yet. Drop anything below. It syncs once the connection is back."
+            : "Your ragbag is empty. Drop anything below. It syncs everywhere."}
         </p>
       </Centred>
     );

@@ -166,7 +166,7 @@ stay server-side).
 
 ## 4. `web` → app.ragbag.app
 
-Static build; no Dockerfile, no proxy.
+Static build; no Dockerfile, but it does need one proxy rule (see **media**, below).
 
 | setting        | value                     |
 | -------------- | ------------------------- |
@@ -175,11 +175,34 @@ Static build; no Dockerfile, no proxy.
 | Start command  | `pnpm --filter web start` |
 
 `start` is `serve -s dist -l $PORT`. The `-s` is the SPA fallback, and it is load-bearing: every
-view in the app is a real path (`/notes`, `/favorites`, `/tags/<id>`, `/notes/tags/<id>/item/<id>`,
-…) matched by the router in the browser, so without it a hard refresh on any of them 404s. `serve`
-is a runtime dependency of `apps/web` (not a dev one) so a production prune can't remove it. Hosts
-that read `_redirects` (Netlify, Cloudflare Pages) get the same rule from `apps/web/public`; on
-anything else, point unmatched paths at `index.html` with a **200**, not a 301.
+view in the app is a real path (`/favorites`, `/images`, `/links`, `/tags/<id>`,
+`/links/tags/<id>/m/<id>`, …) matched by the router in the browser, so without it a hard refresh on
+any of them 404s. `serve` is a runtime dependency of `apps/web` (not a dev one) so a production
+prune can't remove it. Hosts that read `_redirects` (Netlify, Cloudflare Pages) get the same rule
+from `apps/web/public`; on anything else, point unmatched paths at `index.html` with a **200**, not
+a 301.
+
+**Media must be same-origin with the app.** Every picture's `src` is `/api/media/<blobId>/<variant>`
+(plan §6.3): one stable string, so the browser can cache it, lazy-load it, decode it off the main
+thread and evict it on its own. The media service worker (`public/media-sw.js`) intercepts exactly
+that path and `/api/blobs/download-urls`, and it can only do that cleanly for same-origin requests.
+The Vite dev server already provides this through its `/api` proxy. In production the web host has
+to route these two paths to the API:
+
+```
+/api/media/*              → https://api.ragbag.app/api/media/:splat   200
+/api/blobs/download-urls  → https://api.ragbag.app/api/blobs/download-urls   200
+```
+
+On Netlify/Cloudflare Pages that is two `_redirects` lines above the SPA fallback (order matters:
+the `/*` rule swallows everything after it, which on a static host means an image request quietly
+receives `index.html` with a 200). `apps/web/public/_redirects` carries them commented out, because
+the API host is deployment-specific.
+
+Without the rule, images do not silently break: `MediaImage` treats a failed load as "the media URL
+can't answer" and falls back to fetching the bytes through `/api/blobs/:id/download-url` and an
+object URL, which is what v1 did for every image. What is lost is the native lazy loading, the
+off-main-thread decode, and the worker's caching, which is most of why the media URL exists.
 
 Watch paths:
 

@@ -9,6 +9,7 @@ import { SearchOverlay } from "@/components/search-overlay";
 import { SettleCover } from "@/components/settle-cover";
 import { Sidebar } from "@/components/sidebar";
 import { SignIn } from "@/components/sign-in";
+import { ThingsView } from "@/components/things-view";
 import { Timeline } from "@/components/timeline";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-c
 import { useArchiveHintWriter, useArchiveState, useStableRows } from "@/lib/archive-state";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
 import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
+import { registerMediaWorker, requestPersistence } from "@/lib/media";
+import { isChatView, useFilter } from "@/lib/routes";
 import { useTimelineSearch } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
 import { BUDGET, useHeld, useLatch } from "@/lib/settle";
@@ -26,6 +29,12 @@ import { applyTheme, watchSystemTheme } from "@/lib/theme";
 import { useMeta } from "@/lib/use-meta";
 import type { MetaResponse } from "@ragbag/contracts";
 import type { Zero } from "@rocicorp/zero";
+
+/**
+ * The window on the archive, explicit from day one and unbounded today
+ * (plan §14.1). When it needs a bound, this is the one value that changes.
+ */
+const WHOLE_ARCHIVE = { limit: null };
 
 // App shell: identity gate → Zero (local-first store + sync) → workspace.
 // Auth gates *syncing*, never *using* (plan §9): once a device has an
@@ -91,9 +100,17 @@ export function App() {
   // stored choice before first paint; this only handles later changes.
   useEffect(() => watchSystemTheme(() => applyTheme(useViewStore.getState().theme)), []);
 
+  // The media worker turns every /api/media URL into a cache hit after the
+  // first fetch (lib/media.ts). Registering it is not a precondition for
+  // anything: without one, images are simply online-only.
+  useEffect(registerMediaWorker, []);
+
   // Remember the signed-in identity for offline launches.
   useEffect(() => {
     if (session.data) {
+      // A signed-in session means this device is about to hold an archive it
+      // is the only copy of. Ask the browser not to evict it under pressure.
+      requestPersistence();
       const identity = {
         userID: session.data.user.id,
         email: session.data.user.email || "you",
@@ -140,9 +157,17 @@ export function App() {
 }
 
 /**
- * Preload the whole archive (plan §6): every device holds the full timeline, so
- * reads and search work fully offline. 'forever' keeps the queries registered
- * even when no screen is showing them.
+ * Preload the whole archive: every device holds it, so reads and search work
+ * fully offline. 'forever' keeps the queries registered even when no screen is
+ * showing them.
+ *
+ * Two passes, chained (plan §7). Zero 1.8's `PreloadOptions` is `{ ttl }` and
+ * nothing else: there is no priority flag, so firing both at once would let a
+ * zero-cache interleave document bodies into the payload the chat is waiting
+ * on. Starting `contents` when `drop.complete` resolves is what keeps the chat
+ * first; the search index then silently gets deeper, because
+ * `TimelineSearchIndex.sync()` is diff-based and the second pass is just
+ * another call with richer docs.
  *
  * Module scope, and it must stay there. Every prop of `ZeroProvider` (`init`
  * included) is a dependency of the effect that constructs the client, and that
@@ -161,8 +186,12 @@ const preloadArchive = (zero: Zero<Schema>) => {
       );
     }
   }
-  zero.preload(queries.timeline(), { ttl: "forever" });
   zero.preload(queries.tags(), { ttl: "forever" });
+  zero.preload(queries.entities(), { ttl: "forever" });
+  const drop = zero.preload(queries.drop(WHOLE_ARCHIVE), { ttl: "forever" });
+  void drop.complete.then(() => {
+    zero.preload(queries.contents(), { ttl: "forever" });
+  });
 };
 
 let inits = 0;
@@ -425,27 +454,36 @@ function ShellBody({
   status: SessionStatus;
   onSignOut: () => void;
 }) {
-  const [rawItems, itemsResult] = useQuery(queries.timeline());
+  const [rawMessages, dropResult] = useQuery(queries.drop(WHOLE_ARCHIVE));
+  const [entities] = useQuery(queries.entities());
+  // The second, deeper pass of the search index (plan §7). It arrives behind
+  // the chat by construction: its preload starts only when `drop.complete`
+  // resolves, and until then this is simply empty and search runs over
+  // titles, summaries, tags, entity values and filenames.
+  const [contents] = useQuery(queries.contents());
   const [tags] = useQuery(queries.tags());
   const sync = useSyncStatus(status === "expired");
   // Never fewer rows than we have already painted (lib/archive-state.ts).
-  const items = useStableRows(rawItems, itemsResult.type);
+  const messages = useStableRows(rawMessages, dropResult.type);
   // The list element, watched to know when the page has come to rest: the
   // reveal waits for that, not for a stopwatch.
   const listRef = useRef<HTMLDivElement>(null);
   const state = useArchiveState({
-    count: items.length,
-    resultType: itemsResult.type,
+    count: messages.length,
+    resultType: dropResult.type,
     sync,
     anchor: listRef,
   });
-  useArchiveHintWriter(state, items.length);
+  useArchiveHintWriter(state, messages.length);
   // Has the app ever been on screen this session? Only then is a cover a
   // transition rather than the boot.
   const revealed = useLatch(state !== "opening");
-  const searchIndex = useTimelineSearch(items);
+  const searchIndex = useTimelineSearch(messages, contents);
   const { setSearchOpen } = useViewStore();
   const { isMobile, open, setOpen, setOpenMobile } = useSidebar();
+  // Chat-shaped rows filter the chat; thing-shaped rows replace it with a grid
+  // or a list, because the thing IS the content (plan §8.2).
+  const { view } = useFilter();
   // The reopen button is pinned to the viewport rather than to this column, so
   // that the closing panel passes over it (the panel outranks this chrome now:
   // ui/sidebar.tsx) and it is uncovered in place instead of arriving from
@@ -484,7 +522,8 @@ function ShellBody({
       <SettleCover show={state === "opening"} fadeIn={revealed} />
 
       <Sidebar
-        items={items}
+        messages={messages}
+        entities={entities}
         tags={tags}
         email={email}
         meta={meta}
@@ -569,11 +608,15 @@ function ShellBody({
             )}
           </div>
         </div>
-        <Timeline items={items} state={state} sync={sync} listRef={listRef} />
+        {isChatView(view) ? (
+          <Timeline messages={messages} state={state} sync={sync} listRef={listRef} />
+        ) : (
+          <ThingsView messages={messages} entities={entities} listRef={listRef} />
+        )}
         <Composer canAttach={meta?.blobs ?? true} />
       </SidebarInset>
 
-      <SearchOverlay index={searchIndex} items={items} />
+      <SearchOverlay index={searchIndex} messages={messages} />
       <Toaster position="top-center" />
       <Outlet />
     </>

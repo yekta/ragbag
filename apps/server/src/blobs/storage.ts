@@ -98,6 +98,9 @@ function sign(method: string, key: string, mime: string, exp: number): string {
     .digest("hex");
 }
 
+/** A signature is 32 bytes of HMAC-SHA256, hex. Anything else is not one. */
+const SIGNATURE_RE = /^[0-9a-f]{64}$/i;
+
 /** Verify an HMAC-presigned local URL. Used by the /api/blobs/local routes. */
 export function verifyLocalSignature(
   method: string,
@@ -108,6 +111,12 @@ export function verifyLocalSignature(
   if (!isValidKey(key) || !Number.isFinite(exp) || exp * 1000 < Date.now() || !query.sig) {
     return false;
   }
+  // The shape is checked before the decode, and that check is load-bearing:
+  // `Buffer.from(str, "hex")` stops at the first character that is not hex
+  // and returns what it got, so a valid signature with junk appended decodes
+  // to the same 32 bytes as the signature itself and compares equal. The
+  // blob proof's "tampered URL" case is exactly that.
+  if (!SIGNATURE_RE.test(query.sig)) return false;
   const want = Buffer.from(sign(method, key, query.mime ?? "", exp), "hex");
   const got = Buffer.from(query.sig, "hex");
   return want.length === got.length && timingSafeEqual(want, got);
@@ -121,8 +130,20 @@ function localUrl(method: "PUT" | "GET", key: string, mime: string, ttlSeconds: 
   return `${env.BETTER_AUTH_URL.replace(/\/$/, "")}/api/blobs/local/${key}?${q}`;
 }
 
+/**
+ * Where a key's bytes live on disk.
+ *
+ * Every key becomes a DIRECTORY holding one file, rather than a file at the
+ * key's own path. Object stores have a flat namespace where `a/b` and `a/b/c`
+ * are simply two unrelated keys; a filesystem does not, and derivatives are
+ * keyed exactly that way (`<user>/<sha>` and `<user>/<sha>/thumb`, plan §6.2),
+ * so a naive mapping tries to mkdir over the original and fails with EEXIST.
+ * One extra directory per object buys the flat namespace back.
+ */
+const LEAF = "_object";
+
 function localPath(dir: string, key: string): string {
-  return join(dir, ...key.split("/"));
+  return join(dir, ...key.split("/"), LEAF);
 }
 
 function localStorage(dir: string): BlobStorage {
@@ -260,4 +281,18 @@ export async function localDriverGet(key: string): Promise<Uint8Array | null> {
 
 export function blobKey(userId: string, sha256: string): string {
   return `${userId}/${sha256}`;
+}
+
+/**
+ * Where a derivative of a blob lives (plan §6.2).
+ *
+ * Derived from the source content address, which is what makes derivatives
+ * free to dedupe and idempotent to regenerate: the same photo dumped twice
+ * hashes the same, so it is transcoded once, and re-running ingestion
+ * overwrites the same keys rather than accumulating. They need no blob rows
+ * and no ids of their own; the attachment row carries only `variants`, saying
+ * which exist.
+ */
+export function variantKey(userId: string, sha256: string, variant: "display" | "thumb"): string {
+  return `${userId}/${sha256}/${variant}`;
 }

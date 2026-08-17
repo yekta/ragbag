@@ -1,28 +1,42 @@
 # ragbag
 
-An info-dump app with a message-like interface. Dump anything (links, photos, notes, PDFs,
-screenshots) and it gets indexed intelligently so everything is searchable later. A smart
-bookmark / second-brain hybrid.
+A local-first info-dump app. Drop anything (links, photos, notes, PDFs, screenshots, voice
+notes) into a chat-like box; an AI pipeline understands it, and it becomes searchable
+offline, forever.
 
-**Stack:** TypeScript pnpm monorepo · React web (also the Electron renderer, later) · Expo mobile
-(later) · Node/Hono API · Postgres + pgvector · [Zero](https://zero.rocicorp.dev) for local-first
-sync · Cloudflare R2 (S3 API) for blobs · OpenAI for enrichment/search · better-auth (Google).
+The unit of capture is a **message**: free text plus up to ten ordered attachments, sent in
+one action, exactly like a chat. Ingestion runs in two phases: each attachment is
+understood on its own (vision on images, the text layer or the model on PDFs, transcription
+on audio), then a synthesis pass reads the whole message and pulls out **entities**: links,
+addresses, tracking numbers, invoices, emails, phones, as canonical, deduplicated things
+with their own titles, summaries and tags. Search is local only, and it is complete: the
+whole archive lives on every device.
+
+**Stack:** TypeScript pnpm monorepo · React web (also the Electron renderer, later) · Expo
+mobile (later) · Node/Hono API · Postgres · [Zero](https://zero.rocicorp.dev) for local-first
+sync · Cloudflare R2 (S3 API) for blobs · OpenAI for the AI stages · better-auth (Google).
 
 ## Layout
 
 ```
 apps/
   web/            React 19 + Vite + TanStack Router + Tailwind v4
-  server/         Hono API: auth, Zero /query + /mutate, blob presigning, ingestion
+  server/         Hono API: auth, Zero /query + /mutate, blob presigning, media, ingestion
 packages/
   contracts/      Zero schema, shared synced queries + custom mutators, zod API payloads
+  shared/         Pure utilities (ids, urls, mime, time, logging) and the entity registry
   client-runtime/ Per-platform Zero glue: store setup, blob upload queue + cache,
-                  Tier-1 local search index
-  shared/         Small pure utilities (ids, urls, mime, time, logging)
+                  local search index
 ```
 
-`apps/desktop`, `apps/mobile`, and `apps/marketing` arrive in later milestones (M5/M6).
 Internal packages export raw `.ts`: no build step for packages.
+
+**The entity registry** (`packages/shared/src/entities/`) is the one place a kind of thing is
+defined: its matcher, its normalizer (the dedupe key), the zod schema for its structured
+fields, its prompt hint, its rail row and its URL. Adding a kind is one file and zero
+migrations, because `entities.kind` is an open text column and the per-kind fields live in
+`data jsonb`. A kind this build has never heard of renders through a generic card rather
+than breaking.
 
 ## Development
 
@@ -31,7 +45,7 @@ Prereqs: Node ≥ 22, pnpm 11 (`corepack enable`), Docker (for Postgres).
 ```sh
 pnpm install
 cp .env.example .env          # defaults work for local dev; DEV_LOGIN=true
-docker compose up -d postgres # Postgres 17 + pgvector, wal_level=logical
+docker compose up -d postgres # Postgres 17, wal_level=logical
 pnpm dev                      # turbo: API server (:3001) + web (:5173)
                               #   web's dev script waits on the API's /health
                               #   first (wait-on), so Vite never proxies /api
@@ -58,17 +72,24 @@ the server falls back to local-disk storage (`LOCAL_BLOB_DIR`, default
 `.data/blobs` in dev) served through HMAC-presigned URLs, so file dumps work
 out of the box.
 
-**Ingestion** runs inside the API process (`INGEST_WORKER=false` to disable): a
-Postgres job queue (`FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`) feeds the
-classify → extract → enrich → index pipeline. Without `OPENAI_API_KEY` it still
-extracts and indexes content; AI summaries, tags, and embeddings are skipped.
+**Media** is served from one stable URL per picture, `/api/media/<blobId>/<variant>`
+(thumb, display, original), which the server answers with a 302 to a freshly presigned GET
+and which a narrow service worker (`apps/web/public/media-sw.js`) caches offline. That path
+must be same-origin with the app; in production the web host has to route it to the API
+(see DEPLOY.md §4).
 
-Embeddings additionally need **pgvector**. The compose image ships it; on a
-distro Postgres install the extension package (e.g.
-`apt install postgresql-18-pgvector`) and restart the server: it creates the
-extension, adds `item_chunk.embedding vector(1536)`, and builds the HNSW index
-on boot. Without pgvector everything else keeps working; chunks are still
-written with a generated `tsvector`, so embeddings can be backfilled later.
+**Ingestion** runs inside the API process (`INGEST_WORKER=false` to disable): a
+Postgres job queue (`FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`) feeds one job per
+attachment plus one synthesis job per message. Without `OPENAI_API_KEY` it still extracts
+everything it can locally (PDF text layers, textual files) and still finds links, emails,
+phone numbers and tracking numbers by pattern matching; descriptions, transcripts,
+summaries, tags and the judgment-call entities are skipped, and every skipped stage says
+so on the row rather than leaving it silently empty.
+
+Image derivatives (HEIC transcode, EXIF orientation, a 1600px display copy, a 400px thumb
+and a blurhash placeholder) need **sharp**, whose prebuilt libvips carries AVIF but not
+HEIC. The deploy image installs a system libvips that does; where one is missing the
+transcode fails softly and the original is kept.
 
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 
@@ -77,10 +98,13 @@ zero-cache for the two that sync):
 
 ```sh
 cd apps/server
-pnpm exec tsx scripts/sync-proof.mts    # M1: two Zero clients through zero-cache
-pnpm exec tsx scripts/blob-proof.mts    # M2: presign → upload → dedupe → download
-pnpm exec tsx scripts/ingest-proof.mts  # M4: dump → queue → extract → index → sync
+pnpm exec tsx scripts/sync-proof.mts    # two Zero clients through zero-cache
+pnpm exec tsx scripts/blob-proof.mts    # presign → upload → dedupe → media URL
+pnpm exec tsx scripts/ingest-proof.mts  # drop → fan-out → phase A → phase B → entities
 ```
+
+Each runs with or without an OpenAI key: the model-dependent assertions are skipped (and
+say so) when the server has none.
 
 ## Self-hosting
 

@@ -1,7 +1,8 @@
 import type { TimelineSearchIndex } from "@ragbag/client-runtime";
+import { entityLabel, faceForMime } from "@ragbag/shared";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { KindDot } from "@/components/item-card";
+import { useEffect, useMemo, useState } from "react";
+import { FACE_ICON, Icon, entityIcon } from "@/components/icon";
 import {
   Command,
   CommandDialog,
@@ -10,46 +11,101 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { dayLabel, hostOf } from "@/lib/format";
-import { itemLink, useFilter } from "@/lib/routes";
-import { useSearchResults } from "@/lib/search";
+import { dayLabel } from "@/lib/format";
+import { entityLink, messageLink, useFilter } from "@/lib/routes";
+import { RESULT_GROUPS, useSearchResults, type Result, type ResultGroup } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
-import type { Timeline, TimelineItem } from "@/lib/types";
+import type { Drop } from "@/lib/types";
 
-// The single search box (plan §8/§10): a ⌘K overlay over the Tier-1 local
-// index. Instant, search-as-you-type, fully offline. Tier 2 blends into this
-// same box in M7: hybrid ranking, not a separate mode.
+// The single search box: a ⌘K overlay over the local index. Instant,
+// search-as-you-type, fully offline.
+//
+// Results group under Messages / Images / Files / Things, and collapse: an
+// attachment or entity hit whose message also hit folds into the message row
+// rather than appearing twice (lib/search.ts).
 //
 // cmdk owns keyboard navigation, selection and focus; `shouldFilter={false}`
 // because the ranking is ours (minisearch), not cmdk's substring match.
-//
-// The <Command> wrapper is ours to render: `CommandDialog` is a plain dialog
-// shell that drops `children` straight into its content. It used to wrap them
-// itself, which is why this file once had to thread options through a
-// `commandProps` passthrough patched into the vendored component. Base UI's
-// version needs no patch: the option goes on the element directly.
 
-function ResultRow({ item, onPick }: { item: TimelineItem; onPick: () => void }) {
-  const title = item.content?.title ?? item.text?.split("\n")[0] ?? item.url ?? `(${item.kind})`;
-  const context = item.content?.aiSummary ?? item.content?.description ?? hostOf(item.url) ?? "";
+const GROUP_LABEL: Record<ResultGroup, string> = {
+  messages: "Messages",
+  images: "Images",
+  files: "Files",
+  things: "Things",
+};
+
+/** One line describing what matched, and what it belongs to. */
+function describe(result: Result): {
+  icon: React.ComponentProps<typeof Icon>["name"];
+  title: string;
+  context: string;
+} {
+  const { message } = result;
+  const messageTitle = message.generatedTitle ?? message.text?.split("\n")[0] ?? "(no text)";
+
+  if (result.attachmentId) {
+    const attachment = message.attachments.find((a) => a.id === result.attachmentId);
+    return {
+      icon: FACE_ICON[faceForMime(attachment?.mime ?? "")],
+      title: attachment?.generatedTitle ?? attachment?.filename ?? "file",
+      context: messageTitle,
+    };
+  }
+  if (result.entityId) {
+    const entity = message.mentions.find((m) => m.entityId === result.entityId)?.entity;
+    return {
+      icon: entityIcon(entity?.kind ?? ""),
+      title: entity?.generatedTitle ?? entity?.value ?? "thing",
+      context: entity ? entityLabel(entity.kind) : messageTitle,
+    };
+  }
+  return {
+    icon: "inbox",
+    title: messageTitle,
+    context:
+      message.generatedSummary ??
+      message.mentions
+        .map((m) => m.entity?.value)
+        .filter(Boolean)
+        .join(" · "),
+  };
+}
+
+function ResultRow({ result, onPick }: { result: Result; onPick: () => void }) {
+  const { icon, title, context } = describe(result);
   return (
-    <CommandItem value={item.id} onSelect={onPick} className="gap-3 rounded-lg px-3 py-2.5">
-      <KindDot kind={item.kind} />
+    <CommandItem value={result.hit.id} onSelect={onPick} className="gap-3 rounded-lg px-3 py-2.5">
+      <span className="flex size-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        {/* text-current is load-bearing: CommandItem paints bare `svg`
+            children muted-foreground, and the tint lives on the span. */}
+        <Icon name={icon} className="size-3.5 text-current" />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{title}</span>
         {context && <span className="block truncate text-xs text-muted-foreground">{context}</span>}
       </span>
-      <span className="shrink-0 text-[11px] text-muted-foreground">{dayLabel(item.createdAt)}</span>
+      <span className="shrink-0 text-[11px] text-muted-foreground">
+        {dayLabel(result.message.createdAt)}
+      </span>
     </CommandItem>
   );
 }
 
-export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; items: Timeline }) {
+export function SearchOverlay({ index, messages }: { index: TimelineSearchIndex; messages: Drop }) {
   const { searchOpen, setSearchOpen } = useViewStore();
   const navigate = useNavigate();
   const filter = useFilter();
   const [query, setQuery] = useState("");
-  const results = useSearchResults(index, items, query);
+  const results = useSearchResults(index, messages, query);
+
+  const grouped = useMemo(
+    () =>
+      RESULT_GROUPS.map((group) => ({
+        group,
+        rows: results.filter((r) => r.group === group),
+      })).filter((g) => g.rows.length > 0),
+    [results],
+  );
 
   // ⌘K / Ctrl+K toggles from anywhere.
   useEffect(() => {
@@ -67,11 +123,16 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
     if (searchOpen) setQuery("");
   }, [searchOpen]);
 
-  const pick = (item: TimelineItem) => {
+  const pick = (result: Result) => {
     setSearchOpen(false);
-    // Search looks at the whole archive, but the drawer still opens over the
-    // view the search was called from, and closing it lands back there.
-    void navigate(itemLink(item.id, filter));
+    // A thing opens its own page; everything else opens the message it is in.
+    // Either way the overlay opens over the view the search was called from,
+    // and closing it lands back there.
+    void navigate(
+      result.entityId
+        ? entityLink(result.entityId, filter)
+        : messageLink(result.message.id, filter),
+    );
   };
 
   const blank = query.trim() === "";
@@ -85,12 +146,6 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
       showCloseButton={false}
       // Anchored near the top rather than centred: a search palette that jumps
       // to the middle of the screen reads as a modal, not a command bar.
-      //
-      // The unprefixed cap replaces DialogContent's base
-      // `max-w-[calc(100%-2rem)]` (same tailwind-merge group, so it evicts
-      // it), narrowing the phone gutter to 0.5rem a side. Drop it and the palette
-      // inherits the 1rem gutter; the `sm:` cap must stay prefixed or it would
-      // evict this one and the palette goes edge-to-edge on mobile.
       className="top-[8vh] max-w-[calc(100%-1rem)] translate-y-0 rounded-2xl sm:max-w-xl md:top-[12vh]"
     >
       <Command shouldFilter={false}>
@@ -103,13 +158,21 @@ export function SearchOverlay({ index, items }: { index: TimelineSearchIndex; it
         <CommandList className="max-h-[55vh] p-2">
           {blank ? (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Search titles, tags, summaries, and content.
+              Search everything: your words, what was read out of your files, and the things found
+              in them.
             </div>
           ) : (
             <>
               <CommandEmpty>Nothing found for “{query}”.</CommandEmpty>
-              {results.map((item) => (
-                <ResultRow key={item.id} item={item} onPick={() => pick(item)} />
+              {grouped.map(({ group, rows }) => (
+                <div key={group}>
+                  <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {GROUP_LABEL[group]}
+                  </p>
+                  {rows.map((result) => (
+                    <ResultRow key={result.hit.id} result={result} onPick={() => pick(result)} />
+                  ))}
+                </div>
               ))}
             </>
           )}

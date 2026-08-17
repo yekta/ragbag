@@ -10,6 +10,7 @@ import { env } from "./env.js";
 import { startIngestWorker } from "./ingest/worker.js";
 import { blobRoutes } from "./routes/blobs.js";
 import { debugRoutes } from "./routes/debug.js";
+import { mediaRoutes } from "./routes/media.js";
 import { metaRoutes } from "./routes/meta.js";
 import { zeroRoutes } from "./routes/zero.js";
 
@@ -42,11 +43,11 @@ if (env.MIGRATE_ON_START) {
 if (env.OPENAI_API_KEY) {
   log.info("AI enrichment enabled", {
     model: env.AI_ENRICH_MODEL,
-    embedModel: env.AI_EMBED_MODEL,
+    transcribeModel: env.AI_TRANSCRIBE_MODEL,
   });
 } else {
   log.warn(
-    "AI enrichment DISABLED, no OPENAI_API_KEY: items get no summaries, tags or semantic search",
+    "AI enrichment DISABLED, no OPENAI_API_KEY: messages get no summaries, tags or entities",
   );
 }
 
@@ -70,6 +71,7 @@ app.route("/api/meta", metaRoutes);
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api/zero", zeroRoutes);
 app.route("/api/blobs", blobRoutes);
+app.route("/api/media", mediaRoutes);
 app.route("/api/debug", debugRoutes);
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {

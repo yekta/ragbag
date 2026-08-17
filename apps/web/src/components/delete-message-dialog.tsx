@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Deleting syncs, so the confirmation says so. Shared by the timeline card's
-// hover action and the item detail header: one wording, one dialog.
+// hover action and the message detail header: one wording, one dialog.
 
-export function DeleteItemDialog({
+export function DeleteMessageDialog({
   children,
   onConfirm,
 }: {
@@ -31,9 +31,10 @@ export function DeleteItemDialog({
       <AlertDialogTrigger render={children} />
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this message?</AlertDialogTitle>
           <AlertDialogDescription>
-            It disappears from all your devices. This can&rsquo;t be undone.
+            It disappears from all your devices, with everything attached to it. This can&rsquo;t be
+            undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -29,6 +29,8 @@
     "openai": "catalog:",
     "pdfjs-dist": "catalog:",
     "postgres": "catalog:",
+    "sharp": "catalog:",
+    "thumbhash": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -6,9 +6,10 @@ import { PermanentError } from "./errors.js";
 import { openai } from "./openai.js";
 import { recordUsage } from "./usage.js";
 
-// Stage 2 for images (plan §7): one vision call returns a description plus
-// any legible text (OCR) as structured output. Skipped (not failed) when
-// OpenAI isn't configured or the image is too large to send.
+// Phase A for images (plan §5.2): one vision call returns a description plus
+// any legible text (OCR) as structured output, which the pipeline folds into
+// the attachment's content_md. Skipped (not failed) when OpenAI isn't
+// configured or the image is too large to send.
 
 const ImageDescription = z.object({
   // A short human title for the card, e.g. "Whiteboard: Q3 roadmap".
@@ -26,7 +27,8 @@ export async function describeImage(input: {
   bytes: Uint8Array;
   mime: string;
   userId: string;
-  itemId: string;
+  messageId: string;
+  attachmentId: string;
 }): Promise<ImageExtraction | null> {
   if (!openai || input.bytes.byteLength > MAX_VISION_BYTES) return null;
 
@@ -67,7 +69,8 @@ export async function describeImage(input: {
 
   await recordUsage({
     userId: input.userId,
-    itemId: input.itemId,
+    messageId: input.messageId,
+    attachmentId: input.attachmentId,
     kind: "vision",
     model: env.AI_ENRICH_MODEL,
     inputTokens: res.usage?.input_tokens ?? 0,

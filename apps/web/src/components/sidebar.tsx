@@ -1,13 +1,13 @@
 import type { BlobQueueState } from "@ragbag/client-runtime";
 import { mutators } from "@ragbag/contracts";
 import type { MetaResponse } from "@ragbag/contracts";
-import { ITEM_KINDS } from "@ragbag/shared";
-import type { ItemKind } from "@ragbag/shared";
+import { RAIL_ENTITY_KINDS, faceForMime } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Icon, KIND_ICON } from "@/components/icon";
+import { Icon, entityIcon } from "@/components/icon";
+import { StoragePanel } from "@/components/storage-panel";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -31,14 +31,14 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
-import { EVERYTHING, filterLink, useFilter, type Filter, type ViewFilter } from "@/lib/routes";
+import { EVERYTHING, filterLink, useFilter, type Filter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
 import type { SyncStatus } from "@/lib/sync-status";
 import type { Theme } from "@/lib/theme";
-import type { TagRow, Timeline } from "@/lib/types";
+import type { Drop, EntityRows, TagRow } from "@/lib/types";
 
-// Left rail: kind + tag filters over the locally-synced archive, sync state,
-// account. Collections join in v1.5 (plan §4).
+// Left rail: the chat and the things in it, over the locally-synced archive,
+// plus sync state and the account.
 //
 // Every filter row is a `<Link>` to the path that view lives at (lib/routes.ts),
 // not a button that sets a variable: which means a middle click opens it in a
@@ -47,16 +47,6 @@ import type { TagRow, Timeline } from "@/lib/types";
 //
 // Placement is the shadcn Sidebar's job: a floating card at md+, a flush
 // full-height Sheet below it. This file only fills the slots.
-
-const KIND_LABEL: Record<ItemKind, string> = {
-  note: "Notes",
-  todo: "Todos",
-  address: "Addresses",
-  link: "Links",
-  image: "Images",
-  pdf: "PDFs",
-  file: "Files",
-};
 
 const THEME_LABEL: Record<Theme, string> = {
   light: "Light",
@@ -127,7 +117,7 @@ function ThemeToggle() {
 }
 
 /**
- * How many items a filter would show, inside the row rather than over it.
+ * How many messages a filter would show, inside the row rather than over it.
  *
  * `SidebarMenuBadge` (what this replaces) is absolutely positioned, so a long
  * name truncated at the row's edge and the count sat on top of it. Reserving a
@@ -142,14 +132,16 @@ function MenuCount({ children }: { children: React.ReactNode }) {
 }
 
 export function Sidebar({
-  items,
+  messages,
+  entities,
   tags,
   email,
   meta,
   sync,
   onSignOut,
 }: {
-  items: Timeline;
+  messages: Drop;
+  entities: EntityRows;
   tags: readonly TagRow[];
   email: string;
   meta: MetaResponse | undefined;
@@ -165,33 +157,61 @@ export function Sidebar({
   const queue = useBlobQueue();
   const queueState = useBlobQueueState();
 
-  const kindCounts = useMemo(() => {
+  const favoriteCount = useMemo(() => messages.filter((m) => m.favorite).length, [messages]);
+
+  // The two attachment-shaped rows count files, not the messages holding them:
+  // the file IS the content, which is the whole reason these rows replace the
+  // chat rather than filtering it.
+  const attachmentCounts = useMemo(() => {
+    let images = 0;
+    let files = 0;
+    for (const message of messages) {
+      for (const attachment of message.attachments) {
+        if (faceForMime(attachment.mime) === "image") images += 1;
+        else files += 1;
+      }
+    }
+    return { images, files };
+  }, [messages]);
+
+  // Counts come from LIVE mentions (the query already excludes dismissed ones
+  // and mentions to deleted messages), so a deleted message cannot leave a
+  // ghost address in the rail.
+  const entityCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+    for (const entity of entities) {
+      if (entity.mentions.length === 0) continue;
+      counts.set(entity.kind, (counts.get(entity.kind) ?? 0) + 1);
+    }
     return counts;
-  }, [items]);
+  }, [entities]);
 
-  const favoriteCount = useMemo(() => items.filter((i) => i.favorite).length, [items]);
+  // Every row hides at count zero, which is also the growth path: promoting a
+  // new entity kind out of `other` makes its row appear on its own, with no
+  // code change here at all.
+  const thingRows = [
+    { view: "images", label: "Images", icon: "image" as const, count: attachmentCounts.images },
+    { view: "files", label: "Files", icon: "file" as const, count: attachmentCounts.files },
+    ...RAIL_ENTITY_KINDS.map((def) => ({
+      view: def.slug,
+      label: def.plural,
+      icon: entityIcon(def.kind),
+      count: entityCounts.get(def.kind) ?? 0,
+    })),
+  ].filter((row) => row.count > 0);
 
-  // Todos count what's left to do: a list that says "42" when 40 are ticked
-  // off is noise. Every other kind counts everything it holds.
-  const openTodoCount = useMemo(
-    () => items.filter((i) => i.kind === "todo" && !i.completedAt).length,
-    [items],
-  );
-
-  // The rail lists the user's own tags only: AI tags are deliberately
-  // numerous (§7) and would bury them. They still drive search and the
-  // filters below, they just aren't browsable here.
+  // The rail lists the user's own tags only: AI tags are deliberately numerous
+  // and would bury them. They still drive search, they just aren't browsable
+  // here.
   const tagCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const item of items) {
-      for (const it of item.itemTags) {
-        if (it.source === "user") counts.set(it.tagId, (counts.get(it.tagId) ?? 0) + 1);
+    for (const message of messages) {
+      for (const link of message.tags) {
+        if (link.source === "user") counts.set(link.tagId, (counts.get(link.tagId) ?? 0) + 1);
       }
     }
     return counts;
-  }, [items]);
+  }, [messages]);
 
   const rankedTags = useMemo(
     () =>
@@ -208,7 +228,7 @@ export function Sidebar({
   // Where each row points, and whether it is the row you are already on: one
   // helper, because those two are the same question. Picking the row you are on
   // clears that one filter, which is what a second click on it always did, and
-  // the other filter rides along, because a kind and a tag have always narrowed
+  // the other filter rides along, because a view and a tag have always narrowed
   // together. `aria-current` because these are links now: the highlight says
   // "this is the view you are in" to everyone else.
   const rowProps = (target: Filter, active: boolean) => ({
@@ -222,7 +242,7 @@ export function Sidebar({
     ),
   });
 
-  const viewRow = (view: Exclude<ViewFilter, null>) => {
+  const viewRow = (view: string) => {
     const active = filter.view === view;
     return rowProps({ view: active ? null : view, tagId: filter.tagId }, active);
   };
@@ -235,24 +255,14 @@ export function Sidebar({
   return (
     <SidebarRoot variant="floating" collapsible="offcanvas">
       {/* No top override: the header's own 0.5rem on all three sides, so the
-          masthead sits the same distance from the top as from either edge. The
-          `pt-4` that was here made the corner it lives in asymmetric for no
-          reason the rest of the panel could explain. (The base keeps
-          `env(safe-area-inset-top)` as a floor, which is the one case where
-          more is correct: a phone with a notch.) */}
+          masthead sits the same distance from the top as from either edge. */}
       <SidebarHeader className="gap-0">
         {/* The masthead rides the same rail as the search field below and the
             row pills under that, no inset of its own, because unlike those
             rows it is not a control and has no box of its own to pad.
             Geometrically the logo is already flush with the field at that rail;
-            the 2px is optical. A solid, saturated block reads as overhanging a
-            pale fill it is level with, and 2px at this size is what takes the
-            overhang off without moving the mark off the rail. */}
+            the 2px is optical. */}
         <div className="flex items-center gap-2 pb-2 pl-0.5">
-          {/* The same box a kind dot is drawn in (item-card.tsx): 1.5rem at
-              `--radius-md`. It was a size up and a step rounder, which at 28px
-              put the corner radius at nearly half the side, a pill pretending
-              to be a mark. */}
           <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Icon name="inbox" className="size-4" />
           </span>
@@ -293,8 +303,8 @@ export function Sidebar({
                   {...rowProps(EVERYTHING, filter.view === null && filter.tagId === null)}
                 >
                   <Icon name="inbox" className="size-4" />
-                  <span className="truncate">Everything</span>
-                  <MenuCount>{items.length}</MenuCount>
+                  <span className="truncate">Drop</span>
+                  <MenuCount>{messages.length}</MenuCount>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -304,23 +314,30 @@ export function Sidebar({
                   <MenuCount>{favoriteCount}</MenuCount>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {ITEM_KINDS.map((kind) => (
-                <SidebarMenuItem key={kind}>
-                  <SidebarMenuButton
-                    {...viewRow(kind)}
-                    title={kind === "todo" ? "Todos (open)" : KIND_LABEL[kind]}
-                  >
-                    <Icon name={KIND_ICON[kind]} className="size-4" />
-                    <span className="truncate">{KIND_LABEL[kind]}</span>
-                    <MenuCount>
-                      {kind === "todo" ? openTodoCount : (kindCounts.get(kind) ?? 0)}
-                    </MenuCount>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {thingRows.length > 0 && (
+          <SidebarGroup className="mt-2">
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider">
+              Things
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {thingRows.map((row) => (
+                  <SidebarMenuItem key={row.view}>
+                    <SidebarMenuButton {...viewRow(row.view)} title={row.label}>
+                      <Icon name={row.icon} className="size-4" />
+                      <span className="truncate">{row.label}</span>
+                      <MenuCount>{row.count}</MenuCount>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup className="mt-2">
           <SidebarGroupLabel className="text-[11px] uppercase tracking-wider">
@@ -350,8 +367,9 @@ export function Sidebar({
       </SidebarContent>
 
       <SidebarFooter className="gap-0 border-t px-4 py-3">
-        <EnrichBackfill items={items} meta={meta} />
+        <EnrichBackfill messages={messages} meta={meta} />
         <QueueStatus state={queueState} onRetry={() => void queue.retryNow()} />
+        <StoragePanel />
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium" title={email}>
@@ -379,22 +397,25 @@ export function Sidebar({
 const BACKFILL_LIMIT = 250;
 
 /**
- * Re-run enrichment over items that finished ingestion without a summary.
+ * Re-run ingestion over messages that finished without a summary.
  *
- * The client already syncs `item_content`, so it knows exactly which items
- * these are: no new server API, just the existing per-item retryIngest
- * mutator in a loop, bounded by BACKFILL_LIMIT per click.
- * This exists because a server that ran for a day without an OpenAI key
- * leaves a pile of permanently-empty items that nothing would otherwise
- * revisit: they're "done", so no retry ever fires for them.
+ * The client already syncs everything it needs to know which those are: no new
+ * server API, just the existing per-message retryIngest mutator in a loop,
+ * bounded by BACKFILL_LIMIT per click. This exists because a server that ran
+ * for a day without an OpenAI key leaves a pile of permanently-empty messages
+ * that nothing would otherwise revisit: they're "done", so no retry ever fires
+ * for them.
  */
-function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse | undefined }) {
+function EnrichBackfill({ messages, meta }: { messages: Drop; meta: MetaResponse | undefined }) {
   const zero = useZero();
   const [running, setRunning] = useState(0);
 
   const pending = useMemo(
-    () => items.filter((i) => i.content?.status === "done" && !i.content.aiSummary),
-    [items],
+    () =>
+      messages.filter(
+        (m) => (m.status === "done" || m.status === "partial") && !m.generatedSummary,
+      ),
+    [messages],
   );
 
   // Only offer this when the server can actually deliver: `undefined` meta
@@ -408,16 +429,16 @@ function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse |
     let failed = 0;
     // Sequential on purpose: this is a background chore, not a race, and it
     // keeps the mutation log (and the ingest queue) from being flooded.
-    for (const item of batch) {
+    for (const message of batch) {
       try {
-        await zero.mutate(mutators.item.retryIngest({ id: item.id })).client;
+        await zero.mutate(mutators.message.retryIngest({ id: message.id })).client;
       } catch {
         failed += 1;
       }
       setRunning((n) => n - 1);
     }
     toast.success(
-      `Queued ${batch.length - failed} item${batch.length - failed === 1 ? "" : "s"} for enrichment`,
+      `Queued ${batch.length - failed} message${batch.length - failed === 1 ? "" : "s"} for enrichment`,
       {
         description:
           pending.length > batch.length
@@ -433,7 +454,7 @@ function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse |
       size="xs"
       className="mb-1.5 justify-start px-0 text-xs font-normal text-muted-foreground hover:text-foreground"
       disabled={running > 0}
-      title={`${pending.length} item${pending.length === 1 ? "" : "s"} finished without an AI summary`}
+      title={`${pending.length} message${pending.length === 1 ? "" : "s"} finished without a summary`}
       onClick={() => void run()}
     >
       {running > 0 ? (
@@ -444,7 +465,7 @@ function EnrichBackfill({ items, meta }: { items: Timeline; meta: MetaResponse |
       ) : (
         <>
           <Icon name="sparkles" className="size-3" />
-          Enrich {pending.length} item{pending.length === 1 ? "" : "s"}
+          Enrich {pending.length} message{pending.length === 1 ? "" : "s"}
         </>
       )}
     </Button>

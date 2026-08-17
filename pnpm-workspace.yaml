@@ -32,12 +32,21 @@ catalog:
   linkedom: ^0.18.13
   "@mozilla/readability": ^0.6.0
   pdfjs-dist: ^6.2.108
+  # Derivatives (plan §6.2): HEIC transcode, EXIF orientation, thumbs, true
+  # dimensions. Its prebuilt libvips does AVIF but not HEIC; the deploy image
+  # supplies one built with libheif, and a decode failure is soft either way.
+  sharp: ^0.35.3
+  # The blurred stand-in that paints at the right geometry while a thumb is
+  # fetched (plan §6.5). Pure JS, encoder server-side and decoder in the browser.
+  thumbhash: ^0.1.1
   # pdfjs reaches for this at runtime to polyfill DOMMatrix/Path2D. Pinned to
   # the version pdfjs itself resolves so only one copy is ever installed.
   "@napi-rs/canvas": 1.0.5
   # runtime: shared
   zod: ^4.4.3
-  ulid: ^3.0.2
+  # v7, not v4: client-minted (offline capture) and time-sortable (index
+  # locality, and any id tiebreak) while still being a plain UUID.
+  uuid: ^14.0.1
   # tooling
   typescript: ^5.9.3
   tsx: ^4.23.12

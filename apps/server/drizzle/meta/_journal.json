@@ -5,36 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1786502714729,
+      "when": 1786938886439,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1786502720382,
+      "when": 1786938886440,
       "tag": "0001_zero-publication",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1786530951399,
-      "tag": "0002_search-and-usage",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1786548362463,
-      "tag": "0003_blob-id-is-client-minted",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1786557625633,
-      "tag": "0004_favorites-and-todo-state",
       "breakpoints": true
     }
   ]

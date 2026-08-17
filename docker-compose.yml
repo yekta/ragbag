@@ -4,7 +4,9 @@
 
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    # Stock Postgres: embeddings are gone (entities do that work at write time
+    # now, plan §7), so nothing here needs pgvector any more.
+    image: postgres:17
     command: postgres -c wal_level=logical # required by Zero's logical replication
     environment:
       POSTGRES_DB: ragbag
@@ -38,11 +40,15 @@ services:
       R2_BUCKET: ${R2_BUCKET:-}
       # No S3 bucket? Blobs land on the mounted volume below instead.
       LOCAL_BLOB_DIR: ${LOCAL_BLOB_DIR:-/data/blobs}
-      # Ingestion/AI (§7): without a key, content is still extracted and
-      # indexed; only summaries/tags/embeddings are skipped.
+      # Ingestion/AI (plan §5): without a key the local extraction still runs;
+      # descriptions, transcripts, summaries, tags and entities are skipped.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
-      AI_USER_DAILY_BUDGET_USD: ${AI_USER_DAILY_BUDGET_USD:-1}
+      AI_ENRICH_MODEL: ${AI_ENRICH_MODEL:-}
+      AI_TRANSCRIBE_MODEL: ${AI_TRANSCRIBE_MODEL:-}
+      # The cost lever on scanned PDFs: pages rendered, not calls (plan §5.2).
+      AI_PDF_DETAIL: ${AI_PDF_DETAIL:-low}
+      AI_PDF_MAX_PAGES: ${AI_PDF_MAX_PAGES:-50}
       INGEST_WORKER: ${INGEST_WORKER:-true}
       INGEST_CONCURRENCY: ${INGEST_CONCURRENCY:-2}
     ports:

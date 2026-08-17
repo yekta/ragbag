@@ -1,76 +1,85 @@
 import { describe, expect, it } from "vitest";
 import { newId } from "@ragbag/shared";
-import { createItemArgs, setDoneArgs, setKindArgs, setTagsArgs } from "./mutators.js";
-import { presignUploadRequest } from "./payloads.js";
+import { MAX_ATTACHMENTS, createMessageArgs, mentionArgs, setMessageTagsArgs } from "./mutators.js";
+import { downloadUrlsRequest, presignUploadRequest } from "./payloads.js";
 
-describe("createItemArgs", () => {
-  it("accepts a note with text", () => {
-    expect(createItemArgs.safeParse({ id: newId(), kind: "note", text: "hi" }).success).toBe(true);
+const file = () => ({
+  id: newId(),
+  blobId: newId(),
+  filename: "photo.heic",
+  mime: "image/heic",
+  size: 2_400_000,
+});
+
+describe("createMessageArgs", () => {
+  it("accepts text on its own, files on their own, and both together", () => {
+    expect(createMessageArgs.safeParse({ id: newId(), text: "hi" }).success).toBe(true);
+    expect(createMessageArgs.safeParse({ id: newId(), attachments: [file()] }).success).toBe(true);
+    expect(
+      createMessageArgs.safeParse({ id: newId(), text: "look", attachments: [file()] }).success,
+    ).toBe(true);
   });
 
-  it("rejects a note without text and a link without url", () => {
-    expect(createItemArgs.safeParse({ id: newId(), kind: "note" }).success).toBe(false);
-    expect(createItemArgs.safeParse({ id: newId(), kind: "link" }).success).toBe(false);
+  it("rejects a send with nothing in it", () => {
+    expect(createMessageArgs.safeParse({ id: newId() }).success).toBe(false);
+    expect(createMessageArgs.safeParse({ id: newId(), text: "   " }).success).toBe(false);
   });
 
-  it("rejects blob kinds without a blobId and non-ulid ids", () => {
-    expect(createItemArgs.safeParse({ id: newId(), kind: "image" }).success).toBe(false);
-    expect(createItemArgs.safeParse({ id: "not-a-ulid", kind: "note", text: "x" }).success).toBe(
+  it("caps the attachment count, because the client is not the only writer", () => {
+    const many = Array.from({ length: MAX_ATTACHMENTS }, file);
+    expect(createMessageArgs.safeParse({ id: newId(), attachments: many }).success).toBe(true);
+    expect(
+      createMessageArgs.safeParse({ id: newId(), attachments: [...many, file()] }).success,
+    ).toBe(false);
+  });
+
+  it("rejects the same attachment twice and non-uuid ids", () => {
+    const one = file();
+    expect(createMessageArgs.safeParse({ id: newId(), attachments: [one, one] }).success).toBe(
       false,
     );
-  });
-
-  it("treats todos and addresses as text kinds", () => {
-    expect(
-      createItemArgs.safeParse({ id: newId(), kind: "todo", text: "call the vet" }).success,
-    ).toBe(true);
-    expect(
-      createItemArgs.safeParse({ id: newId(), kind: "address", text: "Karl-Marx-Allee 90" })
-        .success,
-    ).toBe(true);
-    expect(createItemArgs.safeParse({ id: newId(), kind: "todo" }).success).toBe(false);
-    expect(createItemArgs.safeParse({ id: newId(), kind: "address", text: "  " }).success).toBe(
-      false,
-    );
+    expect(createMessageArgs.safeParse({ id: "01JBQ3W4XK", text: "x" }).success).toBe(false);
   });
 });
 
-describe("setDoneArgs / setKindArgs", () => {
-  it("takes a done flag for a todo", () => {
-    expect(setDoneArgs.safeParse({ id: newId(), done: true }).success).toBe(true);
-    expect(setDoneArgs.safeParse({ id: newId(), done: "yes" }).success).toBe(false);
-  });
-
-  it("only reclassifies between the text kinds", () => {
-    expect(setKindArgs.safeParse({ id: newId(), kind: "todo" }).success).toBe(true);
-    expect(setKindArgs.safeParse({ id: newId(), kind: "address" }).success).toBe(true);
-    expect(setKindArgs.safeParse({ id: newId(), kind: "link" }).success).toBe(false);
-    expect(setKindArgs.safeParse({ id: newId(), kind: "image" }).success).toBe(false);
+describe("mentionArgs", () => {
+  it("takes an attachment or none: a mention can come from the text itself", () => {
+    const base = { messageId: newId(), entityId: newId() };
+    expect(mentionArgs.safeParse(base).success).toBe(true);
+    expect(mentionArgs.safeParse({ ...base, attachmentId: null }).success).toBe(true);
+    expect(mentionArgs.safeParse({ ...base, attachmentId: newId() }).success).toBe(true);
+    expect(mentionArgs.safeParse({ ...base, attachmentId: "nope" }).success).toBe(false);
   });
 });
 
-describe("setTagsArgs", () => {
+describe("setMessageTagsArgs", () => {
   it("bounds tag count and length", () => {
-    expect(setTagsArgs.safeParse({ itemId: newId(), names: ["rust", "systems"] }).success).toBe(
-      true,
-    );
     expect(
-      setTagsArgs.safeParse({ itemId: newId(), names: Array.from({ length: 51 }, () => "t") })
-        .success,
+      setMessageTagsArgs.safeParse({ messageId: newId(), names: ["rust", "systems"] }).success,
+    ).toBe(true);
+    expect(
+      setMessageTagsArgs.safeParse({
+        messageId: newId(),
+        names: Array.from({ length: 51 }, () => "t"),
+      }).success,
     ).toBe(false);
   });
 });
 
-describe("presignUploadRequest", () => {
-  it("requires a client-minted ULID blobId and a lowercase hex sha256", () => {
-    const ok = {
-      blobId: newId(),
-      sha256: "a".repeat(64),
-      mime: "image/png",
-      size: 123,
-    };
+describe("blob payloads", () => {
+  it("requires a client-minted UUID blobId and a lowercase hex sha256", () => {
+    const ok = { blobId: newId(), sha256: "a".repeat(64), mime: "image/png", size: 123 };
     expect(presignUploadRequest.safeParse(ok).success).toBe(true);
     expect(presignUploadRequest.safeParse({ ...ok, sha256: "XYZ" }).success).toBe(false);
-    expect(presignUploadRequest.safeParse({ ...ok, blobId: "not-a-ulid" }).success).toBe(false);
+    expect(presignUploadRequest.safeParse({ ...ok, blobId: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("bounds the batch presign and defaults to the original", () => {
+    const parsed = downloadUrlsRequest.safeParse({ blobIds: [newId()] });
+    expect(parsed.success && parsed.data.variant).toBe("original");
+    expect(
+      downloadUrlsRequest.safeParse({ blobIds: Array.from({ length: 101 }, newId) }).success,
+    ).toBe(false);
+    expect(downloadUrlsRequest.safeParse({ blobIds: [] }).success).toBe(false);
   });
 });
