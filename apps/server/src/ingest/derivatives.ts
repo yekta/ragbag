@@ -1,5 +1,6 @@
 import { log } from "@ragbag/shared";
 import type { BlobVariants } from "@ragbag/shared";
+import decodeHeic from "heic-decode";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
 import { storage, variantKey } from "../blobs/storage.js";
@@ -19,11 +20,20 @@ import { storage, variantKey } from "../blobs/storage.js";
 // original never reaches the server. The same pass bakes in EXIF orientation
 // (we are re-encoding anyway) and reads true dimensions.
 //
-// This needs libvips built with libheif. sharp's own prebuilt binary carries
-// AVIF but not HEIC, so the deploy image supplies one that does; where it does
-// not, the decode throws and the caller treats it as a soft failure with a
-// note, exactly like a failed AI stage. The original still uploads, still
-// downloads, and still opens in anything that can read it.
+// HEIC needs a second decoder, and the reason is worth writing down because it
+// looks like a missing package and is not. sharp runs against the libvips it
+// bundles, whose libheif carries AV1 but not HEVC, and it only builds against a
+// system libvips when `SHARP_FORCE_GLOBAL_LIBVIPS` is set at INSTALL time,
+// against libvips >= 8.18.3, which no Debian or Ubuntu release ships. So a
+// HEIC off an iPhone reaches `metadata()` fine (libvips reads the container and
+// reports `format: heif, compression: hevc`) and then fails on the pixels with
+// "Support for this compression format has not been built in".
+//
+// `heic-decode` closes it with libheif compiled to WASM: no base image
+// requirement at all, which is why it also works in local dev and in the
+// acceptance proofs, unlike anything installed with apt. It costs CPU rather
+// than configuration (~290ms for a 1.1MP image, so a few seconds for a 12MP
+// phone photo), which is the cheapest resource a background worker has.
 
 /**
  * sharp's types are a CommonJS `export =` with a namespace, which this
@@ -38,6 +48,60 @@ const DISPLAY_MAX = 1600;
 const THUMB_MAX = 400;
 /** thumbhash takes at most 100x100 and wants the aspect preserved. */
 const HASH_MAX = 100;
+
+/**
+ * One decoded image, upright, plus a factory for fresh sharp pipelines over it.
+ *
+ * A factory rather than one pipeline: sharp streams are single-use, and the
+ * three outputs below (display, thumb, placeholder) each need their own. The
+ * dimensions travel with it because the HEVC path learns them from its own
+ * decoder rather than from sharp.
+ */
+export type ImageSource = { open: () => SharpImage; width: number; height: number };
+
+/** EXIF orientations 5-8 are the quarter turns, which swap width and height. */
+function rotatesAxes(orientation: number | undefined): boolean {
+  return orientation !== undefined && orientation >= 5 && orientation <= 8;
+}
+
+/**
+ * Get at an image's pixels, whichever decoder can read them.
+ *
+ * The route is decided by what libvips says the file IS rather than by trying
+ * a transcode and catching the failure: `compression: "hevc"` means libvips
+ * recognised the container and cannot decode the payload, which is exactly the
+ * HEIC case and nothing else. AVIF in the same container family reports `av1`
+ * and stays on the sharp path, where it already worked.
+ */
+export async function openImage(bytes: Uint8Array): Promise<ImageSource> {
+  // `failOn: "none"` because a partially-corrupt photo that still decodes is
+  // worth a thumbnail; only an undecodable one should reach the failure path.
+  const buffer = Buffer.from(bytes);
+  const meta = await sharp(buffer, { failOn: "none" }).metadata();
+
+  if (meta.compression === "hevc") {
+    const { width, height, data } = await decodeHeic({ buffer });
+    // libheif applies the container's own `irot`/`imir` transforms while
+    // rendering, so these pixels are already upright and must NOT be rotated
+    // again: raw input carries no EXIF for sharp to read anyway.
+    const pixels = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    return {
+      open: () => sharp(pixels, { raw: { width, height, channels: 4 } }),
+      width,
+      height,
+    };
+  }
+
+  if (!meta.width || !meta.height) throw new Error("the image has no readable dimensions");
+  // After `rotate()` the axes may swap, so what goes on the row is what the
+  // browser will actually see.
+  const swapped = rotatesAxes(meta.orientation);
+  return {
+    open: () => sharp(buffer, { failOn: "none" }).rotate(),
+    width: swapped ? meta.height : meta.width,
+    height: swapped ? meta.width : meta.height,
+  };
+}
 
 export type ImageDerivatives = {
   width: number;
@@ -59,44 +123,31 @@ export async function buildImageDerivatives(input: {
 }): Promise<ImageDerivatives> {
   if (!storage) throw new Error("server has no blob storage configured");
 
-  // `failOn: "none"` because a partially-corrupt photo that still decodes is
-  // worth a thumbnail; only an undecodable one should reach the caller's
-  // failure path.
-  const image = sharp(Buffer.from(input.bytes), { failOn: "none" });
-  const meta = await image.metadata();
-  // After `rotate()` (EXIF applied) width/height may swap, so the dimensions
-  // that go on the row are the ones the browser will actually see.
-  const upright = sharp(Buffer.from(input.bytes), { failOn: "none" }).rotate();
+  const source = await openImage(input.bytes);
 
-  const display = await upright
-    .clone()
+  const display = await source
+    .open()
     .resize({ width: DISPLAY_MAX, height: DISPLAY_MAX, fit: "inside", withoutEnlargement: true })
     .webp({ quality: 82 })
-    .toBuffer({ resolveWithObject: true });
+    .toBuffer();
 
-  const thumb = await upright
-    .clone()
+  const thumb = await source
+    .open()
     .resize({ width: THUMB_MAX, height: THUMB_MAX, fit: "inside", withoutEnlargement: true })
     .webp({ quality: 74 })
     .toBuffer();
 
-  await storage.put(variantKey(input.userId, input.sha256, "display"), display.data, "image/webp");
+  await storage.put(variantKey(input.userId, input.sha256, "display"), display, "image/webp");
   await storage.put(variantKey(input.userId, input.sha256, "thumb"), thumb, "image/webp");
 
   return {
-    // The display transcode's own dimensions are wrong for the row when the
-    // source was larger than the cap; the true (upright) size is what the
-    // layout wants, so it comes from the metadata with the rotation applied.
-    width: rotatesAxes(meta.orientation) ? (meta.height ?? 0) : (meta.width ?? 0),
-    height: rotatesAxes(meta.orientation) ? (meta.width ?? 0) : (meta.height ?? 0),
+    // The transcode's own dimensions are wrong for the row whenever the source
+    // was larger than the cap; the true upright size is what the layout wants.
+    width: source.width,
+    height: source.height,
     variants: { display: true, thumb: true },
-    placeholder: await placeholderFor(upright.clone()),
+    placeholder: await placeholderFor(source.open()),
   };
-}
-
-/** EXIF orientations 5-8 are the quarter turns, which swap width and height. */
-function rotatesAxes(orientation: number | undefined): boolean {
-  return orientation !== undefined && orientation >= 5 && orientation <= 8;
 }
 
 /**

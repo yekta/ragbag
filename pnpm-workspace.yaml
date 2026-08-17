@@ -33,9 +33,12 @@ catalog:
   "@mozilla/readability": ^0.6.0
   pdfjs-dist: ^6.2.108
   # Derivatives (plan §6.2): HEIC transcode, EXIF orientation, thumbs, true
-  # dimensions. Its prebuilt libvips does AVIF but not HEIC; the deploy image
-  # supplies one built with libheif, and a decode failure is soft either way.
+  # dimensions.
   sharp: ^0.35.3
+  # The HEVC half of HEIC, which sharp's bundled libheif cannot do: libheif
+  # compiled to WASM, so it needs nothing from the base image and works in dev
+  # too (see apps/server/src/ingest/derivatives.ts).
+  heic-decode: ^2.1.0
   # The blurred stand-in that paints at the right geometry while a thumb is
   # fetched (plan §6.5). Pure JS, encoder server-side and decoder in the browser.
   thumbhash: ^0.1.1

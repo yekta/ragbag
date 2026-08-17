@@ -86,10 +86,14 @@ phone numbers and tracking numbers by pattern matching; descriptions, transcript
 summaries, tags and the judgment-call entities are skipped, and every skipped stage says
 so on the row rather than leaving it silently empty.
 
-Image derivatives (HEIC transcode, EXIF orientation, a 1600px display copy, a 400px thumb
-and a blurhash placeholder) need **sharp**, whose prebuilt libvips carries AVIF but not
-HEIC. The deploy image installs a system libvips that does; where one is missing the
-transcode fails softly and the original is kept.
+Image derivatives (HEIC transcode, EXIF orientation baked in, a 1600px display copy, a
+400px thumb and a thumbhash placeholder) come from **sharp**, plus **heic-decode** for the
+one thing sharp cannot do. sharp's bundled libheif carries AV1 but not HEVC, and it only
+builds against a system libvips at install time and only one ≥ 8.18.3, which no Debian or
+Ubuntu release ships; so HEVC comes from libheif compiled to WASM instead. That needs
+nothing from the base image, which is why HEIC works in local dev and in the acceptance
+proofs as well as in the container. It costs CPU rather than configuration: about 290ms to
+decode a 1.1MP image, so a few seconds for a 12MP phone photo, inside a background worker.
 
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 

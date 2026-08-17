@@ -24,6 +24,7 @@
     "@t3-oss/env-core": "^0.13.11",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "heic-decode": "catalog:",
     "hono": "catalog:",
     "linkedom": "catalog:",
     "openai": "catalog:",

@@ -10,6 +10,7 @@
 // Run with the dev stack up (postgres, server :3001, zero-cache :4848):
 //   pnpm --filter server exec tsx scripts/ingest-proof.mts
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { crc32, deflateSync } from "node:zlib";
 import { mutators, queries, schema } from "@ragbag/contracts";
 import { newId } from "@ragbag/shared";
@@ -221,6 +222,8 @@ const secondLinkId = await drop(`re-reading ${LINK} tonight`);
 const blockedId = await drop("internal dashboard at http://192.168.0.1/admin");
 
 let albumId: string | null = null;
+let heicId: string | null = null;
+let heicAttachmentId: string | null = null;
 let corruptId: string | null = null;
 let unuploadedId: string | null = null;
 let imageAttachmentId: string | null = null;
@@ -259,6 +262,17 @@ if (serverMeta.blobs) {
     "corrupt.png",
   );
   corruptId = await drop("a broken picture", [corrupt]);
+
+  // HEIC is the one format sharp cannot decode, so it takes the WASM libheif
+  // path (derivatives.ts). Nothing in this repo can ENCODE HEVC, so the
+  // fixture has to come from outside: point HEIC_FIXTURE at any photo off an
+  // iPhone. Skipped, loudly, when it is not set.
+  const heicPath = process.env.HEIC_FIXTURE;
+  if (heicPath) {
+    const heic = await uploadBlob(readFileSync(heicPath), "image/heic", "photo.heic");
+    heicAttachmentId = heic.id;
+    heicId = await drop("straight off a phone", [heic]);
+  }
 
   // Offline capture: the message syncs with a client-minted blobId BEFORE the
   // upload queue has presigned anything, so no blob row (and no bytes) exist
@@ -317,8 +331,8 @@ async function poll(until: (s: Snapshot) => boolean, timeoutMs = 90_000): Promis
 }
 
 // The un-uploaded message never settles by design; it is asserted separately.
-const watched = [textOnlyId, secondLinkId, blockedId, albumId, corruptId].filter((x): x is string =>
-  Boolean(x),
+const watched = [textOnlyId, secondLinkId, blockedId, albumId, heicId, corruptId].filter(
+  (x): x is string => Boolean(x),
 );
 const TERMINAL = ["done", "partial", "failed"];
 const settled = await poll((s) =>
@@ -423,6 +437,36 @@ if (albumId) {
     if (res.status !== 302) fail(`/api/media/.../${variant}: ${res.status}, want 302`);
   }
   console.log("OK   /api/media serves thumb, display and original for the same blob id");
+}
+
+if (!heicAttachmentId) {
+  console.log("SKIP HEIC transcode (set HEIC_FIXTURE to a .heic to include it)");
+} else {
+  // 5b. HEIC: sharp reads the container and cannot decode the pixels, so the
+  // WASM libheif takes over. What proves it worked is web-safe derivatives
+  // existing at all, since without them nothing but Safari could show it.
+  const [heicRow] = await sql<
+    {
+      width: number | null;
+      height: number | null;
+      variants: { display?: boolean; thumb?: boolean };
+      placeholder: string | null;
+      status: string;
+      error: string | null;
+    }[]
+  >`
+    select width, height, variants, placeholder, status, error from attachments
+    where id = ${heicAttachmentId}`;
+  if (heicRow?.status === "failed") fail(`the HEIC attachment failed: ${heicRow.error}`);
+  if (!heicRow?.variants?.display || !heicRow.variants.thumb) {
+    fail(`HEIC produced no web-safe copies: ${JSON.stringify(heicRow)}`);
+  }
+  if (!heicRow.width || !heicRow.height) fail("HEIC recorded no dimensions");
+  if (!heicRow.placeholder) fail("HEIC produced no placeholder");
+  console.log(
+    `OK   HEIC transcoded through WASM libheif (${heicRow.width}x${heicRow.height}, ` +
+      `${Object.keys(heicRow.variants).join("+")})`,
+  );
 }
 
 if (corruptId) {

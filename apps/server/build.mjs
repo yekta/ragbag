@@ -11,15 +11,17 @@ await build({
   target: "node22",
   outfile: "dist/index.js",
   sourcemap: true,
-  // Native modules cannot be bundled: their entry points resolve a
-  // platform-specific .node binary, which esbuild has no loader for. Both of
-  // these travel beside the bundle instead (see the Dockerfile).
+  // Left out of the bundle, and each for its own reason (see the Dockerfile,
+  // which installs exactly these beside it):
   //
-  // @napi-rs/canvas used to reach the runtime through pdfjs's own dynamic
-  // require(), which esbuild never saw. rasterize-pdf.ts imports it directly
-  // now (to render a PDF's first page for its thumbnail), so it has to be
-  // named here too.
-  external: ["sharp", "@napi-rs/canvas"],
+  //   sharp, @napi-rs/canvas  native: their entry points resolve a
+  //     platform-specific .node binary, which esbuild has no loader for.
+  //     @napi-rs/canvas used to reach the runtime only through pdfjs's dynamic
+  //     require(), which esbuild never saw; rasterize-pdf.ts imports it
+  //     directly now, so it has to be named.
+  //   heic-decode  pulls in a 1.4 MB emscripten single-file build of libheif
+  //     that expects to be loaded as its own module rather than inlined.
+  external: ["sharp", "@napi-rs/canvas", "heic-decode"],
   banner: {
     js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
   },
