@@ -3,6 +3,12 @@
 # Dev tip: `docker compose up -d postgres` and run server + zero-cache via pnpm.
 
 services:
+  # When compose runs the database, POSTGRES_PASSWORD is the ONLY database
+  # setting: the two connection strings below are built from it, which is why
+  # neither DATABASE_URL nor ZERO_UPSTREAM_DB from .env reaches a container.
+  # They cannot be one variable, because the host differs on either side of this
+  # network (`postgres` in here, `localhost` out there) and because the postgres
+  # image initialises from a password rather than from a URL.
   postgres:
     # Stock Postgres: embeddings are gone (entities do that work at write time
     # now, plan §7), so nothing here needs pgvector any more.

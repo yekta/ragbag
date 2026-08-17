@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "dev:zero-cache": "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; cd apps/server && exec pnpm exec zero-cache-dev'",
+    "//dev:zero-cache": "zero-cache reads its own env, so .env is sourced here rather than by our code. ZERO_UPSTREAM_DB defaults to DATABASE_URL: it is the same database, and writing the password twice is how the two drift apart. `:=` inside `set -a` exports the assignment, which is why it sits before `set +a`.",
+    "dev:zero-cache": "sh -c 'set -a; [ -f .env ] && . ./.env; : \"${ZERO_UPSTREAM_DB:=$DATABASE_URL}\"; set +a; cd apps/server && exec pnpm exec zero-cache-dev'",
     "dev:stop": "sh scripts/dev-stop.sh",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
