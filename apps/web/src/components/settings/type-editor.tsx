@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { runMutation } from "@/lib/mutate";
 import type { TypeRow } from "@/lib/types";
 
 // One kind of thing, as a form: what it is called, what to look for, and the
@@ -190,37 +191,41 @@ function Form({
     setSaving(true);
     try {
       if (!type) {
-        await zero.mutate(
-          mutators.entityType.create({
-            id: newId(),
-            label,
-            sidebarTitle,
-            slug: draft.slug.trim() || undefined,
-            icon: draft.icon,
-            hint: draft.hint.trim(),
-            examples: commaList(draft.examples),
-            titleTemplate: draft.titleTemplate.trim() || null,
-            fields,
-          }),
-        ).client;
+        await runMutation(
+          zero.mutate(
+            mutators.entityType.create({
+              id: newId(),
+              label,
+              sidebarTitle,
+              slug: draft.slug.trim() || undefined,
+              icon: draft.icon,
+              hint: draft.hint.trim(),
+              examples: commaList(draft.examples),
+              titleTemplate: draft.titleTemplate.trim() || null,
+              fields,
+            }),
+          ),
+        );
       } else {
-        await zero.mutate(
-          mutators.entityType.update({
-            id: type.id,
-            label,
-            sidebarTitle,
-            slug: draft.slug.trim() || slugFromLabel(sidebarTitle),
-            icon: draft.icon,
-            hint: draft.hint.trim(),
-            examples: commaList(draft.examples),
-            titleTemplate: draft.titleTemplate.trim() || null,
-            sidebar: draft.sidebar,
-          }),
-        ).client;
+        await runMutation(
+          zero.mutate(
+            mutators.entityType.update({
+              id: type.id,
+              label,
+              sidebarTitle,
+              slug: draft.slug.trim() || slugFromLabel(sidebarTitle),
+              icon: draft.icon,
+              hint: draft.hint.trim(),
+              examples: commaList(draft.examples),
+              titleTemplate: draft.titleTemplate.trim() || null,
+              sidebar: draft.sidebar,
+            }),
+          ),
+        );
         // One submit, one mutation for the whole table: add, edit, remove and
         // reorder arrive together, or none of them do.
         if (!owned) {
-          await zero.mutate(mutators.entityType.setFields({ id: type.id, fields })).client;
+          await runMutation(zero.mutate(mutators.entityType.setFields({ id: type.id, fields })));
         }
       }
       onDone();

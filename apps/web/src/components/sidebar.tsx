@@ -23,6 +23,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
+import { runMutation } from "@/lib/mutate";
 import { useEntityTypes } from "@/lib/entity-types";
 import { EVERYTHING, filterLink, useFilter, type Filter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
@@ -382,7 +383,9 @@ function EnrichBackfill({ messages, meta }: { messages: Drop; meta: MetaResponse
     // keeps the mutation log (and the ingest queue) from being flooded.
     for (const message of batch) {
       try {
-        await zero.mutate(mutators.message.retryIngest({ id: message.id })).client;
+        // Through runMutation, because Zero resolves a failed mutation rather
+        // than rejecting it: a bare await counts every failure as a success.
+        await runMutation(zero.mutate(mutators.message.retryIngest({ id: message.id })));
       } catch {
         failed += 1;
       }

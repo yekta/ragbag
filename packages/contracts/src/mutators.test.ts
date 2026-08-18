@@ -103,8 +103,9 @@ describe("entity type args", () => {
     expect(parsed.success && parsed.data.examples).toEqual([]);
   });
 
-  it("insists a type has fields, and bounds how many", () => {
-    expect(createEntityTypeArgs.safeParse(type({ fields: [] })).success).toBe(false);
+  it("takes a type with no details, and bounds how many it can have", () => {
+    // Naming it and saying what to look for is the whole requirement.
+    expect(createEntityTypeArgs.safeParse(type({ fields: [] })).success).toBe(true);
     const many = Array.from({ length: MAX_TYPE_FIELDS + 1 }, (_, i) =>
       field({ name: `f${i}`, label: `F${i}` }),
     );

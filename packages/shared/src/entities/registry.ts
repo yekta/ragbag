@@ -90,10 +90,13 @@ function isFieldType(type: string): type is FieldType {
 /**
  * One declared type, as its rows describe it.
  *
- * Returns null for rows this build cannot make sense of (a field type it has
- * never heard of, an enum with no vocabulary, no fields at all). The check
- * constraints make all three unreachable from SQL; this is the belt to that
- * braces, and the caller logs and skips rather than failing a job over config.
+ * Returns null for rows this build cannot make sense of: a field type it has
+ * never heard of, or an enum with no vocabulary. The check constraints make
+ * both unreachable from SQL; this is the belt to that braces, and the caller
+ * logs and skips rather than failing a job over config.
+ *
+ * No fields at all is fine, and means what it says: the thing is its own value
+ * (a recipe name, a person), with no structure worth filling in.
  */
 export function typeFromRows(
   row: EntityTypeRow,
@@ -115,8 +118,6 @@ export function typeFromRows(
       }),
     );
   }
-  if (fields.length === 0) return null;
-
   return {
     kind: row.kind,
     label: row.label,

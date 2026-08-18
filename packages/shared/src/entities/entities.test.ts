@@ -243,7 +243,17 @@ describe("user-declared types", () => {
   it("refuses rows it cannot make sense of rather than half-compiling them", () => {
     expect(typeFromRows(brandRow, [{ ...brandFields[0]!, type: "geometry" }])).toBeNull();
     expect(typeFromRows(brandRow, [{ ...brandFields[2]!, values: [] }])).toBeNull();
-    expect(typeFromRows(brandRow, [])).toBeNull();
+  });
+
+  it("takes a type with no details at all: the thing is its own value", () => {
+    const bare = typeFromRows({ ...brandRow, titleTemplate: null }, []);
+    expect(bare).not.toBeNull();
+    const set = resolveEntityTypes([bare!]);
+    expect(set.kinds).toContain("brand");
+    expect(set.parseData("brand", { anything: 1 })).toEqual({});
+    // Nothing to key on but the value itself, which is the right answer here.
+    expect(set.normalize("brand", "  Daikin ", {})).toBe("daikin");
+    expect(set.title("brand", "Daikin", {})).toBe("Daikin");
   });
 
   it("lets code beat data: a row cannot turn a kind's behaviour off", () => {

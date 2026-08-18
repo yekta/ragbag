@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { signOut } from "@/lib/auth-client";
+import { runMutation } from "@/lib/mutate";
 import { formatBytes } from "@/lib/format";
 import { loadIdentity } from "@/lib/identity";
 import { clearMediaCache, storageUsage, type StorageUsage } from "@/lib/media";
@@ -95,12 +96,26 @@ export function Settings() {
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({
+  children,
+  action,
+}: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
-    <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {children}
-    </h2>
+    <div className="mb-1 flex items-center gap-2">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {children}
+      </h2>
+      {action && <span className="ml-auto">{action}</span>}
+    </div>
   );
+}
+
+/** The one line under a heading that says what the list below it is for. */
+function SectionNote({ children }: { children: React.ReactNode }) {
+  return <p className="mb-2 text-[13px] text-muted-foreground">{children}</p>;
 }
 
 // --- what to look for ---
@@ -128,12 +143,14 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
 
   const setOn = async (choice: TypeChoice, wanted: boolean) => {
     try {
-      await zero.mutate(
-        choice.id
-          ? mutators.entityType.setEnabled({ id: choice.id, enabled: wanted })
-          : // Nothing to update: this one has never been turned on here.
-            mutators.entityType.install({ id: newId(), kind: choice.kind }),
-      ).client;
+      await runMutation(
+        zero.mutate(
+          choice.id
+            ? mutators.entityType.setEnabled({ id: choice.id, enabled: wanted })
+            : // Nothing to update: this one has never been turned on here.
+              mutators.entityType.install({ id: newId(), kind: choice.kind }),
+        ),
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "That did not work");
     }
@@ -141,7 +158,16 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
 
   return (
     <section>
-      <SectionTitle>Looking for</SectionTitle>
+      <SectionTitle
+        action={
+          <Button variant="outline" size="xs" onClick={() => onEdit(null)}>
+            <Icon name="plus" className="size-3" /> Add
+          </Button>
+        }
+      >
+        Look for
+      </SectionTitle>
+      <SectionNote>ragbag pulls these out of everything you drop.</SectionNote>
       <ul className="flex flex-col gap-1.5">
         {on.map((choice) => (
           <ChoiceRow
@@ -155,13 +181,14 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
         ))}
         {on.length === 0 && (
           <li className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
-            Nothing yet. Turn something on below.
+            Nothing yet. Turn one on below.
           </li>
         )}
       </ul>
 
       <div className="mt-5">
-        <SectionTitle>Not looking for</SectionTitle>
+        <SectionTitle>Don't look for</SectionTitle>
+        <SectionNote>Turn one on and ragbag starts finding it in what you drop.</SectionNote>
         <ul className="flex flex-col gap-1.5">
           {off.map((choice) => (
             <ChoiceRow
@@ -175,15 +202,11 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
           ))}
           {off.length === 0 && (
             <li className="text-[13px] text-muted-foreground">
-              You are looking for everything ragbag knows.
+              Nothing: you are looking for all of them.
             </li>
           )}
         </ul>
       </div>
-
-      <Button variant="outline" size="sm" className="mt-3" onClick={() => onEdit(null)}>
-        <Icon name="plus" className="size-3.5" /> New type
-      </Button>
     </section>
   );
 }

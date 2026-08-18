@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { runMutation } from "@/lib/mutate";
 import type { TypeRow } from "@/lib/types";
 
 // Deleting a type is two different intentions, and only one of them loses
@@ -45,7 +46,7 @@ export function DeleteTypeDialog({
   const run = async (deleteEntities: boolean) => {
     setBusy(true);
     try {
-      await zero.mutate(mutators.entityType.remove({ id: type.id, deleteEntities })).client;
+      await runMutation(zero.mutate(mutators.entityType.remove({ id: type.id, deleteEntities })));
       toast.success(`${type.sidebarTitle} deleted`);
       onDeleted();
     } catch (err) {

@@ -108,9 +108,11 @@ const typeFieldArgs = z
     "an enum field needs a list of values, and no other kind of field may have one",
   );
 
+// No minimum: a type whose things need no structure is a type whose value is
+// the whole thing, and the compiler, the prompt and the dedupe key all handle
+// an empty list.
 const typeFieldsArgs = z
   .array(typeFieldArgs)
-  .min(1, "a type is its fields: it needs at least one")
   .max(MAX_TYPE_FIELDS)
   .refine(
     (fields) => new Set(fields.map((f) => f.name)).size === fields.length,
