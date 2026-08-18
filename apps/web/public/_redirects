@@ -1,9 +1,12 @@
 # Media has to be same-origin with the app for the service worker to intercept
-# it cleanly (DEPLOY.md §4). Uncomment these with your own API host, and keep
-# them ABOVE the SPA fallback: `/*` swallows everything after it, so an image
-# request would otherwise receive index.html with a 200.
+# it cleanly (DEPLOY.md §4). These two lines route it to the API, and they must
+# stay ABOVE the SPA fallback: `/*` swallows everything after it, so an image
+# request would otherwise receive index.html with a 200, which is a decode
+# failure the browser reports as a broken picture.
 #
-#/api/media/*              https://api.ragbag.app/api/media/:splat  200
-#/api/blobs/download-urls  https://api.ragbag.app/api/blobs/download-urls  200
+# The API host is deployment-specific: change it if you are not app.ragbag.app.
+
+/api/media/*              https://api.ragbag.app/api/media/:splat  200
+/api/blobs/download-urls  https://api.ragbag.app/api/blobs/download-urls  200
 
 /*  /index.html  200

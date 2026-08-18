@@ -84,19 +84,24 @@ export const blobRoutes = new Hono()
       .where(and(eq(blobs.userId, authData.userID), inArray(blobs.id, blobIds)));
 
     const urls: Record<string, string> = {};
+    const fallback: string[] = [];
     for (const row of rows) {
       const original = blobKey(authData.userID, row.sha256);
       // A derivative that has not been generated yet falls back to the
       // original, so a photo browsed before ingestion finished still paints.
+      // Said out loud in `fallback`, because the caller caches by variant key
+      // and these bytes are not that variant: they are the file exactly as
+      // sent, which for a phone photo is a HEIC most browsers cannot decode.
       const key =
         variant === "original" ? original : variantKey(authData.userID, row.sha256, variant);
       const derived = variant !== "original" && (await storage.exists(key));
+      if (variant !== "original" && !derived) fallback.push(row.id);
       urls[row.id] = await storage.presignDownload(
         derived ? key : original,
         derived ? "image/webp" : row.mime,
       );
     }
-    return c.json({ urls });
+    return c.json({ urls, fallback });
   })
   // --- local-disk driver endpoints (inactive when R2 is configured) ---
   .put("/local/:key{.+}", async (c) => {

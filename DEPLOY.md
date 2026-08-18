@@ -194,15 +194,23 @@ to route these two paths to the API:
 /api/blobs/download-urls  → https://api.ragbag.app/api/blobs/download-urls   200
 ```
 
-On Netlify/Cloudflare Pages that is two `_redirects` lines above the SPA fallback (order matters:
-the `/*` rule swallows everything after it, which on a static host means an image request quietly
-receives `index.html` with a 200). `apps/web/public/_redirects` carries them commented out, because
-the API host is deployment-specific.
+On Netlify/Cloudflare Pages that is the first two lines of `apps/web/public/_redirects`, above the
+SPA fallback. Order matters: the `/*` rule swallows everything after it, so an image request would
+otherwise receive `index.html` with a 200. Change the host there if you are not app.ragbag.app.
 
-Without the rule, images do not silently break: `MediaImage` treats a failed load as "the media URL
-can't answer" and falls back to fetching the bytes through `/api/blobs/:id/download-url` and an
-object URL, which is what v1 did for every image. What is lost is the native lazy loading, the
-off-main-thread decode, and the worker's caching, which is most of why the media URL exists.
+Verify it after every deploy, because nothing else will:
+
+```
+curl -sI https://app.ragbag.app/api/media/x/thumb | head -3   # want 302, not text/html
+```
+
+Without the rule the app does not fail cleanly. `MediaImage` treats a failed load as "the media URL
+can't answer" and falls back to `/api/blobs/:id/download-url` plus an object URL, which is what v1
+did for every image, but that route serves the blob **as it was sent**. The web-safe transcode is
+reachable only through the two paths above, so a deploy missing them serves every picture as its
+camera original: JPEGs still paint (full-resolution bytes into a thumbnail-sized tile, no native
+lazy loading, no off-main-thread decode), and an iPhone HEIC paints nowhere the browser lacks a
+decoder. That is the "some photos are permanently broken" bug, and this rule is the whole of it.
 
 Watch paths:
 

@@ -16,7 +16,11 @@
 // Cache Storage keys on the request URL, so variants are naturally separate
 // entries and there is no cache-key scheme to invent.
 
-const VERSION = "v1";
+// Bumped to v2: entries written before the `fallback` check below can hold an
+// original standing in for a derivative that did not exist yet, and nothing
+// here ever revalidates a hit, so the only way to clear one is to abandon the
+// cache it lives in. Costs a refetch per tile, once.
+const VERSION = "v2";
 const MEDIA_PREFIX = "/api/media/";
 
 /**
@@ -87,10 +91,15 @@ async function serve(request, { blobId, variant }) {
   }
 
   try {
-    const url = await presign(blobId, variant);
+    const { url, cacheable } = await presign(blobId, variant);
     if (url) {
       const response = await fetch(url);
-      if (response.ok && response.type !== "opaque") {
+      // Only a real derivative is worth keeping. For one ingestion has not
+      // built yet the server hands back the original instead, which is the
+      // right picture to show and the wrong one to remember: it is the file
+      // exactly as sent, and a hit here is never revalidated, so caching it
+      // would pin a HEIC under the thumb key long after the webp existed.
+      if (cacheable && response.ok && response.type !== "opaque") {
         await cache.put(request, response.clone());
         await evict(cache, tier.max);
       }
@@ -127,6 +136,7 @@ async function evict(cache, max) {
 
 let pending = null;
 
+/** → `{ url, cacheable }`; a null url means "ask the server route instead". */
 function presign(blobId, variant) {
   if (!pending || pending.variant !== variant || pending.ids.size >= BATCH_MAX) {
     pending = { variant, ids: new Set(), promise: null };
@@ -141,7 +151,7 @@ function presign(blobId, variant) {
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ blobIds: [...batch.ids], variant: batch.variant }),
           });
-          resolve(res.ok ? ((await res.json()).urls ?? {}) : {});
+          resolve(res.ok ? await res.json() : {});
         } catch {
           resolve({});
         }
@@ -150,5 +160,12 @@ function presign(blobId, variant) {
   }
   const batch = pending;
   batch.ids.add(blobId);
-  return batch.promise.then((urls) => urls[blobId] ?? null);
+  return batch.promise.then((data) => ({
+    url: data.urls?.[blobId] ?? null,
+    // No `fallback` key at all means a server older than it, which cannot say
+    // whether these bytes are the derivative or the original standing in for
+    // it. Don't keep what you cannot identify: the cost is a refetch, and the
+    // cost of guessing wrong is permanent.
+    cacheable: Array.isArray(data.fallback) && !data.fallback.includes(blobId),
+  }));
 }

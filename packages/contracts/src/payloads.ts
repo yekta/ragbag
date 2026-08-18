@@ -58,6 +58,14 @@ export type DownloadUrlsRequest = z.infer<typeof downloadUrlsRequest>;
 export const downloadUrlsResponse = z.object({
   /** blobId → presigned GET; ids the caller does not own are simply absent. */
   urls: z.record(z.string(), z.string()),
+  /**
+   * Ids whose URL is the original standing in for a derivative that does not
+   * exist yet. The right bytes to show and the wrong bytes to keep: a caller
+   * that caches by variant key (the media worker) must not store these, or a
+   * photo browsed mid-ingestion pins its untranscoded original under the
+   * thumb key for good.
+   */
+  fallback: z.array(z.string()),
 });
 export type DownloadUrlsResponse = z.infer<typeof downloadUrlsResponse>;
 

@@ -58,14 +58,23 @@ export function MediaImage({
   className?: string;
   fit?: "cover" | "contain";
 }) {
-  const [failed, setFailed] = useState(false);
-  // The one case the media URL cannot answer: a picture whose bytes are still
-  // in this device's upload queue, so the server has no blob row to presign.
-  // Asking for the local copy only after the request has actually failed keeps
-  // the common path free of any JS-held object URLs at all.
-  const localUrl = useBlobUrl(failed ? blobId : null);
+  // Three sources, tried in order, each one demoted by its own load error.
+  //
+  //   media  the stable URL: lazy, cached, decoded off the main thread.
+  //   local  this device's own bytes, for the one case the media URL cannot
+  //          answer: a picture still in the upload queue, so the server has no
+  //          blob row to presign. Asked for only after a real failure, which
+  //          keeps the common path free of JS-held object URLs entirely.
+  //   gone   both refused to decode. The placeholder IS the picture then: a
+  //          blurred tile at the right geometry, which is the whole point of
+  //          keeping the hash on the row (§6.5). Without this state the last
+  //          error just re-set the previous one, so a picture the browser
+  //          cannot read (an original HEIC reaching a fallback that only ever
+  //          serves originals) sat under a broken-image glyph forever.
+  const [source, setSource] = useState<"media" | "local" | "gone">("media");
+  const localUrl = useBlobUrl(source === "local" ? blobId : null);
   const blur = placeholderUrl(placeholder);
-  const src = failed ? localUrl : mediaUrl(blobId, variant);
+  const src = source === "media" ? mediaUrl(blobId, variant) : source === "local" ? localUrl : null;
 
   if (!src) {
     return (
@@ -85,7 +94,7 @@ export function MediaImage({
       // Native lazy loading, which is the whole reason the URL is stable.
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => setSource((s) => (s === "media" ? "local" : "gone"))}
       // Spelled out rather than interpolated: Tailwind scans source text for
       // whole class names, so `object-${fit}` would generate neither.
       className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
