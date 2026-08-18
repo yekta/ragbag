@@ -16,7 +16,7 @@ const COLLAPSE_KEY = "ragbag:sidebar-collapsed";
 
 type ViewState = {
   searchOpen: boolean;
-  sidebarCollapsed: boolean; // desktop rail hidden (persisted)
+  sidebarCollapsed: boolean; // desktop sidebar hidden (persisted)
   theme: Theme; // persisted
   setSearchOpen: (open: boolean) => void;
   toggleSidebar: () => void;

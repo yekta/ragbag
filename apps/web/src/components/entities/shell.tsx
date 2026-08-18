@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { Icon, iconNamed } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { useEntityTypes } from "@/lib/entity-types";
@@ -7,6 +7,22 @@ import type { EntityFields } from "@/lib/types";
 // What every entity card is made of. One shell so the strip on a message
 // reads as one thing rather than as six differently-shaped boxes, and so a
 // new kind is a file that fills in slots rather than a new layout.
+//
+// Two surfaces, and the rule is where the card is rather than what it holds:
+// a row *in* a timeline is a surface of its own (no border, the same fill a
+// message has), and a card *inside* a message is a chip on top of one
+// (bordered, a shade up). Which is why this is a context rather than a prop:
+// the six cards forward nothing, and the list that draws them says once, for
+// all of them, where they are.
+
+type Surface = "timeline" | "nested";
+
+const SurfaceContext = createContext<Surface>("nested");
+
+/** Wraps a list of cards that ARE the timeline, rather than sitting in one. */
+export function TimelineEntities({ children }: { children: ReactNode }) {
+  return <SurfaceContext.Provider value="timeline">{children}</SurfaceContext.Provider>;
+}
 
 export type EntityCardProps = {
   entity: EntityFields;
@@ -41,12 +57,15 @@ export function EntityShell({
   media?: ReactNode;
   onOpen?: () => void;
 }) {
-  // Declared kinds carry their icon in Postgres, so it is looked up per render
-  // rather than baked into a map at module scope.
+  // A type carries its icon in Postgres, so it is looked up per render rather
+  // than baked into a map at module scope.
   const icon = iconNamed(useEntityTypes().icon(kind));
+  const timeline = useContext(SurfaceContext) === "timeline";
+  const surface = timeline ? "rounded-2xl bg-card p-3.5" : "rounded-lg border bg-panel p-3";
+  const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
   return (
     <div
-      className={`flex gap-3 rounded-lg border bg-panel p-3 transition ${onOpen ? "cursor-pointer hover:bg-accent" : ""}`}
+      className={`flex gap-3 transition ${surface} ${hover}`}
       onClick={
         onOpen
           ? (e) => {

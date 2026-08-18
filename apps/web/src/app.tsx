@@ -19,7 +19,7 @@ import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-c
 import { useArchiveHintWriter, useArchiveState, useStableRows } from "@/lib/archive-state";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
 import { EntityTypesProvider, useEntityTypes } from "@/lib/entity-types";
-import { clearIdentity, loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
+import { loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
 import { registerMediaWorker, requestPersistence } from "@/lib/media";
 import { isChatView, useFilter } from "@/lib/routes";
 import { useTimelineSearch } from "@/lib/search";
@@ -200,19 +200,6 @@ const preloadArchive = (zero: Zero<Schema>) => {
 
 let inits = 0;
 
-/**
- * Explicit sign-out: forget the device identity, then reload: the SignIn
- * screen clears local data (Zero stores + blob caches) once Zero is unmounted.
- */
-async function signOut(): Promise<void> {
-  clearIdentity();
-  await authClient.signOut().catch(() => {
-    // Offline sign-out still signs out locally; the session dies server-side
-    // when it expires.
-  });
-  location.assign("/");
-}
-
 function Workspace({
   identity,
   meta,
@@ -238,12 +225,7 @@ function Workspace({
       <BlobQueueProvider value={queue}>
         <QueueWiring sessionOk={status === "ok"} />
         <EntityTypesProvider>
-          <Shell
-            email={identity.email}
-            meta={meta}
-            status={status}
-            onSignOut={() => void signOut()}
-          />
+          <Shell email={identity.email} meta={meta} status={status} />
         </EntityTypesProvider>
       </BlobQueueProvider>
     </ZeroProvider>
@@ -407,12 +389,10 @@ function Shell({
   email,
   meta,
   status,
-  onSignOut,
 }: {
   email: string;
   meta: MetaResponse | undefined;
   status: SessionStatus;
-  onSignOut: () => void;
 }) {
   const { sidebarCollapsed, setSidebarCollapsed } = useViewStore();
 
@@ -431,7 +411,7 @@ function Shell({
       onOpenChange={(open) => setSidebarCollapsed(!open)}
       className="min-h-dvh"
     >
-      <ShellBody email={email} meta={meta} status={status} onSignOut={onSignOut} />
+      <ShellBody email={email} meta={meta} status={status} />
     </SidebarProvider>
   );
 }
@@ -453,12 +433,10 @@ function ShellBody({
   email,
   meta,
   status,
-  onSignOut,
 }: {
   email: string;
   meta: MetaResponse | undefined;
   status: SessionStatus;
-  onSignOut: () => void;
 }) {
   const [rawMessages, dropResult] = useQuery(queries.drop(WHOLE_ARCHIVE));
   const [entities] = useQuery(queries.entities());
@@ -537,7 +515,6 @@ function ShellBody({
         email={email}
         meta={meta}
         sync={sync}
-        onSignOut={onSignOut}
       />
 
       {/* No `overflow` here, ever: it would make this column a scroll container,

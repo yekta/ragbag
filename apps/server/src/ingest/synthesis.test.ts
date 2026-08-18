@@ -28,13 +28,13 @@ const sources = [
 const brandRow: EntityTypeRow = {
   kind: "brand",
   label: "Brand",
-  plural: "Brands",
+  sidebarTitle: "Brands",
   slug: "brands",
   icon: "sparkles",
   hint: "A company or product brand the message is about.",
   titleTemplate: "{name}",
   examples: ["Daikin"],
-  rail: true,
+  sidebar: true,
   version: 4,
 };
 

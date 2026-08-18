@@ -124,7 +124,7 @@ const typeFieldsArgs = z
 /** The copy every type carries, and the only part of one that is editable. */
 const typeCopy = {
   label: z.string().trim().min(1).max(60),
-  plural: z.string().trim().min(1).max(60),
+  sidebarTitle: z.string().trim().min(1).max(60),
   slug: z.string().regex(/^[a-z0-9-]{1,48}$/, "a slug is lowercase letters, digits and dashes"),
   icon: z.string().max(40),
   hint: z.string().trim().min(1).max(500),
@@ -137,7 +137,7 @@ export const installEntityTypeArgs = z.object({ id: uuidArg, kind: z.string().ma
 export const createEntityTypeArgs = z.object({
   id: uuidArg,
   label: typeCopy.label,
-  plural: typeCopy.plural,
+  sidebarTitle: typeCopy.sidebarTitle,
   // Derived from the label when it is not given, and suffixed either way if
   // something else already answers to it.
   slug: typeCopy.slug.optional(),
@@ -152,13 +152,13 @@ export const createEntityTypeArgs = z.object({
 export const updateEntityTypeArgs = z.object({
   id: uuidArg,
   label: typeCopy.label.optional(),
-  plural: typeCopy.plural.optional(),
+  sidebarTitle: typeCopy.sidebarTitle.optional(),
   slug: typeCopy.slug.optional(),
   icon: typeCopy.icon.optional(),
   hint: typeCopy.hint.optional(),
   examples: typeCopy.examples.optional(),
   titleTemplate: typeCopy.titleTemplate,
-  rail: z.boolean().optional(),
+  sidebar: z.boolean().optional(),
 });
 
 export const setEntityTypeEnabledArgs = z.object({ id: uuidArg, enabled: z.boolean() });
@@ -210,13 +210,13 @@ async function insertType(
     userId: userID,
     kind: row.kind,
     label: row.label,
-    plural: row.plural,
+    sidebarTitle: row.sidebarTitle,
     slug: row.slug,
     icon: row.icon,
     hint: row.hint,
     titleTemplate: row.titleTemplate ?? undefined,
     examples: row.examples ?? [],
-    rail: row.rail,
+    sidebar: row.sidebar,
     enabled: row.enabled ?? true,
     origin: row.origin,
     version: 1,
@@ -492,7 +492,7 @@ export const mutators = defineMutators({
       if (!def) throw new Error(`There is no ${args.kind} in the catalog`);
       const mine = await tx.run(zql.entityTypes.where("userId", userID));
       if (mine.some((type) => type.kind === def.kind)) {
-        throw new Error(`You already have ${def.plural}`);
+        throw new Error(`You already have ${def.sidebarTitle}`);
       }
       await insertType(
         tx,
@@ -532,7 +532,7 @@ export const mutators = defineMutators({
         {
           kind,
           label: args.label,
-          plural: args.plural,
+          sidebarTitle: args.sidebarTitle,
           slug: freeName(
             args.slug ?? slugFromLabel(args.label),
             mine.map((type) => type.slug),
@@ -542,7 +542,7 @@ export const mutators = defineMutators({
           hint: args.hint,
           titleTemplate: args.titleTemplate ?? null,
           examples: args.examples,
-          rail: true,
+          sidebar: true,
           version: 1,
           origin: "user",
         },
@@ -569,13 +569,13 @@ export const mutators = defineMutators({
       await tx.mutate.entityTypes.update({
         id: args.id,
         ...(args.label !== undefined ? { label: args.label } : {}),
-        ...(args.plural !== undefined ? { plural: args.plural } : {}),
+        ...(args.sidebarTitle !== undefined ? { sidebarTitle: args.sidebarTitle } : {}),
         ...(slug !== undefined ? { slug } : {}),
         ...(args.icon !== undefined ? { icon: args.icon } : {}),
         ...(args.hint !== undefined ? { hint: args.hint } : {}),
         ...(args.examples !== undefined ? { examples: args.examples } : {}),
         ...(args.titleTemplate !== undefined ? { titleTemplate: args.titleTemplate ?? null } : {}),
-        ...(args.rail !== undefined ? { rail: args.rail } : {}),
+        ...(args.sidebar !== undefined ? { sidebar: args.sidebar } : {}),
       });
     }),
 

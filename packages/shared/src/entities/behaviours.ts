@@ -15,7 +15,7 @@ import type { EntityBehaviour } from "./types.js";
 // rule that says two invoices are the same bill. Those stay here and attach by
 // name while the row compiles (registry.ts), which means a `link` row behaves
 // exactly like the built-in kind it replaces, and a row with no entry here is a
-// plain declared type: fields, a card, a rail row, a page, search.
+// plain declared type: fields, a card, a sidebar row, a page, search.
 //
 // Code beats data (plan §10.3): a kind with a `normalize` here ignores its
 // rows' `key_rank` entirely, and a row cannot turn any of this off.

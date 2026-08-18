@@ -1,6 +1,7 @@
 import { anonymousClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { API_BASE } from "@/lib/api";
+import { clearIdentity } from "@/lib/identity";
 
 // In dev the Vite server proxies /api to the API, so leaving baseURL unset
 // keeps everything same-origin. In production it points at api.ragbag.app:
@@ -43,6 +44,19 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   state_mismatch: "That sign-in attempt expired before it finished. Try again.",
   please_restart_the_process: "That sign-in attempt expired before it finished. Try again.",
 };
+
+/**
+ * Explicit sign-out: forget the device identity, then reload. The SignIn screen
+ * clears local data (Zero stores + blob caches) once Zero is unmounted.
+ */
+export async function signOut(): Promise<void> {
+  clearIdentity();
+  await authClient.signOut().catch(() => {
+    // Offline sign-out still signs out locally; the session dies server-side
+    // when it expires.
+  });
+  location.assign("/");
+}
 
 /**
  * The failure from a sign-in that died *during* the Google round trip, if this

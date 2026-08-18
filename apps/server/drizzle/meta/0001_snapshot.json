@@ -1,6 +1,6 @@
 {
-  "id": "fb94317c-ece1-4bd2-9286-c359010eca91",
-  "prevId": "b3d1243b-3488-4862-870f-b7e977b44e45",
+  "id": "394f8491-09e5-48bb-bc59-4c007e9e9960",
+  "prevId": "0fb3d6c8-9b5a-4317-8c0a-e07ef3eee6b4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -993,8 +993,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "plural": {
-          "name": "plural",
+        "sidebar_title": {
+          "name": "sidebar_title",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1031,8 +1031,8 @@
           "notNull": true,
           "default": "'{}'"
         },
-        "rail": {
-          "name": "rail",
+        "sidebar": {
+          "name": "sidebar",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -1121,7 +1121,7 @@
         },
         "entity_types_copy_present": {
           "name": "entity_types_copy_present",
-          "value": "length(btrim(\"entity_types\".\"label\")) > 0 and length(btrim(\"entity_types\".\"plural\")) > 0 and length(btrim(\"entity_types\".\"hint\")) > 0"
+          "value": "length(btrim(\"entity_types\".\"label\")) > 0 and length(btrim(\"entity_types\".\"sidebar_title\")) > 0 and length(btrim(\"entity_types\".\"hint\")) > 0"
         },
         "entity_types_origin_known": {
           "name": "entity_types_origin_known",

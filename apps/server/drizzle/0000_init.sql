@@ -119,13 +119,13 @@ CREATE TABLE "entity_types" (
 	"user_id" text NOT NULL,
 	"kind" text NOT NULL,
 	"label" text NOT NULL,
-	"plural" text NOT NULL,
+	"sidebar_title" text NOT NULL,
 	"slug" text NOT NULL,
 	"icon" text DEFAULT 'sparkles' NOT NULL,
 	"hint" text NOT NULL,
 	"title_template" text,
 	"examples" text[] DEFAULT '{}' NOT NULL,
-	"rail" boolean DEFAULT true NOT NULL,
+	"sidebar" boolean DEFAULT true NOT NULL,
 	"enabled" boolean DEFAULT true NOT NULL,
 	"origin" text DEFAULT 'user' NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE "entity_types" (
 	CONSTRAINT "entity_types_user_slug_key" UNIQUE("user_id","slug"),
 	CONSTRAINT "entity_types_kind_shape" CHECK ("entity_types"."kind" ~ '^[a-z][a-z0-9_]{1,39}$'),
 	CONSTRAINT "entity_types_slug_shape" CHECK ("entity_types"."slug" ~ '^[a-z0-9-]{1,48}$'),
-	CONSTRAINT "entity_types_copy_present" CHECK (length(btrim("entity_types"."label")) > 0 and length(btrim("entity_types"."plural")) > 0 and length(btrim("entity_types"."hint")) > 0),
+	CONSTRAINT "entity_types_copy_present" CHECK (length(btrim("entity_types"."label")) > 0 and length(btrim("entity_types"."sidebar_title")) > 0 and length(btrim("entity_types"."hint")) > 0),
 	CONSTRAINT "entity_types_origin_known" CHECK ("entity_types"."origin" in ('catalog', 'user'))
 );
 --> statement-breakpoint

@@ -258,9 +258,15 @@ export const entityTypes = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     /** The value that lands in `entities.kind`. Immutable after creation. */
     kind: text("kind").notNull(),
-    /** Title Case, both: they are rail rows beside "Images" and "Favorites". */
+    /** What one of them is called: "Phone Number". */
     label: text("label").notNull(),
-    plural: text("plural").notNull(),
+    /**
+     * What a group of them is called: the sidebar row, the search heading, the
+     * settings row. Its own column rather than a pluralized `label`, because
+     * pluralizing is a per-language problem no rule gets right and this is copy
+     * a user writes.
+     */
+    sidebarTitle: text("sidebar_title").notNull(),
     /** The URL segment this kind's view lives at. */
     slug: text("slug").notNull(),
     icon: text("icon").notNull().default("sparkles"),
@@ -270,8 +276,9 @@ export const entityTypes = pgTable(
     titleTemplate: text("title_template"),
     /** A few real values, so the model can see what it is looking for. */
     examples: text("examples").array().notNull().default([]),
-    rail: boolean("rail").notNull().default(true),
-    /** False is "stop extracting": out of the prompt and the rail, nothing lost. */
+    /** Whether it gets a row in the sidebar's Things section. */
+    sidebar: boolean("sidebar").notNull().default(true),
+    /** False is "stop extracting": out of the prompt and the sidebar, nothing lost. */
     enabled: boolean("enabled").notNull().default(true),
     /**
      * Where this row came from. Copied out of the catalog at signup, or made by
@@ -298,7 +305,7 @@ export const entityTypes = pgTable(
     check("entity_types_slug_shape", sql`${t.slug} ~ '^[a-z0-9-]{1,48}$'`),
     check(
       "entity_types_copy_present",
-      sql`length(btrim(${t.label})) > 0 and length(btrim(${t.plural})) > 0 and length(btrim(${t.hint})) > 0`,
+      sql`length(btrim(${t.label})) > 0 and length(btrim(${t.sidebarTitle})) > 0 and length(btrim(${t.hint})) > 0`,
     ),
     check("entity_types_origin_known", sql`${t.origin} in (${literals(["catalog", "user"])})`),
   ],

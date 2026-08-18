@@ -59,13 +59,13 @@ export function compileEntityType(def: EntityTypeDef): EntityType {
 export type EntityTypeRow = {
   kind: string;
   label: string;
-  plural: string;
+  sidebarTitle: string;
   slug: string;
   icon: string;
   hint: string;
   titleTemplate?: string | null;
   examples?: readonly string[] | null;
-  rail: boolean;
+  sidebar: boolean;
   /** Absent on the server, which filters disabled types out in SQL. */
   enabled?: boolean;
   version: number;
@@ -120,10 +120,10 @@ export function typeFromRows(
   return {
     kind: row.kind,
     label: row.label,
-    plural: row.plural || row.label,
+    sidebarTitle: row.sidebarTitle || row.label,
     slug: row.slug,
     icon: row.icon || "sparkles",
-    railRow: row.rail,
+    inSidebar: row.sidebar,
     enabled: row.enabled ?? true,
     promptHint: row.hint,
     fields,
@@ -212,13 +212,13 @@ export function typeRowFor(def: EntityTypeDef): EntityTypeRow {
   return {
     kind: def.kind,
     label: def.label,
-    plural: def.plural,
+    sidebarTitle: def.sidebarTitle,
     slug: def.slug,
     icon: def.icon,
     hint: def.promptHint,
     titleTemplate: def.titleTemplate ?? null,
     examples: def.examples ?? [],
-    rail: def.railRow,
+    sidebar: def.inSidebar,
     enabled: def.enabled ?? true,
     version: def.version ?? 1,
   };
@@ -273,7 +273,7 @@ function matchIn(types: readonly EntityType[], text: string): KindedCandidate[] 
  * `unique (user_id, slug)` make that unreachable from SQL; it is here so a
  * duplicate can never make two entries of one list fight over a URL.
  *
- * A disabled type stays in the set and out of `kinds` and `rail`: it may not be
+ * A disabled type stays in the set and out of `kinds` and `sidebar`: it may not be
  * extracted any more, and everything it already found still draws under its own
  * labels, which is the difference between disabling a type and deleting one.
  */
@@ -290,13 +290,13 @@ export function resolveEntityTypes(declared: readonly EntityTypeDef[]): EntityTy
   return {
     list,
     kinds: list.filter((type) => type.enabled).map((type) => type.kind),
-    rail: list.filter((type) => type.railRow && type.enabled),
+    sidebar: list.filter((type) => type.inSidebar && type.enabled),
     get: (kind) => byKind.get(kind),
     bySlug: (slug) => bySlug.get(slug),
     // A kind this set has never heard of is data, not an error: it renders
     // through the generic card under a humanized version of its own name.
     label: (kind) => byKind.get(kind)?.label ?? humanize(kind),
-    plural: (kind) => byKind.get(kind)?.plural ?? humanize(kind),
+    sidebarTitle: (kind) => byKind.get(kind)?.sidebarTitle ?? humanize(kind),
     icon: (kind) => byKind.get(kind)?.icon ?? "sparkles",
     match: (text) => matchIn(list, text),
     parseData: (kind, data) => {

@@ -38,11 +38,13 @@ Internal packages export raw `.ts`: no build step for packages.
 account is seeded with the eight in the catalog (`packages/shared/src/entities/catalog.ts`):
 `link`, `tracking`, `address`, `phone`, `email`, `invoice`, `iban`, `book`. From then on they
 are yours: rename them, re-word what the model is told to look for, add fields, add kinds of
-your own, disable the ones you do not want read for, delete the ones you do not want at all.
-That is `/settings/types` in the app, and it is ordinary mutations over rows every client
-already syncs: no migration, no deploy, no restart. The next synthesis job reads the table, so
-the model is asked for a new kind immediately, and the web app syncs the same rows for its
-card, its rail row, its URL and its Details labels.
+your own, switch off the ones you do not want read for, delete the ones you do not want at
+all. That is `/settings` in the app, where they sit in two lists, "looking for" and "not
+looking for", and a switched-off type is in the same list as one you never switched on. It is
+ordinary mutations over rows every client already syncs: no migration, no deploy, no restart.
+The next synthesis job reads the table, so the model is asked for a new kind immediately, and
+the web app syncs the same rows for its card, its sidebar row, its URL and its Details
+labels.
 
 A type is a **definition** and, for a few kinds, some **behaviour**:
 
@@ -55,6 +57,11 @@ A type is a **definition** and, for a few kinds, some **behaviour**:
   bill, the IBAN that is one account however it was pasted. Those kinds keep their behaviour
   however you rename them, and their field lists are read-only in settings, because the link
   fetcher writes `site_name` and friends itself.
+
+A type carries two names: `label` for one of them ("Phone Number") and `sidebar_title` for a
+group of them ("Phone Numbers"), which is what the sidebar row, the search heading and the
+settings row say. Two columns rather than a pluralized one, because pluralizing is a
+per-language problem no rule gets right and both are copy a user writes.
 
 Field names are snake_case, because one spelling has to serve the `data jsonb` key, the wire
 and the prompt; `label` is what a person sees ("Postal Code"), and it defaults to the

@@ -7,15 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Icon, iconNamed } from "@/components/icon";
-import { StoragePanel } from "@/components/storage-panel";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sidebar as SidebarRoot,
   SidebarContent,
@@ -35,10 +27,9 @@ import { useEntityTypes } from "@/lib/entity-types";
 import { EVERYTHING, filterLink, useFilter, type Filter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
 import type { SyncStatus } from "@/lib/sync-status";
-import type { Theme } from "@/lib/theme";
 import type { Drop, EntityRows, TagRow } from "@/lib/types";
 
-// Left rail: the chat and the things in it, over the locally-synced archive,
+// The left panel: the chat and the things in it, over the locally-synced archive,
 // plus sync state and the account.
 //
 // Every filter row is a `<Link>` to the path that view lives at (lib/routes.ts),
@@ -48,12 +39,6 @@ import type { Drop, EntityRows, TagRow } from "@/lib/types";
 //
 // Placement is the shadcn Sidebar's job: a floating card at md+, a flush
 // full-height Sheet below it. This file only fills the slots.
-
-const THEME_LABEL: Record<Theme, string> = {
-  light: "Light",
-  dark: "Dark",
-  system: "System",
-};
 
 const SYNC_DOT: Record<SyncStatus["name"], [tone: string, label: string]> = {
   synced: ["bg-success-foreground", "Synced"],
@@ -84,39 +69,6 @@ function SyncDot({ sync }: { sync: SyncStatus | null }) {
   );
 }
 
-function ThemeToggle() {
-  const { theme, setTheme } = useViewStore();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            title={`Theme: ${THEME_LABEL[theme]}`}
-          />
-        }
-      >
-        <Icon name={theme === "dark" ? "moon" : theme === "light" ? "sun" : "monitor"} />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="top">
-        <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
-          <DropdownMenuRadioItem value="light">
-            <Icon name="sun" className="size-4" /> Light
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">
-            <Icon name="moon" className="size-4" /> Dark
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="system">
-            <Icon name="monitor" className="size-4" /> System
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 /**
  * How many messages a filter would show, inside the row rather than over it.
  *
@@ -139,7 +91,6 @@ export function Sidebar({
   email,
   meta,
   sync,
-  onSignOut,
 }: {
   messages: Drop;
   entities: EntityRows;
@@ -147,7 +98,6 @@ export function Sidebar({
   email: string;
   meta: MetaResponse | undefined;
   sync: SyncStatus | null;
-  onSignOut: () => void;
 }) {
   const { setSearchOpen } = useViewStore();
   const filter = useFilter();
@@ -178,7 +128,7 @@ export function Sidebar({
 
   // Counts come from LIVE mentions (the query already excludes dismissed ones
   // and mentions to deleted messages), so a deleted message cannot leave a
-  // ghost address in the rail.
+  // ghost address in the sidebar.
   const entityCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const entity of entities) {
@@ -194,15 +144,15 @@ export function Sidebar({
   const thingRows = [
     { view: "images", label: "Images", icon: "image" as const, count: attachmentCounts.images },
     { view: "files", label: "Files", icon: "file" as const, count: attachmentCounts.files },
-    ...types.rail.map((type) => ({
+    ...types.sidebar.map((type) => ({
       view: type.slug,
-      label: type.plural,
+      label: type.sidebarTitle,
       icon: iconNamed(type.icon),
       count: entityCounts.get(type.kind) ?? 0,
     })),
   ].filter((row) => row.count > 0);
 
-  // The rail lists the user's own tags only: AI tags are deliberately numerous
+  // The sidebar lists the user's own tags only: AI tags are deliberately numerous
   // and would bury them. They still drive search, they just aren't browsable
   // here.
   const tagCounts = useMemo(() => {
@@ -371,7 +321,6 @@ export function Sidebar({
       <SidebarFooter className="gap-0 border-t px-4 py-3">
         <EnrichBackfill messages={messages} meta={meta} />
         <QueueStatus state={queueState} onRetry={() => void queue.retryNow()} />
-        <StoragePanel />
         <div className="flex items-center justify-between gap-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium" title={email}>
@@ -379,25 +328,15 @@ export function Sidebar({
             </p>
             <SyncDot sync={sync} />
           </div>
-          <ThemeToggle />
           <Button
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground"
-            title="Kinds of thing"
+            title="Settings"
             nativeButton={false}
-            render={<Link to="/settings/types" onClick={closeDrawer} />}
+            render={<Link to="/settings" onClick={closeDrawer} />}
           >
             <Icon name="settings" className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            title="Sign out"
-            onClick={onSignOut}
-          >
-            <Icon name="logout" className="size-4" />
           </Button>
         </div>
       </SidebarFooter>

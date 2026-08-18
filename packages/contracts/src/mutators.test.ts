@@ -86,7 +86,7 @@ const field = (over: Record<string, unknown> = {}) => ({
 const type = (over: Record<string, unknown> = {}) => ({
   id: newId(),
   label: "Trading Card",
-  plural: "Trading Cards",
+  sidebarTitle: "Trading Cards",
   icon: "sparkles",
   hint: "A trading card someone is after or has spare.",
   fields: [field()],

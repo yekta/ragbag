@@ -4,6 +4,7 @@ import {
   BEHAVIOUR_KINDS,
   CATALOG,
   catalogEntry,
+  partitionTypes,
   dataSchema,
   field,
   fieldEntries,
@@ -36,13 +37,13 @@ const types = seeded();
 const brandRow: EntityTypeRow = {
   kind: "brand",
   label: "Brand",
-  plural: "Brands",
+  sidebarTitle: "Brands",
   slug: "brands",
   icon: "sparkles",
   hint: "A company or product brand the message is about.",
   titleTemplate: "{name}",
   examples: ["Daikin"],
-  rail: true,
+  sidebar: true,
   version: 3,
 };
 
@@ -100,7 +101,7 @@ describe("the catalog", () => {
     ]);
     for (const type of types.list) {
       expect(type.label).toBeTruthy();
-      expect(type.plural).toBeTruthy();
+      expect(type.sidebarTitle).toBeTruthy();
       expect(type.promptHint).toBeTruthy();
       expect(type.fields.length).toBeGreaterThan(0);
       expect(type.fields.every((f) => /^[a-z][a-z0-9_]{0,39}$/.test(f.name))).toBe(true);
@@ -148,11 +149,57 @@ describe("the catalog", () => {
   it("keeps a disabled type's things readable and stops extracting them", () => {
     const set = seeded(CATALOG.map((d) => (d.kind === "phone" ? { ...d, enabled: false } : d)));
     expect(set.kinds).not.toContain("phone");
-    expect(set.rail.map((t) => t.kind)).not.toContain("phone");
+    expect(set.sidebar.map((t) => t.kind)).not.toContain("phone");
     expect(set.match("call +90 532 123 45 67").some((c) => c.kind === "phone")).toBe(false);
     // Still the type it was: its label, its fields, its card.
     expect(set.get("phone")!.label).toBe("Phone Number");
     expect(set.fieldEntries("phone", { name: "Ayşe" })[0]!.label).toBe("Name");
+  });
+});
+
+const row = (over: Partial<Parameters<typeof partitionTypes>[0][number]> = {}) => ({
+  id: "id-1",
+  kind: "link",
+  sidebarTitle: "Links",
+  icon: "link",
+  hint: "hint",
+  enabled: true,
+  origin: "catalog",
+  ...over,
+});
+
+describe("the two lists settings shows", () => {
+  it("puts what is on in one list and everything else in the other", () => {
+    const { on, off } = partitionTypes([
+      row(),
+      row({ id: "id-2", kind: "book", sidebarTitle: "Books", enabled: false }),
+    ]);
+    expect(on.map((t) => t.kind)).toEqual(["link"]);
+    // Books is off, and the six catalog entries with no row at all join it.
+    expect(off.map((t) => t.kind)).toContain("book");
+    expect(off.map((t) => t.kind)).toContain("iban");
+    expect(off).toHaveLength(CATALOG.length - 1);
+  });
+
+  it("does not tell a switched-off type from one never switched on", () => {
+    const { off } = partitionTypes([row({ enabled: false })]);
+    const switchedOff = off.find((t) => t.kind === "link")!;
+    const neverOn = off.find((t) => t.kind === "book")!;
+    // One has a row to update, the other has none to install: the only
+    // difference, and the screen does not show it.
+    expect(switchedOff.id).toBeTruthy();
+    expect(neverOn.id).toBeUndefined();
+    expect(switchedOff.understood).toBe(true);
+    expect(neverOn.understood).toBe(false);
+  });
+
+  it("keeps a type the catalog has never heard of, and sorts by title", () => {
+    const { on } = partitionTypes([
+      row({ id: "id-3", kind: "trading_card", sidebarTitle: "Trading Cards", origin: "user" }),
+      row(),
+    ]);
+    expect(on.map((t) => t.sidebarTitle)).toEqual(["Links", "Trading Cards"]);
+    expect(on[1]!.origin).toBe("user");
   });
 });
 
@@ -162,7 +209,7 @@ describe("user-declared types", () => {
     const brand = set.get("brand")!;
     expect(brand.version).toBe(3);
     expect(set.kinds).toContain("brand");
-    expect(set.rail.map((t) => t.slug)).toContain("brands");
+    expect(set.sidebar.map((t) => t.slug)).toContain("brands");
     expect(set.bySlug("brands")!.kind).toBe("brand");
     expect(brand.fields.map((f) => f.label)).toEqual(["Brand Name", "Tagline", "Sector"]);
   });

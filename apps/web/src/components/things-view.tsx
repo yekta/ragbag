@@ -2,6 +2,7 @@ import { faceForMime } from "@ragbag/shared";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, type RefObject } from "react";
 import { EntityCard } from "@/components/entities";
+import { TimelineEntities } from "@/components/entities/shell";
 import { FACE_ICON, Icon } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
 import { useEntityTypes } from "@/lib/entity-types";
@@ -9,7 +10,7 @@ import { attachmentFaceOf, entityKindOf, entityLink, messageLink, useFilter } fr
 import { dayLabel, formatBytes } from "@/lib/format";
 import type { Attachment, Drop, EntityRows, Message } from "@/lib/types";
 
-// The other half of the rail (plan §8.2). Chat-shaped rows filter the chat;
+// The other half of the sidebar (plan §8.2). Chat-shaped rows filter the chat;
 // thing-shaped rows replace it with a grid (images) or a list (everything
 // else), newest first, each row linking back to the message it came from.
 //
@@ -81,7 +82,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
             key={attachment.id}
             {...messageLink(message.id, filter)}
             title={attachment.generatedTitle ?? attachment.filename}
-            className="relative aspect-square overflow-hidden rounded-lg border"
+            className="relative aspect-square overflow-hidden rounded-xl"
           >
             <MediaImage
               blobId={attachment.blobId}
@@ -102,7 +103,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
         <li key={attachment.id}>
           <Link
             {...messageLink(message.id, filter)}
-            className="flex items-center gap-3 rounded-lg border bg-card p-3 transition hover:bg-accent"
+            className="flex items-center gap-3 rounded-2xl bg-card p-3.5 transition hover:bg-panel"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <Icon name={FACE_ICON[faceForMime(attachment.mime)]} className="size-5" />
@@ -132,7 +133,7 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
 
   // Mentions to deleted messages are already excluded by the query, so an
   // entity with none left simply is not here: a deleted message cannot leave
-  // a ghost address in the rail (plan §5.5).
+  // a ghost address in the sidebar (plan §5.5).
   const rows = useMemo(
     () =>
       entities
@@ -141,21 +142,26 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
     [entities, kind],
   );
 
-  if (rows.length === 0) return <Empty what={types.plural(kind).toLowerCase()} />;
+  if (rows.length === 0) return <Empty what={types.sidebarTitle(kind).toLowerCase()} />;
 
   return (
-    <ul className="flex flex-col gap-1.5">
-      {rows.map((entity) => (
-        <li key={entity.id}>
-          <EntityCard entity={entity} onOpen={() => void navigate(entityLink(entity.id, filter))} />
-          {entity.mentions.length > 1 && (
-            <p className="mt-0.5 pl-12 text-[11px] text-muted-foreground">
-              seen in {entity.mentions.length} messages
-            </p>
-          )}
-        </li>
-      ))}
-    </ul>
+    <TimelineEntities>
+      <ul className="flex flex-col gap-1.5">
+        {rows.map((entity) => (
+          <li key={entity.id}>
+            <EntityCard
+              entity={entity}
+              onOpen={() => void navigate(entityLink(entity.id, filter))}
+            />
+            {entity.mentions.length > 1 && (
+              <p className="mt-0.5 pl-12 text-[11px] text-muted-foreground">
+                seen in {entity.mentions.length} messages
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </TimelineEntities>
   );
 }
 

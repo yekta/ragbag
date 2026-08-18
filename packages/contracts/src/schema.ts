@@ -87,7 +87,7 @@ const attachmentContents = table("attachmentContents")
  *
  * Synced like any other row they own, and written the same way, through the
  * `entityType` mutators the settings screen calls. The web app needs all of it
- * to render a kind's card, its rail row and its Details list, and it syncs
+ * to render a kind's card, its sidebar row and its Details list, and it syncs
  * disabled types too: disabling one stops extraction without taking the labels
  * away from everything it already found.
  *
@@ -100,13 +100,13 @@ const entityTypes = table("entityTypes")
     userId: string().from("user_id"),
     kind: string(),
     label: string(),
-    plural: string(),
+    sidebarTitle: string().from("sidebar_title"),
     slug: string(),
     icon: string(),
     hint: string(),
     titleTemplate: string().from("title_template").optional(),
     examples: json<readonly string[]>(),
-    rail: boolean(),
+    sidebar: boolean(),
     enabled: boolean(),
     /** 'catalog' (one of ours, seeded) or 'user' (you made this). */
     origin: string(),

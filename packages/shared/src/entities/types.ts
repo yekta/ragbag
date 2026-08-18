@@ -7,7 +7,7 @@ import type { z } from "zod";
 // title (behaviours.ts), attached by kind name while the row compiles.
 //
 // A definition alone works end to end: extraction, validation, dedupe, card,
-// rail row, its own page, search. Behaviour is the exception, not the ladder.
+// sidebar row, its own page, search. Behaviour is the exception, not the ladder.
 //
 // Nothing in here may import React: the web app keeps a parallel map of cards
 // keyed by the same strings.
@@ -77,23 +77,28 @@ export type FieldSpec = {
 export type EntityTypeDef = {
   /** The value stored in `entities.kind`. An open text column, never an enum. */
   kind: string;
-  /**
-   * Rail row and search-result group heading. Title Case, both of them: they
-   * sit beside "Images", "Files" and "Favorites" in the rail, and one row
-   * reading "Phone numbers" next to those read like a typo.
-   */
+  /** What one of them is called: "Phone Number". Title Case. */
   label: string;
-  plural: string;
+  /**
+   * What a group of them is called: the sidebar row, the search-result heading,
+   * the settings row. Title Case, because it sits beside "Images", "Files" and
+   * "Favorites" in the sidebar, and one row reading "Phone numbers" next to
+   * those read like a typo.
+   *
+   * Its own field rather than a pluralized `label`, because pluralizing is a
+   * per-language problem no rule gets right, and this is copy a user writes.
+   */
+  sidebarTitle: string;
   /**
    * The path segment this kind lives at (`/links`, `/addresses`). Its own
-   * field rather than a lowercased plural, because these are URLs someone can
-   * bookmark and the plural is copy that can be reworded.
+   * field rather than a lowercased title, because these are URLs someone can
+   * bookmark and the title is copy that can be reworded.
    */
   slug: string;
   /** Icon name in the web app's registry (apps/web/src/components/icon.tsx). */
   icon: string;
-  /** Whether this kind gets its own row in the rail's Things section. */
-  railRow: boolean;
+  /** Whether this kind gets its own row in the sidebar's Things section. */
+  inSidebar: boolean;
   /** One line telling the synthesis model what this kind is. */
   promptHint: string;
   /** The fields, in the order the prompt, the card and Details show them. */
@@ -108,8 +113,8 @@ export type EntityTypeDef = {
    */
   keyFields?: readonly string[];
   /**
-   * False means "stop extracting": the type leaves the prompt and the rail, and
-   * every thing it already found stays, still drawn under its own labels.
+   * False means "stop extracting": the type leaves the prompt and the sidebar,
+   * and every thing it already found stays, still drawn under its own labels.
    */
   enabled?: boolean;
   /**
@@ -173,13 +178,13 @@ export type EntityTypes = {
   list: readonly EntityType[];
   /** The kinds the model may answer with: enabled only, and no `other`. */
   kinds: readonly string[];
-  /** The enabled types that claim a rail row, in the same order. */
-  rail: readonly EntityType[];
+  /** The enabled types that claim a sidebar row, in the same order. */
+  sidebar: readonly EntityType[];
   get: (kind: string) => EntityType | undefined;
   bySlug: (slug: string) => EntityType | undefined;
   /** A human name for a kind, including one this build has never heard of. */
   label: (kind: string) => string;
-  plural: (kind: string) => string;
+  sidebarTitle: (kind: string) => string;
   icon: (kind: string) => string;
   /** Every matcher in the set, run over one block of text. */
   match: (text: string) => KindedCandidate[];

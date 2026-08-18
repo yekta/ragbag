@@ -10,8 +10,8 @@ import { rememberDeclaredSlugs } from "./thing-slugs.js";
 // compiler, so a card's labels, the prompt's field names and the validator
 // cannot disagree.
 //
-// A context rather than a hook per call site, because the rail, every card, the
-// Details list and the search index have to agree on one set.
+// A context rather than a hook per call site, because the sidebar, every card,
+// the Details list and the search index have to agree on one set.
 //
 // No loading state anywhere: the empty set is a correct answer while the query
 // is landing, and a kind that is not in it yet renders through the generic card,

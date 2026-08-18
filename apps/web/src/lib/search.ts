@@ -91,7 +91,7 @@ function entityDocs(entities: EntityRows, types: EntityTypes): SearchDoc[] {
       summary: entity.generatedSummary ?? "",
       tags: [
         types.label(entity.kind),
-        types.plural(entity.kind),
+        types.sidebarTitle(entity.kind),
         ...entity.tags.map((t) => t.tag?.name).filter(Boolean),
       ].join(" "),
       // The fields, with their labels: a vendor, a locality, a carrier, a

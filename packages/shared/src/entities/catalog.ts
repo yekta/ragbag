@@ -1,3 +1,4 @@
+import { hasBehaviour } from "./behaviours.js";
 import { field } from "./fields.js";
 import type { EntityTypeDef } from "./types.js";
 
@@ -5,8 +6,8 @@ import type { EntityTypeDef } from "./types.js";
 //
 // Two jobs, one list: it is what a new account is seeded with (copied, so a
 // later release editing an entry does not reach back into anyone's archive),
-// and it is the list "add a type" offers in settings, which is also how a user
-// gets one back after deleting it.
+// and it is what settings offers under "not looking for", which is how a user
+// turns one back on after switching it off or deleting it.
 //
 // Six of these were kinds in code until v3. They are rows now because a user
 // cannot delete something that only exists in code; what stayed behind is their
@@ -26,10 +27,10 @@ import type { EntityTypeDef } from "./types.js";
 const link: EntityTypeDef = {
   kind: "link",
   label: "Link",
-  plural: "Links",
+  sidebarTitle: "Links",
   slug: "links",
   icon: "link",
-  railRow: true,
+  inSidebar: true,
   promptHint: "A web address worth keeping, with the page it points at.",
   // Only `url` is really the model's to fill: everything below it is what the
   // page fetcher writes during enrichment (server synthesis.ts). They are
@@ -50,13 +51,13 @@ const link: EntityTypeDef = {
 const tracking: EntityTypeDef = {
   kind: "tracking",
   label: "Tracking Number",
-  plural: "Tracking Numbers",
+  sidebarTitle: "Tracking Numbers",
   slug: "tracking",
   icon: "package",
-  railRow: true,
+  inSidebar: true,
   promptHint:
-    "A parcel tracking number, with its carrier if identifiable. Never invent one from a " +
-    "random alphanumeric: an order number or a reference code is not a tracking number.",
+    "A parcel tracking number, with its carrier when you can tell. An order number or a " +
+    "reference code is not one, so never make one out of a random string of characters.",
   fields: [
     field("number", "text", { label: "Tracking No", required: true }),
     field("carrier", "text", { description: "The carrier, lowercased: ups, fedex, dhl, usps" }),
@@ -67,13 +68,11 @@ const tracking: EntityTypeDef = {
 const address: EntityTypeDef = {
   kind: "address",
   label: "Address",
-  plural: "Addresses",
+  sidebarTitle: "Addresses",
   slug: "addresses",
   icon: "address",
-  railRow: true,
-  promptHint:
-    "A postal address or a place to go. `value` is the address as written; put the parts you " +
-    "are sure of in data and leave the rest out.",
+  inSidebar: true,
+  promptHint: "A postal address or a place to go, kept exactly as it was written.",
   // One name field, not two. Two fields that could each hold a name is how the
   // same address gets stored twice, and the description is wide enough to cover
   // "Ayşe's flat" as well as "Chapter White City".
@@ -94,10 +93,10 @@ const address: EntityTypeDef = {
 const phone: EntityTypeDef = {
   kind: "phone",
   label: "Phone Number",
-  plural: "Phone Numbers",
+  sidebarTitle: "Phone Numbers",
   slug: "phones",
   icon: "phone",
-  railRow: true,
+  inSidebar: true,
   promptHint: "A phone number, with whose it is when the text says.",
   fields: [
     field("number", "text", { required: true }),
@@ -109,10 +108,10 @@ const phone: EntityTypeDef = {
 const email: EntityTypeDef = {
   kind: "email",
   label: "Email",
-  plural: "Email Addresses",
+  sidebarTitle: "Email Addresses",
   slug: "emails",
   icon: "mail",
-  railRow: true,
+  inSidebar: true,
   promptHint: "An email address, with whose it is when the text says.",
   fields: [
     field("address", "text", { label: "Email", required: true }),
@@ -124,13 +123,11 @@ const email: EntityTypeDef = {
 const invoice: EntityTypeDef = {
   kind: "invoice",
   label: "Invoice",
-  plural: "Invoices",
+  sidebarTitle: "Invoices",
   slug: "invoices",
   icon: "receipt",
-  railRow: true,
-  promptHint:
-    "A bill, receipt or invoice. `value` is how a person would refer to it (vendor plus " +
-    "amount, say); put the vendor, the total and the date in data.",
+  inSidebar: true,
+  promptHint: "A bill, receipt or invoice: who issued it, what it came to, and when.",
   fields: [
     field("vendor", "text", { required: true, description: "Who issued it" }),
     field("number", "text", { label: "Invoice No" }),
@@ -144,12 +141,11 @@ const invoice: EntityTypeDef = {
 const iban: EntityTypeDef = {
   kind: "iban",
   label: "IBAN",
-  plural: "IBANs",
+  sidebarTitle: "IBANs",
   slug: "ibans",
   icon: "bank",
-  railRow: true,
-  promptHint:
-    "A bank account number in IBAN form, as sent to be paid into. Write it without spaces.",
+  inSidebar: true,
+  promptHint: "A bank account number in IBAN form, the kind people send to be paid into.",
   titleTemplate: "{iban}",
   fields: [
     field("iban", "text", { label: "IBAN", required: true }),
@@ -164,13 +160,13 @@ const iban: EntityTypeDef = {
 const book: EntityTypeDef = {
   kind: "book",
   label: "Book",
-  plural: "Books",
+  sidebarTitle: "Books",
   slug: "books",
   icon: "book",
-  railRow: true,
+  inSidebar: true,
   promptHint:
-    "A book someone recommended or referred to, with its author. Not the document you are " +
-    "reading: the book it talks about.",
+    "A book someone recommended or referred to, with its author. Not the document itself: " +
+    "the book it talks about.",
   titleTemplate: "{title}",
   fields: [
     field("title", "text", { required: true }),
@@ -186,7 +182,7 @@ const book: EntityTypeDef = {
   keyFields: ["title", "author"],
 };
 
-/** In rail order, which is also the order a new account is seeded in. */
+/** In sidebar order, which is also the order a new account is seeded in. */
 export const CATALOG: readonly EntityTypeDef[] = [
   link,
   tracking,
@@ -203,4 +199,75 @@ export const STARTER_SET: readonly EntityTypeDef[] = CATALOG;
 
 export function catalogEntry(kind: string): EntityTypeDef | undefined {
   return CATALOG.find((def) => def.kind === kind);
+}
+
+/** One entry of the two lists settings shows, whether or not it has a row yet. */
+export type TypeChoice = {
+  /** Absent for a catalog entry this user has never turned on. */
+  id?: string;
+  kind: string;
+  sidebarTitle: string;
+  icon: string;
+  hint: string;
+  /** True when this build understands the kind itself (behaviours.ts). */
+  understood: boolean;
+  /** 'catalog' for one of ours, 'user' for one they made. */
+  origin: "catalog" | "user";
+};
+
+/** What settings needs off a row to place it in one of the two lists. */
+export type TypeChoiceRow = {
+  id: string;
+  kind: string;
+  sidebarTitle: string;
+  icon: string;
+  hint: string;
+  enabled: boolean;
+  origin: string;
+};
+
+/**
+ * The two lists settings is made of: what this user is having found, and what
+ * they could be.
+ *
+ * The second list mixes two things a person has no reason to tell apart: a type
+ * they switched off, and one of ours they never switched on (or deleted, which
+ * puts it back here). Turning either on is one tap; whether that is an update
+ * or an insert is the mutator's problem, not the screen's.
+ */
+const byTitle = (a: TypeChoice, b: TypeChoice) => a.sidebarTitle.localeCompare(b.sidebarTitle);
+
+const choiceOf = (row: TypeChoiceRow): TypeChoice => ({
+  id: row.id,
+  kind: row.kind,
+  sidebarTitle: row.sidebarTitle,
+  icon: row.icon,
+  hint: row.hint,
+  understood: hasBehaviour(row.kind),
+  origin: row.origin === "catalog" ? "catalog" : "user",
+});
+
+export function partitionTypes(
+  rows: readonly TypeChoiceRow[],
+  catalog: readonly EntityTypeDef[] = CATALOG,
+): { on: TypeChoice[]; off: TypeChoice[] } {
+  const on: TypeChoice[] = [];
+  const off: TypeChoice[] = [];
+  const claimed = new Set<string>();
+  for (const row of rows) {
+    claimed.add(row.kind);
+    (row.enabled ? on : off).push(choiceOf(row));
+  }
+  for (const def of catalog) {
+    if (claimed.has(def.kind)) continue;
+    off.push({
+      kind: def.kind,
+      sidebarTitle: def.sidebarTitle,
+      icon: def.icon,
+      hint: def.promptHint,
+      understood: hasBehaviour(def.kind),
+      origin: "catalog",
+    });
+  }
+  return { on: on.toSorted(byTitle), off: off.toSorted(byTitle) };
 }

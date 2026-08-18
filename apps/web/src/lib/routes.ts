@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { declaredSlugs } from "./thing-slugs.js";
 
-// The rail's filters *are* the URL.
+// The sidebar's filters *are* the URL.
 //
 // They were view state in lib/store.ts, which meant the one thing in this app
 // worth linking to (a view of the archive) could not be linked to, reloaded,
@@ -26,7 +26,7 @@ import { declaredSlugs } from "./thing-slugs.js";
 /**
  * The two rows that filter the chat itself.
  *
- * The split is the whole design of the rail (plan §8.2): a tag is a property
+ * The split is the whole design of the sidebar (plan §8.2): a tag is a property
  * of a whole message and a favorite is something you did to one, so those want
  * the chat back. An image *is* the content, so filtering the chat down to
  * "messages containing an image" would lose the density a grid has and gain
@@ -53,7 +53,7 @@ export const VIEW_SLUGS = [...Object.keys(CHAT_VIEWS), ...Object.keys(ATTACHMENT
 /** A view is named by its slug: the URL vocabulary is the only vocabulary. */
 export type ViewFilter = string | null;
 
-/** What the rail is narrowing to: at most one view, at most one tag. */
+/** What the sidebar is narrowing to: at most one view, at most one tag. */
 export type Filter = { view: ViewFilter; tagId: string | null };
 
 /** No filter at all: the whole archive. */
@@ -134,7 +134,7 @@ export function filterLink(filter: Filter) {
 }
 
 /**
- * The message overlay, over whatever the rail is showing.
+ * The message overlay, over whatever the sidebar is showing.
  *
  * Opening a message is not leaving the timeline: the overlay is drawn above it,
  * so the filter it was opened from stays in the path and closing the overlay
