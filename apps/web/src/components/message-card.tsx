@@ -16,6 +16,12 @@ import type { Message } from "@/lib/types";
 // One timeline entry: the user's text, the attachments they sent with it, and
 // whatever the pipeline found in the whole thing.
 //
+// Two cards in one silhouette, parted by a tear line: what the person sent,
+// ending in its own timestamp, and below the perforation the stub holding
+// what was read out of it. The message has to be legible as the thing they
+// actually wrote, so the machine's findings hang off the bottom as an extra
+// rather than sharing a box with it.
+//
 // A message that is one photo and nothing else renders as one photo and
 // nothing else, because each part of the card only appears when there is
 // something in it. That property falls out of the design rather than being
@@ -135,10 +141,13 @@ export function TagChips({ message, limit = 8 }: { message: Message; limit?: num
 }
 
 /**
- * What the pipeline found in this message.
+ * What the pipeline found in this message: the stub, and the tear it hangs
+ * from.
  *
  * It only appears when there is something in it, which is why a message that
- * is one photo and nothing else renders as one photo and nothing else. That
+ * is one photo and nothing else renders as one photo and nothing else, and
+ * why the perforation belongs to the stub rather than to the card: no
+ * findings, no seam, and the card is a plain rounded rectangle again. That
  * property falls out of the design rather than being special-cased.
  *
  * Deduped by entity: the same link found in the text and again inside a
@@ -158,20 +167,38 @@ function EntityStrip({ message }: { message: Message }) {
   if (entities.length === 0) return null;
 
   return (
-    <div className="mt-2.5">
-      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        Found in this
-      </p>
-      <div className="flex flex-col gap-1.5">
-        {entities.map((entity) => (
-          <EntityCard
-            key={entity.id}
-            entity={entity}
-            onOpen={() => void navigate(entityLink(entity.id, filter))}
-          />
-        ))}
+    // The notches are the whole trick: two page-coloured discs centred on the
+    // card's own edges, so the silhouette pinches at the seam and the halves
+    // read as two rounded rectangles that meet, rather than as one card with a
+    // line ruled across it. `-left-3.5` is the dashes' own 8px inset plus half
+    // a disc, which puts the centre back on the card's edge. `bg-background`
+    // is what they sit on: the timeline is this card's only caller.
+    //
+    // Both halves keep the card fill. The shade below it, `--panel`, is
+    // already what the entity cards themselves are made of, so tinting the
+    // stub would swallow the very things it holds.
+    <>
+      <div className="relative mx-2 border-t border-dashed">
+        <span className="absolute -top-1.5 -left-3.5 size-3 rounded-full bg-background" />
+        <span className="absolute -top-1.5 -right-3.5 size-3 rounded-full bg-background" />
       </div>
-    </div>
+      {/* Tighter above than below: small caps under a rule carry their own
+          air, and the tear is not a thing to crowd. */}
+      <div className="p-3.5 pt-3">
+        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Found in this
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {entities.map((entity) => (
+            <EntityCard
+              key={entity.id}
+              entity={entity}
+              onOpen={() => void navigate(entityLink(entity.id, filter))}
+            />
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -191,7 +218,7 @@ export function MessageCard({
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // borrows the card tokens directly.
     <article
-      className={`group relative rounded-2xl bg-card p-3.5 text-card-foreground ${
+      className={`group relative rounded-2xl bg-card text-card-foreground ${
         highlight ? "ring-2 ring-ring" : ""
       }`}
       // Touch has no hover actions, so tapping the card body opens the detail
@@ -260,38 +287,47 @@ export function MessageCard({
         </DeleteMessageDialog>
       </div>
 
-      {message.text && (
-        <p className="whitespace-pre-wrap break-words leading-relaxed">
-          <Linkified text={message.text} />
-        </p>
-      )}
+      {/* What the person sent. The padding is here rather than on the article
+          so the tear below can run the full width. */}
+      <div className="p-3.5">
+        {message.text && (
+          <p className="whitespace-pre-wrap break-words leading-relaxed">
+            <Linkified text={message.text} />
+          </p>
+        )}
 
-      <AttachmentAlbum attachments={message.attachments} />
+        <AttachmentAlbum attachments={message.attachments} />
+
+        {/* The footer stands a chip tall whether or not there is a chip in it.
+            Ingestion is the one thing on a card that changes on its own, with
+            no one touching it: a badge appears the moment a dump lands, counts
+            up through the parts, then leaves. Each of those is a row 3px
+            taller than the bare timestamp, so every card below jumped 3px,
+            twice, per dump. `min-h-5` is the badge's own height held open
+            permanently, and `items-end` keeps the timestamp on the same
+            baseline either way.
+
+            It closes the message rather than the card: a timestamp under the
+            findings would date the reading, and it is the writing that has a
+            time worth knowing. */}
+        <div className="mt-2 flex min-h-5 items-end justify-between gap-2">
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {/* hover actions are unreachable on touch, so favorites need a
+                mark that is always visible */}
+            {message.favorite && <Icon name="star" className="size-3.5 text-kind-note" filled />}
+            <StatusChip message={message} />
+            <TagChips message={message} />
+          </span>
+          <time
+            className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+            title={new Date(message.createdAt).toLocaleString()}
+          >
+            {timeLabel(message.createdAt)}
+          </time>
+        </div>
+      </div>
 
       <EntityStrip message={message} />
-
-      {/* The footer stands a chip tall whether or not there is a chip in it.
-          Ingestion is the one thing on a card that changes on its own, with no
-          one touching it: a badge appears the moment a dump lands, counts up
-          through the parts, then leaves. Each of those is a row 3px taller
-          than the bare timestamp, so every card below jumped 3px, twice, per
-          dump. `min-h-5` is the badge's own height held open permanently, and
-          `items-end` keeps the timestamp on the same baseline either way. */}
-      <div className="mt-2 flex min-h-5 items-end justify-between gap-2">
-        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {/* hover actions are unreachable on touch, so favorites need a mark
-              that is always visible */}
-          {message.favorite && <Icon name="star" className="size-3.5 text-kind-note" filled />}
-          <StatusChip message={message} />
-          <TagChips message={message} />
-        </span>
-        <time
-          className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
-          title={new Date(message.createdAt).toLocaleString()}
-        >
-          {timeLabel(message.createdAt)}
-        </time>
-      </div>
     </article>
   );
 }

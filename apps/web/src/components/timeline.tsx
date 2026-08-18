@@ -85,9 +85,10 @@ const TILE_GAP = 4;
 const BLOCK_GAP = 6;
 const AUDIO_BUBBLE = 62;
 const FILE_ROW = 66;
-/** One entity card in the strip, plus its "found in this" heading. */
+/** One entity card in the stub below the tear. */
 const ENTITY_CARD = 72;
-const ENTITY_HEADING = 26;
+/** The stub's own chrome: the perforation, its padding, and the heading. */
+const ENTITY_CHROME = 50;
 /** What we assume of a picture whose dimensions have not synced yet. */
 const DEFAULT_ASPECT = 4 / 3;
 /** Past this many tiles the album stops growing (attachment-album.tsx). */
@@ -132,7 +133,7 @@ export function estimateMessage(message: Message, width: number): number {
   // The strip only exists when something was found, and it is deduped by
   // entity, the same way the card draws it.
   const entities = new Set(message.mentions.map((m) => m.entityId));
-  if (entities.size > 0) height += ENTITY_HEADING + entities.size * ENTITY_CARD;
+  if (entities.size > 0) height += ENTITY_CHROME + entities.size * ENTITY_CARD;
 
   return height;
 }
