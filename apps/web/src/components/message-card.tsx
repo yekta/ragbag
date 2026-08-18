@@ -170,20 +170,32 @@ function EntityStrip({ message }: { message: Message }) {
     // The notches are the whole trick: two page-coloured discs centred on the
     // card's own edges, so the silhouette pinches at the seam and the halves
     // read as two rounded rectangles that meet, rather than as one card with a
-    // line ruled across it. `-left-3.5` is the dashes' own 8px inset plus half
-    // a disc, which puts the centre back on the card's edge. `bg-background`
-    // is what they sit on: the timeline is this card's only caller.
+    // line ruled across it. `-left-4` is the dashes' own 8px inset plus half a
+    // disc, which puts the centre back on the card's edge; `-top-[7px]` is
+    // half a disc less half the dashes' 2px, which puts it on their line.
+    //
+    // The dashes are that same page colour rather than a border colour, so the
+    // whole seam is one idea: the page showing through, punched out of the
+    // card in discs at the edges and in perforations across the middle. A
+    // ruled line would have been a line drawn *on* the card, which is the
+    // thing this is not.
+    //
+    // They are a gradient rather than `border-t-2 border-dashed` because Chrome
+    // scales its dashes with the border's width: 3px on and 2px off at 1px,
+    // but 6px on and 4.8px off at 2px, both measured. Thickening a border
+    // would have stretched every dash with it. A box takes its height and its
+    // rhythm separately, so only the thickness changed.
     //
     // Both halves keep the card fill. The shade below it, `--panel`, is
     // already what the entity cards themselves are made of, so tinting the
     // stub would swallow the very things it holds.
     <>
-      <div className="relative mx-2 border-t border-dashed">
-        <span className="absolute -top-1.5 -left-3.5 size-3 rounded-full bg-background" />
-        <span className="absolute -top-1.5 -right-3.5 size-3 rounded-full bg-background" />
+      <div className="relative mx-2 h-[2px] bg-[repeating-linear-gradient(to_right,var(--background)_0_3px,transparent_3px_5px)]">
+        <span className="absolute -top-[7px] -left-4 size-4 rounded-full bg-background" />
+        <span className="absolute -top-[7px] -right-4 size-4 rounded-full bg-background" />
       </div>
-      {/* Tighter above than below: small caps under a rule carry their own
-          air, and the tear is not a thing to crowd. */}
+      {/* Tighter above than below: small caps carry their own air, and the
+          tear is not a thing to crowd. */}
       <div className="p-3.5 pt-3">
         <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Found in this
