@@ -11,7 +11,7 @@ export type Theme = "light" | "dark" | "system";
 export const THEME_KEY = "ragbag:theme";
 
 // Kept in step with --background in index.css, for the mobile browser chrome.
-const THEME_COLOR = { light: "#f1f3f2", dark: "#121514" } as const;
+const THEME_COLOR = { light: "#edefee", dark: "#0f1211" } as const;
 
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
 
