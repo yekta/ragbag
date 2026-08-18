@@ -519,14 +519,14 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
  * be a caption ("Uploading 7%" → "Uploading 100%"), which re-measured the chip
  * on each XHR progress event and walked the composer (and the timeline above
  * it) sideways a dozen times per upload. Nothing inside a tile may size it:
- * state shows as a ring and a scrim over a square that never moves.
+ * state shows as a ring on a veil over a square that never moves.
  */
 const TILE = "size-28";
 
 /**
  * One attachment tile: the picture (instant, from an object URL) or a file
  * face, with the live stage of this file painted over it: reading, uploading,
- * done, or a red state with the classified reason. The scrim doubles as the
+ * done, or a red state with the classified reason. The veil doubles as the
  * retry button when a retry makes sense.
  */
 function AttachmentChip({
@@ -585,9 +585,36 @@ function AttachmentChip({
     ? `${a.name}: ${failedReason}${retry ? " (click to retry)" : ""}`
     : `${a.name} · ${formatBytes(a.size)}${stage ? ` · ${stage}` : ""}`;
 
-  const scrim = `absolute inset-0 flex items-center justify-center ${
-    failedReason ? "bg-destructive-soft text-destructive" : "bg-card text-foreground"
+  // What this file is doing is painted *over* it, not instead of it. This was
+  // an opaque `--card` fill, which made every dropped photo a blank square
+  // with a spinner on it for as long as the upload took: the one stretch of
+  // time you most want to see which picture you dropped. The veil mutes the
+  // tile toward the surface it already sits on (washed out in light, darkened
+  // in dark, one class name either way) and the mark that says what is
+  // happening sits on an opaque chip over it.
+  //
+  // The chip is not decoration. No ink in this palette reads over content it
+  // cannot predict, which is why the album puts its upload and "+N" badges on
+  // chips rather than scrims (attachment-album.tsx); a progress arc drawn
+  // straight on the veil needs it at ~70% to clear 3:1 against a black photo
+  // in light (or a white one in dark), by which point the photo is a ghost. On
+  // `--card` the arc keeps the palette's measured ratio whatever the picture
+  // is, so the veil is free to be as light as it reads best.
+  const veil = `absolute inset-0 flex items-center justify-center ${
+    failedReason ? "bg-destructive-soft/veil" : "bg-card/veil"
   }`;
+  const chip = `flex size-10 items-center justify-center rounded-full border bg-card ${
+    failedReason ? "border-destructive text-destructive" : "text-foreground"
+  }`;
+  // Retry-icon-or-alert is the failed pair; every other state supplies its own
+  // overlay above. `retry` outlives `failedReason` by one case (an upload
+  // parked for sign-in can still be poked), so the icon switches on the mark,
+  // not on the state.
+  const mark = failedReason ? (
+    <Icon name={retry ? "retry" : "alert"} className="size-6" />
+  ) : (
+    overlay
+  );
 
   /** Showing a picture, rather than the file face or a red tile. */
   const framed = Boolean(a.previewUrl) && !undecodable;
@@ -597,7 +624,7 @@ function AttachmentChip({
     // the corner.
     <span className={`group/att relative shrink-0 ${TILE}`}>
       <span
-        // `relative` is what makes the clip mean anything: the scrim below is
+        // `relative` is what makes the clip mean anything: the veil below is
         // `inset-0`, and without a containing block here it resolves against
         // the outer span instead, escaping the rounding and painting over the
         // failed tile's red border.
@@ -636,12 +663,13 @@ function AttachmentChip({
         )}
         {(overlay || failedReason) &&
           (retry ? (
-            <button type="button" className={scrim} title={title} onClick={retry}>
-              {failedReason ? <Icon name="retry" className="size-6" /> : overlay}
+            // The whole tile stays the target, the chip is only what you read.
+            <button type="button" className={veil} title={title} onClick={retry}>
+              <span className={chip}>{mark}</span>
             </button>
           ) : (
-            <span className={scrim}>
-              {failedReason ? <Icon name="alert" className="size-6" /> : overlay}
+            <span className={veil}>
+              <span className={chip}>{mark}</span>
             </span>
           ))}
       </span>
