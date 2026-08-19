@@ -36,6 +36,16 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
   );
 }
 
+/**
+ * The popup itself, unstyled. `DialogContent` below is the centred card every
+ * ordinary dialog wants; this is for the one surface that is not a card at all
+ * (the full-screen photo viewer), which needs the portal, the backdrop and the
+ * focus trap without any of that geometry.
+ */
+function DialogPopup({ ...props }: DialogPrimitive.Popup.Props) {
+  return <DialogPrimitive.Popup data-slot="dialog-popup" {...props} />;
+}
+
 function DialogContent({
   className,
   children,
@@ -129,6 +139,7 @@ export {
   DialogFooter,
   DialogHeader,
   DialogOverlay,
+  DialogPopup,
   DialogPortal,
   DialogTitle,
   DialogTrigger,

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { FACE_ICON, Icon } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
+import { usePhotoViewer } from "@/components/photo-viewer";
 import { Button } from "@/components/ui/button";
 import {
   mediaBox,
@@ -123,6 +124,15 @@ export function AttachmentAlbum({
  * The wrapper a tile, a bubble and a row all share, and the one thing the two
  * call sites disagree about.
  *
+ * A picture in the panel opens the viewer over it (components/photo-viewer.tsx)
+ * rather than its own bytes in a browser tab. Leaving the app to see your own
+ * photo at full size was never the intent of "see it at full size", and a tab
+ * cannot step to the next picture in the message.
+ *
+ * Everything else still opens the file. That is not a compromise: a PDF or a
+ * text file wants the browser's own reader, which is a better one than this
+ * app is going to write, and the viewer has nothing to show for either.
+ *
  * The file link is a plain navigation rather than a `download`: the media
  * route serves each blob under its own mime and answers on the API's origin,
  * where that attribute is ignored anyway, and a browser previewing a PDF or a
@@ -149,10 +159,25 @@ function AttachmentLink({
   children: ReactNode;
 }) {
   const filter = useFilter();
+  const viewer = usePhotoViewer();
   const upload = useBlobUploadState(attachment.blobId);
   const pending = upload !== null && upload.stage !== "done";
   const local = useBlobUrl(pending ? attachment.blobId : null);
   if (variant === "detail") {
+    if (viewer && faceForMime(attachment.mime) === "image") {
+      return (
+        // Same box, same rounding, same border as the anchor it replaces: the
+        // tile must not move because of what happens when it is clicked.
+        <button
+          type="button"
+          className={`${className} cursor-zoom-in`}
+          style={style}
+          onClick={() => viewer.open(attachment.id)}
+        >
+          {children}
+        </button>
+      );
+    }
     return (
       <a
         href={local ?? mediaUrl(attachment.blobId, "original")}
@@ -219,6 +244,45 @@ function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVar
         </AttachmentLink>
       ))}
     </div>
+  );
+}
+
+/**
+ * The face an attachment shows beside its name in a list: its own picture when
+ * the pipeline made one, the icon for its kind when it did not.
+ *
+ * "0.jpg, 395 KB" is not a description of anything. A message carrying five of
+ * them was a list of five filenames and five paragraphs with no way to tell
+ * which belonged to which, and photos off a phone are named by a counter.
+ *
+ * Which attachments have a picture is asked of `variants`, the synced record of
+ * which derivatives exist, and not of the mime: the media route answers a
+ * missing derivative with the original bytes (apps/server/src/routes/media.ts),
+ * so guessing from the face would put a `<img src=…/thumb>` on a text file, get
+ * a 200 with something no browser can decode, and land on the blurred stand-in
+ * for a file that never had a picture to blur. A PDF's first page is a
+ * thumbnail by the same rule, because the pipeline renders one.
+ *
+ * The icon and the picture share the box exactly, so a list of both stays a
+ * column rather than a ragged edge.
+ */
+export function AttachmentThumb({ attachment }: { attachment: Attachment }) {
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-sm border bg-muted text-muted-foreground">
+      {attachment.variants.thumb ? (
+        <MediaImage
+          blobId={attachment.blobId}
+          variant="thumb"
+          placeholder={attachment.placeholder}
+          // Decorative: the filename it sits beside is the name of this thing,
+          // and a screen reader reading both says everything twice.
+          alt=""
+          fit="cover"
+        />
+      ) : (
+        <Icon name={FACE_ICON[faceForMime(attachment.mime)]} className="size-4" />
+      )}
+    </span>
   );
 }
 

@@ -120,6 +120,7 @@ export function MediaImage({
   alt,
   className,
   fit = "cover",
+  sizing = "fill",
 }: {
   blobId: string;
   variant: Extract<BlobVariant, "thumb" | "display">;
@@ -127,6 +128,17 @@ export function MediaImage({
   alt: string;
   className?: string;
   fit?: "cover" | "contain";
+  /**
+   * `fill`: the element is the box its parent gives it, and the picture is
+   * fitted into that. Every tile and grid cell in the app.
+   *
+   * `fit`: the element is the *picture*, clamped to fit its parent. The one
+   * caller is the full-screen viewer, and the difference there is not
+   * cosmetic: the placeholder below paints as this element's own background,
+   * so at `fill` a letterboxed photo means a blurred copy of it smeared across
+   * the whole viewport with the real one floating in the middle of it.
+   */
+  sizing?: "fill" | "fit";
 }) {
   // Three sources, tried in order, each one demoted by its own load error.
   //
@@ -178,7 +190,7 @@ export function MediaImage({
       onError={() => setSource((s) => (s === "media" ? "local" : "gone"))}
       // Spelled out rather than interpolated: Tailwind scans source text for
       // whole class names, so `object-${fit}` would generate neither.
-      className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
+      className={`${sizing === "fill" ? "size-full" : "max-h-full max-w-full"} ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
       // The placeholder is the element's own background rather than a second
       // element, so nothing is added to or removed from the DOM when the
       // picture lands: the image simply paints over it.

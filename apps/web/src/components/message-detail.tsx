@@ -6,14 +6,16 @@ import { useLayoutEffect, useRef, useState } from "react";
 import {
   AttachmentAlbum,
   AttachmentRetry,
+  AttachmentThumb,
   AudioPlayerScope,
   formatDuration,
   useAudioScope,
 } from "@/components/attachment-album";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 import { EntityCard } from "@/components/entities";
-import { FACE_ICON, Icon } from "@/components/icon";
+import { Icon } from "@/components/icon";
 import { Linkified, messageEntities } from "@/components/message-card";
+import { PhotoViewerScope, usePhotoViewer } from "@/components/photo-viewer";
 import { TagEditor } from "@/components/tag-editor";
 import { SectionHeading } from "@/components/typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -241,152 +243,178 @@ export function MessageDetail() {
                 `overflow-x-hidden` is not redundant: asking for `overflow-y`
                 alone computes the other axis from `visible` to `auto`. */}
             <AudioPlayerScope>
-              <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-                {/* The message, first, whatever it is made of: a paragraph, a
+              {/* Both scopes wrap the whole body rather than the album alone:
+                  a picture is opened from the album at the top and from its
+                  own row further down, and those are two subtrees. */}
+              <PhotoViewerScope attachments={message.attachments}>
+                <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                  {/* The message, first, whatever it is made of: a paragraph, a
                     photo, a voice note, all three, or one file and nothing
                     else. No heading over it, because it is not a section of
                     the page: it is the thing the page is about, and the header
                     above already says when it was sent. */}
-                <div className="space-y-2">
-                  {message.text && (
-                    // The card's correction, for the same reason: half-leading
-                    // over the first line would otherwise sit the text lower
-                    // than the panel insets it from the left.
-                    <p className="-mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
-                      <Linkified text={message.text} />
-                    </p>
-                  )}
-                  <AttachmentAlbum attachments={message.attachments} variant="detail" />
-                </div>
+                  <div className="space-y-2">
+                    {message.text && (
+                      // The card's correction, for the same reason: half-leading
+                      // over the first line would otherwise sit the text lower
+                      // than the panel insets it from the left.
+                      <p className="-mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
+                        <Linkified text={message.text} />
+                      </p>
+                    )}
+                    <AttachmentAlbum attachments={message.attachments} variant="detail" />
+                  </div>
 
-                {/* The seam. Everything below it is *about* the message rather
+                  {/* The seam. Everything below it is *about* the message rather
                     than part of it, which is the job the tear line does on the
                     card (message-card.tsx). Dashed for the same reason it is
                     perforated there; the notches are not reproduced, because
                     they are discs of page colour punched out of a card, and
                     this panel is already the card. */}
-                <hr className="border-dashed" />
+                  <hr className="border-dashed" />
 
-                {/* What the model wrote. The generated title lives here, with
+                  {/* What the model wrote. The generated title lives here, with
                     the rest of it, rather than as this panel's h1: it names
                     what the message is about, which is a reading of the
                     message, not the message. */}
-                {(message.generatedTitle || message.generatedSummary) && (
-                  <section className="rounded-xl bg-ai-soft p-3.5">
-                    <SectionHeading>
-                      <span className="flex items-center gap-1 text-ai">
-                        <Icon name="sparkles" className="size-3.5" /> Summary
-                      </span>
-                    </SectionHeading>
-                    {message.generatedTitle && (
-                      <p className="font-semibold leading-snug">{message.generatedTitle}</p>
-                    )}
-                    {message.generatedSummary && (
-                      <p
-                        className={`text-sm leading-relaxed ${message.generatedTitle ? "mt-1" : ""}`}
-                      >
-                        {message.generatedSummary}
-                      </p>
+                  {(message.generatedTitle || message.generatedSummary) && (
+                    <section className="rounded-xl bg-ai-soft p-3.5">
+                      <SectionHeading className="text-ai">
+                        <span className="flex items-center gap-1">
+                          <Icon name="sparkles" className="size-3.5" /> Summary
+                        </span>
+                      </SectionHeading>
+                      {message.generatedTitle && (
+                        <p className="font-semibold leading-snug">{message.generatedTitle}</p>
+                      )}
+                      {message.generatedSummary && (
+                        <p
+                          className={`text-sm leading-relaxed ${message.generatedTitle ? "mt-1" : ""}`}
+                        >
+                          {message.generatedSummary}
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {/* the same things the card lists under its tear */}
+                  <ThingsFound message={message} />
+
+                  {/* Everything sent with the message, in the order it was
+                    sent, under one heading.
+
+                    Each file used to head its own section, which put a
+                    filename at the same size as "Things found in the message"
+                    and "Tags" and made a message with five photos in it read
+                    as five sections of the page rather than one list of five
+                    things. A filename is a row. The heading over the rows is
+                    what belongs at that size. */}
+                  {message.attachments.length > 0 && (
+                    <section>
+                      <SectionHeading>
+                        {message.attachments.length === 1 ? "Attachment" : "Attachments"}
+                      </SectionHeading>
+                      <div className="flex flex-col gap-4">
+                        {message.attachments.map((attachment, i) => (
+                          <div key={attachment.id} className={i > 0 ? "border-t pt-4" : undefined}>
+                            <AttachmentFindings attachment={attachment} />
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* tags */}
+                  <section>
+                    <SectionHeading>Tags</SectionHeading>
+                    <TagEditor
+                      userTagNames={message.tags
+                        .filter((t) => t.source === "user" && t.tag)
+                        .map((t) => t.tag!.name)}
+                      suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
+                      onSave={(names) =>
+                        void zero.mutate(
+                          mutators.tag.setForMessage({ messageId: message.id, names }),
+                        )
+                      }
+                    />
+                    {message.tags.some((t) => t.source === "ai" && t.tag) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {message.tags
+                          .filter((t) => t.source === "ai" && t.tag)
+                          .map((t) => (
+                            <Badge
+                              key={t.tagId}
+                              className="bg-ai-soft font-normal text-ai"
+                              title={`AI ${t.tag!.kind} tag`}
+                            >
+                              <Icon name="sparkles" className="size-3" />
+                              {t.tag!.name}
+                            </Badge>
+                          ))}
+                      </div>
                     )}
                   </section>
-                )}
 
-                {/* the same things the card lists under its tear */}
-                <ThingsFound message={message} />
-
-                {/* what came out of each attachment, in the order it was sent */}
-                {message.attachments.map((attachment) => (
-                  <AttachmentFindings key={attachment.id} attachment={attachment} />
-                ))}
-
-                {/* tags */}
-                <section>
-                  <SectionHeading>Tags</SectionHeading>
-                  <TagEditor
-                    userTagNames={message.tags
-                      .filter((t) => t.source === "user" && t.tag)
-                      .map((t) => t.tag!.name)}
-                    suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
-                    onSave={(names) =>
-                      void zero.mutate(mutators.tag.setForMessage({ messageId: message.id, names }))
-                    }
-                  />
-                  {message.tags.some((t) => t.source === "ai" && t.tag) && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {message.tags
-                        .filter((t) => t.source === "ai" && t.tag)
-                        .map((t) => (
-                          <Badge
-                            key={t.tagId}
-                            className="bg-ai-soft font-normal text-ai"
-                            title={`AI ${t.tag!.kind} tag`}
-                          >
-                            <Icon name="sparkles" className="size-3" />
-                            {t.tag!.name}
-                          </Badge>
-                        ))}
-                    </div>
-                  )}
-                </section>
-
-                {/* ingestion state */}
-                {message.status === "failed" && (
-                  <Alert variant="destructive">
-                    <AlertTitle>Ingestion failed</AlertTitle>
-                    <AlertDescription>
-                      {message.error && <p>{message.error}</p>}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() =>
-                          void zero.mutate(mutators.message.retryIngest({ id: message.id }))
-                        }
-                      >
-                        <Icon name="retry" className="size-3.5" /> Retry
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {(message.status === "pending" || message.status === "processing") && (
-                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Icon
-                      name="spinner"
-                      className="size-3.5 animate-spin [animation-duration:2s]"
-                    />
-                    {message.status === "processing"
-                      ? "Reading this message…"
-                      : "Queued for ingestion…"}
-                  </p>
-                )}
-                {/* Enrichment that finished with nothing to show. Silence here
-                  read as a broken app for a full day (the server had no
-                  OpenAI key), so absence now explains itself and offers the
-                  re-run that already existed for outright failures. */}
-                {(message.status === "done" || message.status === "partial") &&
-                  !message.generatedSummary && (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      <Icon name="sparkles" className="size-3.5 shrink-0" />
-                      <span>
-                        {message.error ??
-                          (meta && !meta.ai
-                            ? "AI is off on this server, so there are no summaries, tags or entities."
-                            : "No summary for this message yet.")}
-                      </span>
-                      {meta?.ai !== false && (
+                  {/* ingestion state */}
+                  {message.status === "failed" && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Ingestion failed</AlertTitle>
+                      <AlertDescription>
+                        {message.error && <p>{message.error}</p>}
                         <Button
                           variant="outline"
-                          size="xs"
+                          size="sm"
+                          className="mt-2"
                           onClick={() =>
                             void zero.mutate(mutators.message.retryIngest({ id: message.id }))
                           }
                         >
-                          <Icon name="retry" className="size-3" /> Run enrichment
+                          <Icon name="retry" className="size-3.5" /> Retry
                         </Button>
-                      )}
-                    </div>
+                      </AlertDescription>
+                    </Alert>
                   )}
-              </div>
+                  {(message.status === "pending" || message.status === "processing") && (
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Icon
+                        name="spinner"
+                        className="size-3.5 animate-spin [animation-duration:2s]"
+                      />
+                      {message.status === "processing"
+                        ? "Reading this message…"
+                        : "Queued for ingestion…"}
+                    </p>
+                  )}
+                  {/* Enrichment that finished with nothing to show. Silence here
+                  read as a broken app for a full day (the server had no
+                  OpenAI key), so absence now explains itself and offers the
+                  re-run that already existed for outright failures. */}
+                  {(message.status === "done" || message.status === "partial") &&
+                    !message.generatedSummary && (
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <Icon name="sparkles" className="size-3.5 shrink-0" />
+                        <span>
+                          {message.error ??
+                            (meta && !meta.ai
+                              ? "AI is off on this server, so there are no summaries, tags or entities."
+                              : "No summary for this message yet.")}
+                        </span>
+                        {meta?.ai !== false && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={() =>
+                              void zero.mutate(mutators.message.retryIngest({ id: message.id }))
+                            }
+                          >
+                            <Icon name="retry" className="size-3" /> Run enrichment
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                </div>
+              </PhotoViewerScope>
             </AudioPlayerScope>
           </>
         )}
@@ -424,41 +452,53 @@ function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
 }
 
 /**
- * What the pipeline read out of one attachment. Every `content_md` renders the
- * same way whatever produced it, which is the point of there being one
- * representation (plan §5.3).
+ * One attachment: what it is, and what the pipeline read out of it. Every
+ * `content_md` renders the same way whatever produced it, which is the point
+ * of there being one representation (plan §5.3).
  *
  * The file itself is not here: it is up in the message, where it was sent.
- * This is only what came out of it, so a picture nobody has read yet, or a
- * file with nothing to say, contributes nothing to the page.
+ * This is only what came out of it. A picture nobody has read yet still gets
+ * its row, though, which is a change: the list is named "Attachments" now, so
+ * a message with five photos and three summaries has to show five rows or the
+ * two that were quietly dropped read as a bug.
+ *
+ * A row's title is 14/500 (components/typography.tsx), the step the scale
+ * gives a row. It is deliberately spelled out here rather than wrapped in a
+ * component: one call site, and a component with one user is a name to go and
+ * look up rather than a rule anyone can follow.
  */
 function AttachmentFindings({ attachment }: { attachment: DetailAttachment }) {
   const zero = useZero();
   const scope = useAudioScope();
+  const viewer = usePhotoViewer();
   const face = faceForMime(attachment.mime);
   const segments = face === "audio" ? attachment.content?.segments : null;
   const failed = attachment.status === "failed";
-  if (
-    !attachment.generatedSummary &&
-    !attachment.content?.contentMd &&
-    !(segments && segments.length > 0) &&
-    !attachment.error &&
-    !failed
-  ) {
-    return null;
-  }
+  const thumb = <AttachmentThumb attachment={attachment} />;
 
   return (
     <section className="space-y-2">
-      <SectionHeading>
-        <span className="flex items-center gap-1.5">
-          <Icon name={FACE_ICON[face]} className="size-3.5" />
-          <span className="truncate">{attachment.filename}</span>
-          <span className="font-mono text-xs font-normal text-muted-foreground">
-            {formatBytes(attachment.size)}
-          </span>
+      <div className="flex items-center gap-2">
+        {/* The thumbnail is the second way into the viewer, and the one that
+            matters when the album above has batched six photos into a grid:
+            this is the picture the paragraph underneath is about. */}
+        {viewer && face === "image" ? (
+          <button
+            type="button"
+            title="Open full screen"
+            className="cursor-zoom-in rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+            onClick={() => viewer.open(attachment.id)}
+          >
+            {thumb}
+          </button>
+        ) : (
+          thumb
+        )}
+        <span className="min-w-0 truncate text-sm font-medium">{attachment.filename}</span>
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+          {formatBytes(attachment.size)}
         </span>
-      </SectionHeading>
+      </div>
 
       {attachment.generatedSummary && (
         <p className="text-[13px] leading-relaxed text-muted-foreground">

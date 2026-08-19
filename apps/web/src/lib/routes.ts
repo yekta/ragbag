@@ -94,6 +94,29 @@ export function entityKindOf(view: ViewFilter, types: EntityTypes): string | nul
 }
 
 /**
+ * The one search param in the app: which photo of an open message is being
+ * looked at full screen (components/photo-viewer.tsx).
+ *
+ * In the URL rather than in a piece of state, for the same reason the filters
+ * are: a photo is a thing you look at, so it survives a reload and can be sent
+ * to someone. The part that is felt daily is smaller and better than that. The
+ * viewer opens over a panel that is itself a route, so with state there would
+ * be exactly one back gesture for two open surfaces, and it would close both:
+ * you tap a photo, tap back, and the message you were reading is gone too.
+ * A param gives the photo its own entry to go back through.
+ */
+export type MessageSearch = { photo?: string };
+
+/**
+ * Anything else in the query string is dropped rather than preserved: this is
+ * the whole vocabulary, and an id we do not recognise resolves to no photo when
+ * the viewer looks it up, which is the same as none.
+ */
+export function validateMessageSearch(search: Record<string, unknown>): MessageSearch {
+  return typeof search.photo === "string" && search.photo ? { photo: search.photo } : {};
+}
+
+/**
  * What the URL is asking for. One hook for the sidebar (which row is lit), the
  * timeline (which rows exist) and the overlays (where closing goes back to), so
  * there is no second copy of this state to fall out of step with the address

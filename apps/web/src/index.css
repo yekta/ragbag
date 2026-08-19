@@ -99,8 +99,15 @@
   --kind-pdf-soft: oklch(0.962 0.018 30);
   --kind-file: oklch(0.52 0.03 200);
   --kind-file-soft: oklch(0.962 0.012 200);
-  --ai: oklch(0.545 0.085 285);
-  --ai-soft: oklch(0.962 0.017 285);
+  /* What the model wrote: the summary card and the tags it suggested.
+     It is the brand purple itself now, not a desaturated cousin of it. The old
+     value was primary's hue with two thirds of the chroma taken out, which
+     read as text someone had greyed out on purpose, and greying out is what
+     this app does to things that are unimportant or unavailable. A summary is
+     neither. The soft fill moves onto primary's hue with it, so the two agree.
+     Measured against --ai on the fill: 5.8:1 light, 4.8:1 dark. */
+  --ai: var(--primary);
+  --ai-soft: oklch(0.962 0.02 277);
   --chart-1: oklch(0.615 0.13 277);
   --chart-2: oklch(0.575 0.075 212);
   --chart-3: oklch(0.65 0.075 132);
@@ -180,8 +187,11 @@
   --kind-pdf-soft: oklch(0.312 0.04 30);
   --kind-file: oklch(0.76 0.03 200);
   --kind-file-soft: oklch(0.312 0.013 200);
-  --ai: oklch(0.765 0.085 285);
-  --ai-soft: oklch(0.312 0.036 285);
+  --ai: var(--primary);
+  /* Darker than the --kind-*-soft family sitting above it, and deliberately:
+     the ink on this one is full-chroma primary rather than a muted kind
+     colour, so it needs the extra room to clear 4.5:1. */
+  --ai-soft: oklch(0.28 0.045 277);
   --chart-1: oklch(0.72 0.13 277);
   --chart-2: oklch(0.7 0.08 212);
   --chart-3: oklch(0.75 0.075 132);

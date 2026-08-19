@@ -12,7 +12,7 @@ import { App } from "@/app";
 import { EntityDetail } from "@/components/entity-detail";
 import { MessageDetail } from "@/components/message-detail";
 import { Settings } from "@/components/settings/settings";
-import { isViewSlug } from "@/lib/routes";
+import { isViewSlug, validateMessageSearch } from "@/lib/routes";
 
 // The screens, and how they nest:
 //
@@ -75,15 +75,21 @@ const tagRoute = createRoute({
   path: "tags/$tagId",
 });
 
+// `?photo=<attachmentId>` on both of these: the full-screen photo viewer is a
+// surface of its own stacked on the panel, so it gets its own URL and its own
+// history entry rather than a piece of state that the back gesture cannot see
+// (lib/routes.ts).
 const messageRoute = createRoute({
   getParentRoute: () => viewRoute,
   path: "m/$id",
+  validateSearch: validateMessageSearch,
   component: MessageDetail,
 });
 
 const tagMessageRoute = createRoute({
   getParentRoute: () => tagRoute,
   path: "m/$id",
+  validateSearch: validateMessageSearch,
   component: MessageDetail,
 });
 

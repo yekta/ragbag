@@ -226,7 +226,7 @@ export function SearchOverlay({
         <CommandList className="max-h-[55vh] px-1 py-2">
           {blank ? (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Search everything: Your messages and the things found in them.
+              Search messages and things found in them.
             </div>
           ) : (
             <>

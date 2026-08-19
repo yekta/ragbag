@@ -140,8 +140,8 @@ export function EntityDetail() {
 
               {entity.generatedSummary && (
                 <section className="rounded-xl bg-ai-soft p-3.5">
-                  <SectionHeading>
-                    <span className="flex items-center gap-1 text-ai">
+                  <SectionHeading className="text-ai">
+                    <span className="flex items-center gap-1">
                       <Icon name="sparkles" className="size-3.5" /> Summary
                     </span>
                   </SectionHeading>
