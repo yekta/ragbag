@@ -85,15 +85,15 @@ export function EntityShell({
     <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
   );
   // Every corner is concentric with the one outside it, near enough. A nested
-  // card sits 15px inside a 16px message, so next to nothing is left of the
-  // curve; it takes a rung above that, because a bordered card at the smallest
-  // rung reads as a box someone clipped rather than as a card of its own. A
-  // timeline row has nothing outside it and takes the card radius itself. The
-  // icon box keeps its own scale on a row, where a 16px corner leaves room for
-  // it, and drops a rung under the nested card: at 8px it would have been
-  // rounder than the card it sits in.
+  // card sits 15px inside a 20px message, which leaves 5px of curve, and 6px
+  // is the rung on it: near enough concentric, and one above the smallest,
+  // where a bordered card reads as a box someone clipped rather than as a card
+  // of its own. A timeline row has nothing outside it and takes the message's
+  // own corner. The icon box keeps its own scale on a row, where
+  // a 20px corner leaves room for it, and drops a rung under the nested card:
+  // at 8px it would have been rounder than the card it sits in.
   const surface = timeline
-    ? "rounded-xl border bg-background p-3.5"
+    ? "rounded-2xl border bg-background p-3.5"
     : "rounded-sm border bg-card p-3";
   const iconBox = timeline ? "rounded-md" : "rounded-xs";
   // One hover for both surfaces: a neutral rung above whichever fill it sits

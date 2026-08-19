@@ -427,7 +427,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
             ref={cardRef}
-            className={`rounded-xl border bg-card transition ${
+            className={`rounded-2xl border bg-card transition ${
               dragZone === "composer" ? "border-primary ring-4 ring-accent" : ""
             }`}
           >

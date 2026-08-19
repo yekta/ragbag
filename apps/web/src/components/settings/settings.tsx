@@ -183,12 +183,12 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
       title="Things to look for"
       note="These get pulled out of your messages. Turn any off, or add your own."
     >
-      {/* The icon is pulled 2px left of where the flexbox puts it: a glyph that
+      {/* The icon is pulled 4px left of where the flexbox puts it: a glyph that
           is mostly air on its outer edge sits optically right of a cap-height
           letter given the same gap, and the eye reads the difference as the
           icon crowding the word. */}
       <Button variant="outline" className="px-3.5" onClick={() => onEdit(null)}>
-        <Icon name="plus" className="-ml-0.5 size-4" /> Add
+        <Icon name="plus" className="-ml-1 size-4" /> Add
       </Button>
       <ul className="mt-3 flex flex-col gap-1.5">
         {choices.map((choice) => (

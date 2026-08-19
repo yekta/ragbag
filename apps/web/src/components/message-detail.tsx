@@ -249,7 +249,10 @@ export function MessageDetail() {
                     above already says when it was sent. */}
                 <div className="space-y-2">
                   {message.text && (
-                    <p className="whitespace-pre-wrap break-words leading-relaxed">
+                    // The card's correction, for the same reason: half-leading
+                    // over the first line would otherwise sit the text lower
+                    // than the panel insets it from the left.
+                    <p className="-mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
                       <Linkified text={message.text} />
                     </p>
                   )}

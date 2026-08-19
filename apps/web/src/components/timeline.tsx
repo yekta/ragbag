@@ -2,6 +2,7 @@ import { useLocation } from "@tanstack/react-router";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { toBlocks } from "@/components/attachment-album";
+import { EmptyScreen } from "@/components/empty-screen";
 import { Icon } from "@/components/icon";
 import { MessageCard } from "@/components/message-card";
 import { Badge } from "@/components/ui/badge";
@@ -456,14 +457,10 @@ function Placeholder({
   // A loader that does appear stays long enough to be read.
   const syncing = usePatient(state === "syncing", BUDGET.loaderMin);
 
-  if (filtered) {
-    return (
-      <Centred>
-        <Icon name="inbox" className="size-10" />
-        <p className="text-sm">Nothing matches this filter.</p>
-      </Centred>
-    );
-  }
+  // The archive has messages, this view has none of them: a fact about the
+  // view, which is why the view says it in its own name and its own icon
+  // (components/empty-screen.tsx).
+  if (filtered) return <EmptyScreen />;
 
   if (syncing) {
     return (

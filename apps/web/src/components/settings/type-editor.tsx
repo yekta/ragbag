@@ -354,7 +354,7 @@ function Form({
                 className="text-muted-foreground"
                 onClick={() => patch({ fields: [...draft.fields, emptyField()] })}
               >
-                <Icon name="plus" className="size-3" /> Add
+                <Icon name="plus" className="-ml-0.5 size-3" /> Add
               </Button>
             )
           }

@@ -236,7 +236,7 @@ export function MessageCard({
     // which is what leaves the cards and attachments inside it a shade to rise
     // by.
     <article
-      className={`group relative rounded-xl border bg-background ${
+      className={`group relative rounded-2xl border bg-background ${
         highlight ? "ring-2 ring-ring" : ""
       }`}
       // Touch has no hover actions, so tapping the card body opens the detail
@@ -306,10 +306,21 @@ export function MessageCard({
       </div>
 
       {/* What the person sent. The padding is here rather than on the article
-          so the tear below can run the full width. */}
+          so the tear below can run the full width. It is the album's inset:
+          the text takes its own, below. */}
       <div className="p-3.5">
         {message.text && (
-          <p className="whitespace-pre-wrap break-words leading-relaxed">
+          // Both of these are optical, and both are about text sharing a box
+          // with pictures. `leading-relaxed` hangs ~5px of half-leading above
+          // the first line, so an equal padding on four sides lands the glyphs
+          // visibly lower than they sit in from the left: the negative margin
+          // takes that back, and only here, because text is the first thing in
+          // a message whenever there is any. And a picture fills its box to the
+          // pixel while a letter carries its own side bearing, so the text sits
+          // further in than the album does: a hair of it on a phone, where the
+          // gutter costs line length, and on a wider card the 20px the composer
+          // sets the same words in while they are being typed.
+          <p className="-mt-0.5 px-0.5 whitespace-pre-wrap break-words leading-relaxed md:px-1.5">
             <Linkified text={message.text} />
           </p>
         )}

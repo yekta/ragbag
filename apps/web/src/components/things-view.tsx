@@ -1,6 +1,7 @@
 import { faceForMime } from "@ragbag/shared";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, type RefObject } from "react";
+import { EmptyScreen } from "@/components/empty-screen";
 import { EntityCard } from "@/components/entities";
 import { TimelineEntities } from "@/components/entities/shell";
 import { FACE_ICON, Icon } from "@/components/icon";
@@ -72,7 +73,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
   const filter = useFilter();
   const found = useAttachments(messages, face);
 
-  if (found.length === 0) return <Empty what={face === "image" ? "images" : "files"} />;
+  if (found.length === 0) return <EmptyScreen />;
 
   if (face === "image") {
     return (
@@ -103,7 +104,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
         <li key={attachment.id}>
           <Link
             {...messageLink(message.id, filter)}
-            className="flex items-center gap-3 rounded-xl border bg-background p-3.5 transition hover:bg-panel"
+            className="flex items-center gap-3 rounded-2xl border bg-background p-3.5 transition hover:bg-panel"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <Icon name={FACE_ICON[faceForMime(attachment.mime)]} className="size-5" />
@@ -133,7 +134,6 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
 function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }) {
   const filter = useFilter();
   const navigate = useNavigate();
-  const types = useEntityTypes();
 
   // Mentions to deleted messages are already excluded by the query, so an
   // entity with none left simply is not here: a deleted message cannot leave
@@ -146,7 +146,7 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
     [entities, kind],
   );
 
-  if (rows.length === 0) return <Empty what={types.sidebarTitle(kind).toLowerCase()} />;
+  if (rows.length === 0) return <EmptyScreen />;
 
   return (
     <TimelineEntities>
@@ -162,14 +162,5 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
         ))}
       </ul>
     </TimelineEntities>
-  );
-}
-
-function Empty({ what }: { what: string }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-20 text-center text-muted-foreground">
-      <Icon name="inbox" className="size-10" />
-      <p className="text-sm">No {what} yet. They show up here as you drop things.</p>
-    </div>
   );
 }

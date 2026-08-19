@@ -44,6 +44,14 @@ import { PanelLeftIcon } from "lucide-react";
 //    `data-status` and in `aria-current` (@tanstack/react-router, link.js).
 //    Styling off that is what keeps the highlight and the href the same fact.
 //    `isActive` still works for a row that is not a link.
+// 6. The current row's ink is `--sidebar-primary`, the app's primary and the
+//    fill the send button carries, rather than `--sidebar-accent-foreground`.
+//    Stock paints a hovered row and the current one in the same ink and leaves
+//    the tinted fill to tell them apart, and on this list that fill is one
+//    token: the two states said the same thing in the same way. The ink is what
+//    separates them now, at the same glance and at no cost in layout, which is
+//    the reasoning in the note on `sidebarMenuButtonVariants` below carried one
+//    step further.
 const SIDEBAR_WIDTH = "18rem";
 const SIDEBAR_WIDTH_MOBILE = "19rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -526,7 +534,7 @@ const sidebarMenuButtonVariants = cva(
   // to a row and answers to a click) while the fill, clipped to the padding
   // box, stops short of it. Two adjacent highlights therefore read 4px apart
   // with nothing dead in between.
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y-2 border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-[status=active]:bg-sidebar-accent data-[status=active]:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y-2 border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-primary data-[status=active]:bg-sidebar-accent data-[status=active]:text-sidebar-primary [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       variant: {
