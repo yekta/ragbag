@@ -158,7 +158,17 @@ function CommandItem({
       {...props}
     >
       {children}
-      <CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+      {/* Local edit: the mark an unchecked row carries is out of the layout
+          rather than merely transparent. Stock keeps it in flow so that
+          checking a row moves nothing, which is the right trade in a menu of
+          checkable rows and the wrong one here: no row in this app is
+          checkable, so every row was paying a 16px glyph and the gap before it
+          out of its right-hand end, and whatever the row put there last (a
+          timestamp) sat 40px off an edge it was supposed to be tucked against.
+          The bang is not decoration: the two states are the same specificity,
+          so without it the winner would be Tailwind's sort order rather than
+          this file's intent. */}
+      <CheckIcon className="ml-auto hidden group-data-[checked=true]/command-item:block group-has-data-[slot=command-shortcut]/command-item:hidden!" />
     </CommandPrimitive.Item>
   );
 }

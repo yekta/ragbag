@@ -51,25 +51,18 @@ export function EmptyScreen() {
   const tag =
     filter.tagId && isChatView(filter.view) ? tags.find((t) => t.id === filter.tagId) : undefined;
 
+  // One line, one colour: the icon and the sentence are the same statement, so
+  // a heading weight over a dimmer second line only made a two-storey thing out
+  // of a fact that fits in a sentence. Same shape as the empty archive
+  // (components/timeline.tsx), which is the screen this one stands next to.
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-20 text-center">
-      <Icon name={icon} className="size-10 text-muted-foreground" />
-      {/* The state, then what fills it: a screen that only says "empty" leaves
-          the reader to guess what they were supposed to have done. */}
-      <div className="space-y-1">
-        <p className="text-sm font-medium">
-          {tag
-            ? `You don't have any ${noun} tagged “${tag.name}” yet.`
-            : `You don't have any ${noun} yet.`}
-        </p>
-        <p className="text-[13px] text-muted-foreground">
-          {tag
-            ? "Tag a message and it shows up here."
-            : filter.view === "favorites"
-              ? "Star a message and it shows up here."
-              : "They show up here as you drop things."}
-        </p>
-      </div>
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-20 text-center text-muted-foreground">
+      <Icon name={icon} className="size-10" />
+      <p className="text-sm">
+        {tag
+          ? `You don't have any ${noun} tagged “${tag.name}” yet.`
+          : `You don't have any ${noun} yet.`}
+      </p>
     </div>
   );
 }

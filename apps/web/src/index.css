@@ -20,6 +20,15 @@
     --timeline-inset-top: calc(0.75rem + 2.25rem + 1rem);
   }
   --background: oklch(0.98511 0 0);
+  /* The fill a bordered control takes under the pointer: one clear rung off
+     --background, in whichever direction the theme has room for. It is its own
+     token because the muted fill cannot do this job in both themes at once. In
+     light, muted (0.97) sits just under the canvas, so the hover was a 0.015
+     darkening nobody could see. In dark it sits 0.124 *above* it and lands on
+     --border (0.25), which erases the very edge the outline variant is named
+     for. The constraint on the dark value is exactly that: stay under --border,
+     or a bordered control turns into a slab of border colour. */
+  --background-hover: oklch(0.95 0 0);
   --foreground: oklch(0.205 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.205 0 0);
@@ -93,6 +102,9 @@
 
 .dark {
   --background: oklch(0.14479 0 0);
+  /* Up rather than down, as every neutral rung in this theme goes, and stopping
+     under --border. */
+  --background-hover: oklch(0.225 0 0);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.182 0 0);
   --card-foreground: oklch(0.97 0 0);
@@ -171,6 +183,7 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --color-background: var(--background);
+  --color-background-hover: var(--background-hover);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);

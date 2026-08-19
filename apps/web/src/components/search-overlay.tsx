@@ -218,7 +218,12 @@ export function SearchOverlay({
           onValueChange={setQuery}
           autoFocus
         />
-        <CommandList className="max-h-[55vh] p-2">
+        {/* The rows' fills line up with the field's: the palette is one column,
+            and the surface a row highlights on is the same box the input draws.
+            `px-1` is what the field's own wrapper takes (ui/command.tsx), and
+            the 8px above and below is this list's own air, which the field has
+            no use for. */}
+        <CommandList className="max-h-[55vh] px-1 py-2">
           {blank ? (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
               Search everything: Your messages and the things found in them.
@@ -240,8 +245,7 @@ export function SearchOverlay({
 
         {!blank && results.length > 0 && (
           <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
-            {results.length} result{results.length === 1 ? "" : "s"} · local index, works offline ·
-            ↑↓ to move, Enter to open
+            {results.length} result{results.length === 1 ? "" : "s"}
           </p>
         )}
       </Command>
