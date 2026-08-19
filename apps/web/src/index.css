@@ -174,6 +174,12 @@
 
   --border: oklch(0.905 0.005 168);
   --input: oklch(0.898 0.006 168);
+  /* The knob of an off switch. Its own token because no existing one is the
+     light thing on both `--input` tracks: light wants something above 0.898,
+     dark wants something above 0.345, and no pair in this palette does both.
+     An on switch borrows `--primary-foreground`, which already means "the
+     contrast to primary" in either theme. */
+  --switch-thumb: oklch(0.997 0.0015 168);
   --ring: oklch(0.58 0.06 170);
 
   --sidebar: oklch(0.999 0.001 168);
@@ -316,6 +322,7 @@
 
   --border: oklch(0.305 0.008 174);
   --input: oklch(0.345 0.009 174);
+  --switch-thumb: oklch(0.935 0.006 168);
   --ring: oklch(0.68 0.06 170);
 
   --sidebar: oklch(0.232 0.006 174);
@@ -407,6 +414,7 @@
   --color-success-foreground: var(--success-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-switch-thumb: var(--switch-thumb);
   --color-ring: var(--ring);
 
   --color-sidebar: var(--sidebar);

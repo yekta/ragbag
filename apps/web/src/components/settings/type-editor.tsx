@@ -361,7 +361,7 @@ function Form({
         >
           Details
         </SectionHeading>
-        <p className="mb-4 text-[13px] text-muted-foreground">
+        <p className="mb-3 text-[13px] text-muted-foreground">
           {owned
             ? "This one is built in, so its details are fixed."
             : "What to fill in for each one. Tick the details that tell two apart."}

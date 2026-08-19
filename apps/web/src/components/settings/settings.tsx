@@ -9,7 +9,7 @@ import { TypeEditor } from "@/components/settings/type-editor";
 import { SectionHeading } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
-import { Toggle } from "@/components/ui/toggle";
+import { Switch } from "@/components/ui/switch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { signOut } from "@/lib/auth-client";
 import { runMutation } from "@/lib/mutate";
@@ -116,7 +116,7 @@ export function Settings() {
  * than the words of the heading are to each other, so "Storage" read as part of
  * the box under it instead of as its name. The three steps are: heading to its
  * note, 4px, because they are one thought; the pair to what they introduce,
- * 16px; and section to section, 32px, from the stack above.
+ * 12px; and section to section, 32px, from the stack above.
  */
 function Section({
   title,
@@ -129,8 +129,8 @@ function Section({
 }) {
   return (
     <section>
-      <SectionHeading className={note ? "mb-1" : "mb-4"}>{title}</SectionHeading>
-      {note && <p className="mb-4 text-[13px] text-muted-foreground">{note}</p>}
+      <SectionHeading className={note ? "mb-1" : "mb-3"}>{title}</SectionHeading>
+      {note && <p className="mb-3 text-[13px] text-muted-foreground">{note}</p>}
       {children}
     </section>
   );
@@ -177,16 +177,20 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
   // One list, not two. A second heading ("Don't look for") turned a switch into
   // a place, so turning something off made its row leave the screen and reappear
   // further down, and the reader had to find it again to change their mind. The
-  // toggle says the same thing without moving anything.
+  // switch says the same thing without moving anything.
   return (
     <Section
       title="Things to look for"
       note="These get pulled out of your messages. Turn any off, or add your own."
     >
-      <Button variant="outline" onClick={() => onEdit(null)}>
-        <Icon name="plus" /> Add
+      {/* The icon is pulled 2px left of where the flexbox puts it: a glyph that
+          is mostly air on its outer edge sits optically right of a cap-height
+          letter given the same gap, and the eye reads the difference as the
+          icon crowding the word. */}
+      <Button variant="outline" className="px-3.5" onClick={() => onEdit(null)}>
+        <Icon name="plus" className="-ml-0.5 size-4" /> Add
       </Button>
-      <ul className="mt-4 flex flex-col gap-1.5">
+      <ul className="mt-3 flex flex-col gap-1.5">
         {choices.map((choice) => (
           <ChoiceRow
             key={choice.kind}
@@ -242,24 +246,12 @@ function ChoiceRow({
           <Icon name="edit" className="size-4" />
         </Button>
       )}
-      {/* Stock aria-pressed styling is a grey fill, which is the wrong way round
-          in a list where every other row is outlined: off would have been the
-          loud one. On is the primary fill instead. The width is fixed because
-          "On" and "Off" are different widths and the row must not shift under
-          the thumb that just pressed it, and the `before:` strip is the 44px
-          floor ui/button.tsx builds in and this primitive does not: it grows
-          vertically only (the button is already wider than 44) so it stays
-          inside its own row. */}
-      <Toggle
-        variant="outline"
-        size="sm"
-        pressed={choice.enabled}
-        onPressedChange={onToggle}
+      <Switch
+        checked={choice.enabled}
+        onCheckedChange={onToggle}
         aria-label={`Look for ${choice.sidebarTitle}`}
-        className="relative w-14 shrink-0 before:absolute before:top-1/2 before:left-1/2 before:size-full before:min-h-11 before:-translate-x-1/2 before:-translate-y-1/2 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary-hover"
-      >
-        {choice.enabled ? "On" : "Off"}
-      </Toggle>
+        className="ml-1 shrink-0"
+      />
     </li>
   );
 }
