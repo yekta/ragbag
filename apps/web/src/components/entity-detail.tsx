@@ -134,7 +134,7 @@ export function EntityDetail() {
               </span>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               {/* The same card the chat draws, at the top of its own page. */}
               <EntityCard entity={entity} />
 

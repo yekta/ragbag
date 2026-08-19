@@ -201,7 +201,7 @@ function EntityStrip({ message }: { message: Message }) {
             one place on the card that can say so once for all of them. */}
         <GroupLabel className="mb-2.5 flex items-center gap-1 font-medium">
           <Icon name="sparkles" className="size-3.5 shrink-0" />
-          Things found in the message
+          Things found
         </GroupLabel>
         <div className="flex flex-col gap-1.5">
           {entities.map((entity) => (

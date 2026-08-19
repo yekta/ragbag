@@ -62,8 +62,7 @@ export function SectionHeading({
 }
 
 /**
- * The label over a group of rows: "Things", "Messages", "Things found in
- * the message".
+ * The label over a group of rows: "Things", "Messages", "Things found".
  *
  * Not a section heading. It names a bucket rather than a part of a document,
  * and it appears inside surfaces (a timeline card, a search palette) where

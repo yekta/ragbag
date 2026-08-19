@@ -241,13 +241,20 @@ export function MessageDetail() {
                 header rather than against the panel's own rounding, and fading
                 content out into a solid bar reads as a rendering fault.
                 `overflow-x-hidden` is not redundant: asking for `overflow-y`
-                alone computes the other axis from `visible` to `auto`. */}
+                alone computes the other axis from `visible` to `auto`.
+
+                Section to section is 32px, which is the rhythm settings already
+                had (components/settings/settings.tsx) rather than a third
+                value invented here. At 20px the summary, the things found and
+                the attachments ran together into one column of text, and the
+                headings had to carry the whole job of saying where one ended:
+                a panel is read by its gaps before it is read by its type. */}
             <AudioPlayerScope>
               {/* Both scopes wrap the whole body rather than the album alone:
                   a picture is opened from the album at the top and from its
                   own row further down, and those are two subtrees. */}
               <PhotoViewerScope attachments={message.attachments}>
-                <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                   {/* The message, first, whatever it is made of: a paragraph, a
                     photo, a voice note, all three, or one file and nothing
                     else. No heading over it, because it is not a section of
@@ -304,16 +311,18 @@ export function MessageDetail() {
                     sent, under one heading.
 
                     Each file used to head its own section, which put a
-                    filename at the same size as "Things found in the message"
+                    filename at the same size as "Things found"
                     and "Tags" and made a message with five photos in it read
                     as five sections of the page rather than one list of five
                     things. A filename is a row. The heading over the rows is
                     what belongs at that size. */}
                   {message.attachments.length > 0 && (
                     <section>
-                      <SectionHeading>
-                        {message.attachments.length === 1 ? "Attachment" : "Attachments"}
-                      </SectionHeading>
+                      {/* Plural at one file too. Every other heading on this
+                          page is a fixed label, and a heading that changes its
+                          wording with the count reads as a different section
+                          rather than the same one holding fewer things. */}
+                      <SectionHeading>Attachments</SectionHeading>
                       <div className="flex flex-col gap-4">
                         {message.attachments.map((attachment, i) => (
                           <div key={attachment.id} className={i > 0 ? "border-t pt-4" : undefined}>
@@ -437,7 +446,7 @@ function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
 
   return (
     <section>
-      <SectionHeading>Things found in the message</SectionHeading>
+      <SectionHeading>Things found</SectionHeading>
       <div className="flex flex-col gap-1.5">
         {entities.map((entity) => (
           <EntityCard
