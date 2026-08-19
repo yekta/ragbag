@@ -17,20 +17,43 @@ const PRICES: Record<string, { input: number; output: number }> = {
   // OpenAI's fastest/cheapest tier, the right fit for high-volume tagging.
   "gpt-5.6-luna": { input: 0.2, output: 1.2 },
   "gpt-4o-transcribe": { input: 2.5, output: 10 },
+  "gpt-4o-mini-transcribe": { input: 1.25, output: 5 },
+  // Same rate card as gpt-4o-transcribe, but it emits a segment per phrase,
+  // so the output side is what costs: about $0.02 a minute of audio, four
+  // times the default model, which is what buys the timings and the speakers.
+  "gpt-4o-transcribe-diarize": { input: 2.5, output: 10 },
+};
+
+/**
+ * USD per minute, for the transcription models billed by how long the
+ * recording is instead of by tokens. They report `usage.seconds` rather than
+ * a token count, so pricing them off tokens would meter every voice note in
+ * the archive at exactly zero.
+ */
+const AUDIO_PRICES: Record<string, number> = {
+  "gpt-transcribe": 0.0045,
+  "whisper-1": 0.006,
 };
 
 const unknownModels = new Set<string>();
 
-export function costUsd(model: string, inputTokens: number, outputTokens: number): number {
+export function costUsd(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  seconds = 0,
+): number {
   const price = PRICES[model];
-  if (!price) {
-    if (!unknownModels.has(model)) {
-      unknownModels.add(model);
-      log.warn("no price entry for model; metering tokens with zero cost", { model });
-    }
-    return 0;
+  if (price) return (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
+
+  const perMinute = AUDIO_PRICES[model];
+  if (perMinute !== undefined) return (seconds / 60) * perMinute;
+
+  if (!unknownModels.has(model)) {
+    unknownModels.add(model);
+    log.warn("no price entry for model; metering tokens with zero cost", { model });
   }
-  return (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
+  return 0;
 }
 
 export async function recordUsage(entry: {
@@ -41,6 +64,8 @@ export async function recordUsage(entry: {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  /** Audio length billed, for the models priced by the minute. */
+  seconds?: number;
 }): Promise<void> {
   await db.insert(aiUsageEvents).values({
     id: newId(),
@@ -51,7 +76,7 @@ export async function recordUsage(entry: {
     model: entry.model,
     inputTokens: entry.inputTokens,
     outputTokens: entry.outputTokens,
-    costUsd: costUsd(entry.model, entry.inputTokens, entry.outputTokens),
+    costUsd: costUsd(entry.model, entry.inputTokens, entry.outputTokens, entry.seconds ?? 0),
   });
 }
 

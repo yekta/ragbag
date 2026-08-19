@@ -502,32 +502,41 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
           other than text: every line knows when it was said, so clicking one
           seeks there. That is what makes a search hit inside an hour of audio
           worth anything. */}
-      {face === "audio" && attachment.content?.segments && (
-        <ol className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl border bg-panel p-3 text-[13px] leading-relaxed">
-          {attachment.content.segments.map((segment, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                className="flex w-full gap-2 rounded px-1 text-left hover:bg-accent"
-                onClick={() => {
-                  const audio = audioRef.current;
-                  if (!audio) return;
-                  audio.currentTime = segment.start;
-                  void audio.play();
-                }}
-              >
-                {/* A column of timecodes down the left of the transcript, so
+      {face === "audio" &&
+        attachment.content?.segments &&
+        attachment.content.segments.length > 0 && (
+          <ol className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl border bg-panel p-3 text-[13px] leading-relaxed">
+            {attachment.content.segments.map((segment, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className="flex w-full gap-2 rounded px-1 text-left hover:bg-accent"
+                  onClick={() => {
+                    const audio = audioRef.current;
+                    if (!audio) return;
+                    audio.currentTime = segment.start;
+                    void audio.play();
+                  }}
+                >
+                  {/* A column of timecodes down the left of the transcript, so
                     they have to agree on a width or the text beside them
                     ragged-edges its way down the list. */}
-                <span className="shrink-0 font-mono text-muted-foreground">
-                  {formatDuration(segment.start * 1000)}
-                </span>
-                <span className="min-w-0">{segment.text}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
+                  <span className="shrink-0 font-mono text-muted-foreground">
+                    {formatDuration(segment.start * 1000)}
+                  </span>
+                  {/* Only there when the model heard more than one voice, so a
+                    label always means something rather than repeating. */}
+                  {segment.speaker && (
+                    <span className="shrink-0 font-medium text-muted-foreground">
+                      {segment.speaker}
+                    </span>
+                  )}
+                  <span className="min-w-0">{segment.text}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
 
       {attachment.content?.contentMd && (
         <details className="rounded-xl border bg-panel">

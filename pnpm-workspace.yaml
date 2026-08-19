@@ -5,6 +5,7 @@ packages:
 
 allowBuilds:
   "@rocicorp/zero-sqlite3": true
+  ffmpeg-static: true
   "@tailwindcss/oxide": true
   esbuild: true
   protobufjs: true
@@ -45,6 +46,12 @@ catalog:
   # pdfjs reaches for this at runtime to polyfill DOMMatrix/Path2D. Pinned to
   # the version pdfjs itself resolves so only one copy is ever installed.
   "@napi-rs/canvas": 1.0.5
+  # Audio the transcription endpoint will not take (WhatsApp's .opus, a .aiff
+  # off a Mac, anything past its 25 MB ceiling) is converted before upload
+  # (apps/server/src/ingest/audio-input.ts). A prebuilt static binary rather
+  # than an apt package, so dev machines and the runtime image get it the same
+  # way; FFMPEG_PATH overrides it with a system one.
+  ffmpeg-static: ^5.3.0
   # runtime: shared
   zod: ^4.4.3
   # v7, not v4: client-minted (offline capture) and time-sortable (index

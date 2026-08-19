@@ -158,6 +158,17 @@ nothing from the base image, which is why HEIC works in local dev and in the acc
 proofs as well as in the container. It costs CPU rather than configuration: about 290ms to
 decode a 1.1MP image, so a few seconds for a 12MP phone photo, inside a background worker.
 
+Transcription is the one stage whose contract is entirely OpenAI's: each model answers in
+one response format and refuses the others outright, and the endpoint decides what a file
+is from the extension rather than the bytes, so a `.opus` voice note off a phone (an
+ordinary Ogg stream inside) is rejected by name alone. `AI_TRANSCRIBE_MODEL` therefore
+picks the request shape as well as the model, and audio it cannot read (AMR, AIFF, bare
+AAC, WMA, or anything over its 24 MB ceiling) is converted to 16 kHz mono Opus first with
+the **ffmpeg-static** binary the server ships with, which needs nothing from the base image
+either. The default `gpt-transcribe` returns the words alone; `gpt-4o-transcribe-diarize`
+timestamps every phrase and labels the speakers, which is what makes a transcript seekable
+from a search hit, at about four times the price per minute.
+
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 
 Acceptance proofs (each needs the dev stack running: postgres + server, plus
@@ -168,6 +179,7 @@ cd apps/server
 pnpm exec tsx scripts/sync-proof.mts    # two Zero clients through zero-cache
 pnpm exec tsx scripts/blob-proof.mts    # presign → upload → dedupe → media URL
 pnpm exec tsx scripts/ingest-proof.mts  # drop → fan-out → phase A → phase B → entities
+pnpm exec tsx scripts/transcribe-proof.mts  # speech → convert → transcribe → content_md
 ```
 
 Each runs with or without an OpenAI key: the model-dependent assertions are skipped (and

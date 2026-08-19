@@ -5,7 +5,8 @@ import { blobKey, storage } from "../blobs/storage.js";
 import { db } from "../db/client.js";
 import { attachmentContents, attachments, blobs, messages } from "../db/schema.js";
 import { buildImageDerivatives, storePageThumb } from "./derivatives.js";
-import { AudioTooLargeError, transcribeAudio } from "./extract-audio.js";
+import { AudioInputError } from "./audio-input.js";
+import { transcribeAudio } from "./extract-audio.js";
 import { describeImage } from "./extract-image.js";
 import { extractPdfText, TEXT_LAYER_MIN_CHARS } from "./extract-pdf.js";
 import { PdfTooLongError, transcribePdf } from "./extract-pdf-ocr.js";
@@ -259,13 +260,16 @@ export async function processAttachment(job: {
         if (heard) {
           patch.generatedSummary = heard.summary || null;
           contentMd = heard.contentMd;
-          segments = heard.segments;
+          // Only the models that time their output give segments; with the
+          // others the transcript is a paragraph and the column stays null
+          // rather than syncing an empty array to every device.
+          segments = heard.segments.length > 0 ? heard.segments : undefined;
         }
       } catch (err) {
         // The recording still plays, and the note says why there are no words
         // to search: soft, like every other AI stage (plan §0.4.2).
         notes.push(
-          err instanceof AudioTooLargeError
+          err instanceof AudioInputError
             ? err.message
             : `transcription failed: ${describeAiError(err)}`,
         );

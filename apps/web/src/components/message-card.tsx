@@ -171,29 +171,35 @@ function EntityStrip({ message }: { message: Message }) {
     // The notches are the whole trick: two page-coloured discs centred on the
     // card's own edges, so the silhouette pinches at the seam and the halves
     // read as two rounded rectangles that meet, rather than as one card with a
-    // line ruled across it. `-left-4` is the dashes' own 8px inset plus half a
-    // disc, which puts the centre back on the card's edge; `-top-[7px]` is
-    // half a disc less half the dashes' 2px, which puts it on their line.
+    // line ruled across it. `-left-4` is half a disc, which puts that centre
+    // on the edge; `-top-[7.5px]` is half a disc less half the dashes' 1px,
+    // which puts it on their line. `mx-[7px]` is the bay's 8px radius less the
+    // border the margin is measured inside of, so the dashes start where the
+    // bay is deepest: at a round `mx-2` the discs sit a pixel in, and the
+    // border runs straight across the bay rather than around it.
     //
-    // The dashes are that same page colour rather than a border colour, so the
-    // whole seam is one idea: the page showing through, punched out of the
-    // card in discs at the edges and in perforations across the middle. A
-    // ruled line would have been a line drawn *on* the card, which is the
-    // thing this is not.
+    // Each disc is clipped to the half that bites into the card, because the
+    // border it carries has to come out an arc and not a circle: the outer
+    // half sits on the page, outside the shape, and a stroke out there is the
+    // tell that this is two elements pretending to be one outline. What is
+    // left runs down the card's edge, around the bay, across the middle as a
+    // perforation, out of the far bay and on down. One border whatever shape
+    // the card takes, which is why the dashes are the border's own colour at
+    // the border's own 1px: they are the same line.
     //
-    // They are a gradient rather than `border-t-2 border-dashed` because Chrome
-    // scales its dashes with the border's width: 3px on and 2px off at 1px,
-    // but 6px on and 4.8px off at 2px, both measured. Thickening a border
-    // would have stretched every dash with it. A box takes its height and its
-    // rhythm separately, so only the thickness changed.
+    // They are a gradient rather than `border-t border-dashed` because the
+    // dash pattern is otherwise the engine's to pick, and Chrome's scales with
+    // the border's width: 3px on and 2px off at 1px, but 6px on and 4.8px off
+    // at 2px, both measured. A gradient states the rhythm instead of
+    // inheriting it, so the seam is the same seam wherever it is drawn.
     //
     // Both halves keep the card fill, and so do the entity cards in the stub:
     // their border is the whole separation, and a second one made of fill
     // stacked shades inside a shade for no gain.
     <>
-      <div className="relative mx-2 h-[2px] bg-[repeating-linear-gradient(to_right,var(--background)_0_3px,transparent_3px_5px)]">
-        <span className="absolute -top-[7px] -left-4 size-4 rounded-full bg-background" />
-        <span className="absolute -top-[7px] -right-4 size-4 rounded-full bg-background" />
+      <div className="relative mx-[7px] h-px bg-[repeating-linear-gradient(to_right,var(--border)_0_3px,transparent_3px_5px)]">
+        <span className="absolute -top-[7.5px] -left-4 size-4 rounded-full border bg-background [clip-path:inset(0_0_0_50%)]" />
+        <span className="absolute -top-[7.5px] -right-4 size-4 rounded-full border bg-background [clip-path:inset(0_50%_0_0)]" />
       </div>
       {/* Tighter above than below: the tear is not a thing to crowd. */}
       <div className="p-3.5 pt-3">
@@ -234,7 +240,7 @@ export function MessageCard({
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // borrows the card tokens directly.
     <article
-      className={`group relative rounded-xl bg-card text-card-foreground ${
+      className={`group relative rounded-xl border bg-card text-card-foreground ${
         highlight ? "ring-2 ring-ring" : ""
       }`}
       // Touch has no hover actions, so tapping the card body opens the detail

@@ -12,6 +12,14 @@ describe("costUsd", () => {
     expect(costUsd("gpt-4o-transcribe", 1_000_000, 0)).toBeCloseTo(2.5, 10);
   });
 
+  it("prices the by-the-minute transcribers off their reported seconds", () => {
+    // These report `usage.seconds` and no tokens at all, so pricing them on
+    // tokens would put every voice note in the ledger at exactly zero.
+    expect(costUsd("gpt-transcribe", 0, 0, 60)).toBeCloseTo(0.0045, 10);
+    expect(costUsd("gpt-transcribe", 0, 0, 600)).toBeCloseTo(0.045, 10);
+    expect(costUsd("whisper-1", 0, 0, 30)).toBeCloseTo(0.003, 10);
+  });
+
   it("meters unknown models at zero cost instead of guessing", () => {
     expect(costUsd("some-future-model", 123_456, 789)).toBe(0);
   });

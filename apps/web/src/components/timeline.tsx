@@ -411,11 +411,13 @@ export function Timeline({
                   // the floating controls, so its top half would only push the
                   // list further down than the chrome asked for.
                   <div className={`flex justify-center pb-3 ${v.index === 0 ? "" : "pt-3"}`}>
-                    {/* The card surface, like the rows it separates: one fill
-                        for everything sitting on the canvas. */}
+                    {/* Drawn like the rows it separates: one fill and one
+                        edge for everything sitting on the canvas. The base
+                        badge already reserves a transparent border, so this
+                        only has to colour it. */}
                     <Badge
                       variant="secondary"
-                      className="bg-card px-3 text-[11px] text-muted-foreground"
+                      className="border-border bg-card px-3 text-[11px] text-muted-foreground"
                     >
                       {row.label}
                     </Badge>

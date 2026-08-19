@@ -64,12 +64,24 @@ const shape = {
   OPENAI_BASE_URL: z.string().optional(),
   // Vision, the scanned-PDF pass and synthesis all share this one.
   AI_ENRICH_MODEL: z.string().default("gpt-5.6-luna"),
-  AI_TRANSCRIBE_MODEL: z.string().default("gpt-4o-transcribe"),
+  // Transcription. The default is the current model and the cheapest of them
+  // per minute, but it returns the words with no timings, so a transcript is
+  // a paragraph rather than a list of timecodes to seek by. The two that do
+  // carry timings are `gpt-4o-transcribe-diarize` (also labels the speakers,
+  // about four times the price) and `whisper-1` (older, no speakers). The
+  // request shape follows the model; see ingest/extract-audio.ts.
+  AI_TRANSCRIBE_MODEL: z.string().default("gpt-transcribe"),
   // How a PDF handed to the model is rendered. The real cost lever: `auto`
   // means high-quality rendering and more input tokens per page (plan §5.2).
   AI_PDF_DETAIL: z.enum(["auto", "low", "high"]).default("low"),
   /** Past this many pages a PDF is truncated rather than sent whole (§5.2). */
   AI_PDF_MAX_PAGES: z.coerce.number().int().min(1).max(500).default(50),
+
+  // Audio the transcription endpoint will not read (a `.opus` voice note off
+  // WhatsApp, AMR off an Android recorder, anything over its size ceiling) is
+  // converted first, with the static ffmpeg the server ships with. Point this
+  // at a system binary to use that one instead.
+  FFMPEG_PATH: z.string().optional(),
 
   // The ingestion worker runs inside the API process for now; the flag is
   // the groundwork for a dedicated worker instance (plan §11).

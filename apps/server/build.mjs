@@ -21,7 +21,9 @@ await build({
   //     directly now, so it has to be named.
   //   heic-decode  pulls in a 1.4 MB emscripten single-file build of libheif
   //     that expects to be loaded as its own module rather than inlined.
-  external: ["sharp", "@napi-rs/canvas", "heic-decode"],
+  //   ffmpeg-static  resolves the ffmpeg binary sitting next to its own
+  //     index.js, so bundling it would point that path at dist/ instead.
+  external: ["sharp", "@napi-rs/canvas", "heic-decode", "ffmpeg-static"],
   banner: {
     js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
   },

@@ -13,13 +13,16 @@ COPY packages ./packages
 COPY apps/server ./apps/server
 RUN pnpm --filter server build
 
-# The bundle is self-contained except for three packages esbuild is told to
+# The bundle is self-contained except for four packages esbuild is told to
 # leave external (build.mjs):
 #
 #   @napi-rs/canvas  native. pdfjs polyfills DOMMatrix/Path2D through it, and
 #                    rasterize-pdf.ts renders a PDF's first page with it
 #   sharp            native. the image derivatives pass
 #   heic-decode      a 1.4 MB emscripten build of libheif, loaded as a module
+#   ffmpeg-static    a prebuilt ffmpeg, which resolves its binary next to its
+#                    own index.js. Converts audio the transcription endpoint
+#                    will not read (src/ingest/audio-input.ts)
 #
 # Installed here with npm rather than copied out of pnpm's store, because the
 # closure is not just each package and its platform binary: sharp also needs
@@ -32,11 +35,13 @@ RUN mkdir -p /runtime && cd /runtime && npm init -y > /dev/null && \
     npm install --omit=dev --no-audit --no-fund \
       "sharp@$(node -p "require('/repo/apps/server/node_modules/sharp/package.json').version")" \
       "@napi-rs/canvas@$(node -p "require('/repo/apps/server/node_modules/@napi-rs/canvas/package.json').version")" \
-      "heic-decode@$(node -p "require('/repo/apps/server/node_modules/heic-decode/package.json').version")"
+      "heic-decode@$(node -p "require('/repo/apps/server/node_modules/heic-decode/package.json').version")" \
+      "ffmpeg-static@$(node -p "require('/repo/apps/server/node_modules/ffmpeg-static/package.json').version")"
 
 FROM node:24-slim
 ENV NODE_ENV=production
-# Deliberately NO apt packages here, and HEIC still transcodes.
+# Deliberately NO apt packages here: HEIC transcodes and audio converts
+# without any.
 #
 # The tempting version of this (install libvips and libheif, set
 # SHARP_FORCE_GLOBAL_LIBVIPS) cannot work: that variable is read by sharp's

@@ -9,13 +9,14 @@ import type { EntityFields } from "@/lib/types";
 // new kind is a file that fills in slots rather than a new layout.
 //
 // Two surfaces, and the rule is where the card is rather than what it holds:
-// a row *in* a timeline is a surface of its own (no border, the same fill a
-// message has), and a card *inside* a message is a chip on top of one. Both
-// keep the card fill; the nested one is told apart by its border alone, which
-// is enough, and tinting it as well would have made a message's findings read
-// as inset wells rather than as cards sitting on it. Which is why this is a
-// context rather than a prop: the six cards forward nothing, and the list that
-// draws them says once, for all of them, where they are.
+// a row *in* a timeline is a card in its own right, drawn the way a message
+// is, and a card *inside* a message is a chip on top of one. Both keep the
+// card fill and both are bordered, so the corner is what tells them apart: the
+// row takes the card radius, the nested one takes what is left of it at the
+// depth it sits. Tinting the nested one as well would have made a message's
+// findings read as inset wells rather than as cards sitting on it. Which is
+// why this is a context rather than a prop: the six cards forward nothing, and
+// the list that draws them says once, for all of them, where they are.
 
 type Surface = "timeline" | "nested";
 
@@ -81,12 +82,15 @@ export function EntityShell({
   const footnote = mentions > 1 && (
     <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
   );
-  // Every corner is concentric with the one outside it. A nested card sits
-  // 14px inside a 16px message, so 2px is all that is left of the curve,
-  // taken at the nearest rung; a timeline row has nothing outside it and
-  // takes the card radius itself. The icon box follows for the same reason:
-  // at 8px it would have been rounder than the nested card holding it.
-  const surface = timeline ? "rounded-xl bg-card p-3.5" : "rounded-xs border bg-card p-3";
+  // Every corner is concentric with the one outside it, near enough. A nested
+  // card sits 15px inside a 16px message, so next to nothing is left of the
+  // curve; it takes a rung above that, because a bordered card at the smallest
+  // rung reads as a box someone clipped rather than as a card of its own. A
+  // timeline row has nothing outside it and takes the card radius itself. The
+  // icon box keeps its own scale on a row, where a 16px corner leaves room for
+  // it, and drops a rung under the nested card: at 8px it would have been
+  // rounder than the card it sits in.
+  const surface = timeline ? "rounded-xl border bg-card p-3.5" : "rounded-sm border bg-card p-3";
   const iconBox = timeline ? "rounded-md" : "rounded-xs";
   const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
   return (

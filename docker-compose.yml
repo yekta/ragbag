@@ -52,6 +52,7 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       AI_ENRICH_MODEL: ${AI_ENRICH_MODEL:-}
       AI_TRANSCRIBE_MODEL: ${AI_TRANSCRIBE_MODEL:-}
+      FFMPEG_PATH: ${FFMPEG_PATH:-}
       # The cost lever on scanned PDFs: pages rendered, not calls (plan §5.2).
       AI_PDF_DETAIL: ${AI_PDF_DETAIL:-low}
       AI_PDF_MAX_PAGES: ${AI_PDF_MAX_PAGES:-50}
