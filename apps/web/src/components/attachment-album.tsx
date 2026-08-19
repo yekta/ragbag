@@ -182,7 +182,7 @@ function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVar
         // shrink-to-fit container whose own width depends on the image inside
         // it, so until the bytes decode the picture is a few pixels wide and
         // the archive loses hundreds of pixels of height.
-        className={`relative block overflow-hidden rounded-sm border ${box ? "" : "h-52 max-w-full"}`}
+        className={`relative block overflow-hidden rounded-md border ${box ? "" : "h-52 max-w-full"}`}
       >
         <Tile attachment={only} variant="display" fit="contain" />
       </AttachmentLink>
@@ -198,7 +198,7 @@ function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVar
           key={item.id}
           attachment={item}
           variant={variant}
-          className="relative aspect-square overflow-hidden rounded-sm border"
+          className="relative aspect-square overflow-hidden rounded-md border"
         >
           <Tile attachment={item} variant="thumb" fit="cover" />
           {/* A chip rather than a scrim over the picture: the palette has no
@@ -322,9 +322,9 @@ function AudioBubble({ attachment, variant }: { attachment: Attachment; variant:
   );
 
   return (
-    <div className="relative rounded-sm border bg-card p-3">
+    <div className="relative rounded-md border bg-card p-3">
       <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xs bg-muted text-muted-foreground">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
           <Icon name="audio" className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
@@ -391,9 +391,9 @@ function FileRow({
     <AttachmentLink
       attachment={attachment}
       variant={variant}
-      className="relative flex items-center gap-3 rounded-sm border bg-card p-3 transition hover:bg-panel"
+      className="relative flex items-center gap-3 rounded-md border bg-card p-3 transition hover:bg-panel"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xs bg-muted text-muted-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
         <Icon name={FACE_ICON[face]} className="size-4" />
       </span>
       <span className="min-w-0">

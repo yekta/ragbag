@@ -84,18 +84,19 @@ export function EntityShell({
   const footnote = mentions > 1 && (
     <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
   );
-  // Every corner is concentric with the one outside it, near enough. A nested
-  // card sits 15px inside a 20px message, which leaves 5px of curve, and 6px
-  // is the rung on it: near enough concentric, and one above the smallest,
-  // where a bordered card reads as a box someone clipped rather than as a card
-  // of its own. A timeline row has nothing outside it and takes the message's
-  // own corner. The icon box keeps its own scale on a row, where
-  // a 20px corner leaves room for it, and drops a rung under the nested card:
-  // at 8px it would have been rounder than the card it sits in.
+  // Every corner answers to the one outside it. A nested card sits 15px inside
+  // a 20px message, so concentric would be 5px and this is deliberately two
+  // rungs above it: what is left of a curve at that depth reads as a box
+  // someone clipped rather than as a card of its own, and a message of 6px
+  // boxes inside a 20px corner read as a rounded card with square things in it.
+  // A timeline row has nothing outside it and takes the message's own corner.
+  // The icon box keeps its own scale on a row, where a 20px corner leaves room
+  // for it, and stays a rung under the nested card either way: an icon box as
+  // round as the card holding it is that card's corner said twice.
   const surface = timeline
     ? "rounded-2xl border bg-background p-3.5"
-    : "rounded-sm border bg-card p-3";
-  const iconBox = timeline ? "rounded-md" : "rounded-xs";
+    : "rounded-md border bg-card p-3";
+  const iconBox = timeline ? "rounded-md" : "rounded-sm";
   // One hover for both surfaces: a neutral rung above whichever fill it sits
   // on. The nested one used to take the accent tint, which put a wash of
   // violet on a card that is otherwise all greys. That token is for menu focus
