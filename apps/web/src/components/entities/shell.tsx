@@ -81,7 +81,13 @@ export function EntityShell({
   const footnote = mentions > 1 && (
     <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
   );
-  const surface = timeline ? "rounded-lg bg-card p-3.5" : "rounded-lg border bg-card p-3";
+  // Every corner is concentric with the one outside it. A nested card sits
+  // 14px inside a 16px message, so 2px is all that is left of the curve,
+  // taken at the nearest rung; a timeline row has nothing outside it and
+  // takes the card radius itself. The icon box follows for the same reason:
+  // at 8px it would have been rounder than the nested card holding it.
+  const surface = timeline ? "rounded-xl bg-card p-3.5" : "rounded-xs border bg-card p-3";
+  const iconBox = timeline ? "rounded-md" : "rounded-xs";
   const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
   return (
     <div
@@ -95,7 +101,9 @@ export function EntityShell({
           : undefined
       }
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+      <span
+        className={`flex size-9 shrink-0 items-center justify-center bg-muted text-muted-foreground ${iconBox}`}
+      >
         <Icon name={icon} className="size-4" />
       </span>
       <div className="min-w-0 flex-1">

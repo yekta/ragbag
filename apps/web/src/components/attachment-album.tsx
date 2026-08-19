@@ -85,7 +85,7 @@ function ImageAlbum({ items }: { items: Attachment[] }) {
         // shrink-to-fit container whose own width depends on the image inside
         // it, so until the bytes decode the picture is a few pixels wide and
         // the archive loses hundreds of pixels of height.
-        className={`relative block overflow-hidden rounded-lg border ${box ? "" : "h-52 max-w-full"}`}
+        className={`relative block overflow-hidden rounded-xs border ${box ? "" : "h-52 max-w-full"}`}
       >
         <Tile attachment={only} variant="display" fit="contain" />
       </Link>
@@ -100,7 +100,7 @@ function ImageAlbum({ items }: { items: Attachment[] }) {
         <Link
           key={item.id}
           {...messageLink(messageId, filter)}
-          className="relative aspect-square overflow-hidden rounded-lg border"
+          className="relative aspect-square overflow-hidden rounded-xs border"
         >
           <Tile attachment={item} variant="thumb" fit="cover" />
           {/* A chip rather than a scrim over the picture: the palette has no
@@ -159,7 +159,7 @@ function AudioBubble({ attachment }: { attachment: Attachment }) {
   const local = useBlobUrl(attachment.blobId);
   const url = local ?? mediaUrl(attachment.blobId, "original");
   return (
-    <div className="relative flex items-center gap-3 rounded-lg border bg-panel p-2.5">
+    <div className="relative flex items-center gap-3 rounded-xs border bg-panel p-2.5">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
         <Icon name="audio" className="size-4" />
       </span>
@@ -206,7 +206,7 @@ function FileRow({ attachment, face }: { attachment: Attachment; face: Attachmen
   return (
     <Link
       {...messageLink(attachment.messageId, filter)}
-      className="relative flex items-center gap-3 rounded-lg border bg-panel p-3 transition hover:bg-accent"
+      className="relative flex items-center gap-3 rounded-xs border bg-panel p-3 transition hover:bg-accent"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
         <Icon name={FACE_ICON[face]} className="size-5" />

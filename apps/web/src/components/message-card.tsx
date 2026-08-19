@@ -234,7 +234,7 @@ export function MessageCard({
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // borrows the card tokens directly.
     <article
-      className={`group relative rounded-lg bg-card text-card-foreground ${
+      className={`group relative rounded-xl bg-card text-card-foreground ${
         highlight ? "ring-2 ring-ring" : ""
       }`}
       // Touch has no hover actions, so tapping the card body opens the detail

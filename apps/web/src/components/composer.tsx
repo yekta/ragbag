@@ -427,7 +427,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
             ref={cardRef}
-            className={`rounded-lg border bg-card transition ${
+            className={`rounded-xl border bg-card transition ${
               dragZone === "composer" ? "border-primary ring-4 ring-accent" : ""
             }`}
           >
@@ -656,7 +656,7 @@ function AttachmentChip({
         // second hairline inside it, drawn from the shadow family (the
         // palette's one sanctioned translucent set) rather than a flat colour,
         // because only a tinted line reads over content it cannot predict.
-        className={`relative block size-full overflow-hidden rounded-lg border bg-muted ${
+        className={`relative block size-full overflow-hidden rounded-xs border bg-muted ${
           failedReason
             ? "border-destructive"
             : framed

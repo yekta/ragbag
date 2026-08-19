@@ -230,7 +230,14 @@ export function EntityDetail() {
               <section>
                 <SectionHeading>Delete</SectionHeading>
                 <p className="text-[13px] text-muted-foreground">
-                  Deletes this {types.label(entity.kind)} everywhere.{" "}
+                  {/* The kind wears the card's own border and fill, because
+                      "Deletes this Email" reads as a message otherwise: the
+                      chip is what says it is a kind of thing. */}
+                  Deletes this{" "}
+                  <span className="rounded-md border bg-panel px-1.5 py-0.5 text-foreground">
+                    {types.label(entity.kind)}
+                  </span>{" "}
+                  everywhere.{" "}
                   {entity.mentions.length === 1
                     ? "The message it was found in stays."
                     : "The messages it was found in stay."}
