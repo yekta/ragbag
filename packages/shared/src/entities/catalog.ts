@@ -56,11 +56,15 @@ const tracking: EntityTypeDef = {
   icon: "package",
   inSidebar: true,
   promptHint:
-    "A parcel tracking number, with its carrier when you can tell. An order number or a " +
-    "reference code is not one, so never make one out of a random string of characters.",
+    "A parcel tracking number. Name the carrier only when the text says who it is: the shape " +
+    "of a number tells you who printed the label, not who has the parcel. An order number or " +
+    "a reference code is not a tracking number, so never make one out of a random string of " +
+    "characters.",
   fields: [
     field("number", "text", { label: "Tracking No", required: true }),
-    field("carrier", "text", { description: "The carrier, lowercased: ups, fedex, dhl, usps" }),
+    field("carrier", "text", {
+      description: "Lowercased (ups, fedex, dhl, usps), and only when the text names it",
+    }),
     field("status", "text", { description: "Only what the text itself says about it" }),
   ],
 };

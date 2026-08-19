@@ -352,10 +352,11 @@ describe("link", () => {
 });
 
 describe("tracking", () => {
-  it("finds the unmistakable carrier formats on sight", () => {
+  it("finds the unmistakable formats on sight", () => {
     const found = types.match("parcel 1Z999AA10123456784 arriving thursday");
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({ kind: "tracking", value: "1Z999AA10123456784" });
+    // Nobody but UPS prints a 1Z, so here the shape is evidence of the carrier.
     expect(found[0]!.data).toMatchObject({ carrier: "ups" });
   });
 
@@ -366,11 +367,35 @@ describe("tracking", () => {
     expect(withContext[0]!.data).toMatchObject({ carrier: "fedex" });
   });
 
-  it("keys on carrier and number, so the same digits at two carriers stay apart", () => {
-    expect(types.normalize("tracking", "1Z999AA1 0123456784", { carrier: "UPS" })).toBe(
-      "ups:1Z999AA10123456784",
+  it("leaves the carrier out rather than read one off the number's shape", () => {
+    // DHL printed this label; an Aliexpress parcel on it is delivered by
+    // whoever does that street, which is what the owner is trying to find out.
+    const found = types.match(
+      "It's an Aliexpress package. Here is the tracking number: JJD0002235153012047",
     );
-    expect(types.normalize("tracking", "123456789012", {})).toBe("?:123456789012");
+    expect(found).toHaveLength(1);
+    expect(found[0]!.data).toEqual({ number: "JJD0002235153012047" });
+  });
+
+  it("takes the carrier the text names, and the nearest one it names", () => {
+    expect(types.match("DHL parcel JJD0002235153012047")[0]!.data).toMatchObject({
+      carrier: "dhl",
+    });
+    const two = types.match("the DHL one arrived, it's the FedEx parcel 123456789012 that is lost");
+    expect(two[0]!.data).toMatchObject({ carrier: "fedex" });
+  });
+
+  it("keys on the number alone, so one parcel is one thing however much is known", () => {
+    expect(types.normalize("tracking", "1Z999AA1 0123456784", { carrier: "UPS" })).toBe(
+      "1Z999AA10123456784",
+    );
+    // The pre-pass's answer and the model's, keyed together: a carrier is
+    // learned about a parcel, not what makes it that parcel. Apart, the same
+    // number came back twice in one message, once with a carrier and once with
+    // the status.
+    expect(types.normalize("tracking", "JJD0002235153012047", { carrier: "dhl" })).toBe(
+      types.normalize("tracking", "JJD0002235153012047", { status: "with a neighbour" }),
+    );
   });
 
   it("has somewhere to send you even for a carrier it does not know", () => {

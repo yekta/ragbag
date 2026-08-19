@@ -353,12 +353,18 @@ export async function synthesizeMessage(job: {
       if (!resolved) continue;
       const key = `${resolved.kind}:${resolved.normalizedValue}`;
       const at = source ? source.text.indexOf(raw.value) : -1;
-      // The model's answer wins over the pre-pass's: it is the same thing,
-      // with structure the regex could not know (a carrier, a vendor, a
-      // locality). The pre-pass's job was to make sure it was noticed.
+      // The model's answer wins over the pre-pass's, field by field rather than
+      // wholesale: it is the same thing, with structure the regex could not
+      // know (a status, a vendor, a locality), and the pre-pass knew things the
+      // model leaves out (the carrier a 1Z number can only be). A field the
+      // model did not fill is not a field it denied, and the write merges the
+      // two across runs anyway (entities.ts), so replacing here only made one
+      // run less careful than two.
+      const data = { ...found.get(key)?.data, ...filled(resolved.data) };
       found.set(key, {
         ...resolved,
-        generatedTitle: types.title(resolved.kind, resolved.value, resolved.data),
+        data,
+        generatedTitle: types.title(resolved.kind, resolved.value, data),
         topics: raw.topics,
         mention: {
           attachmentId: source?.attachmentId ?? null,
@@ -447,7 +453,7 @@ async function enrichLinks(
       entity.data = {
         ...entity.data,
         url,
-        ...definedOnly({
+        ...filled({
           title: extracted.title,
           description: extracted.description,
           site_name: extracted.siteName,
@@ -473,8 +479,12 @@ async function enrichLinks(
   return snapshots;
 }
 
-function definedOnly(obj: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+/**
+ * The fields an answer actually filled. An absent one and an empty one say the
+ * same nothing, and neither may overwrite something already known.
+ */
+function filled(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== ""));
 }
 
 /**
