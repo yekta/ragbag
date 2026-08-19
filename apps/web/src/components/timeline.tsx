@@ -417,7 +417,7 @@ export function Timeline({
                         only has to colour it. */}
                     <Badge
                       variant="secondary"
-                      className="border-border bg-card px-3 text-[11px] text-muted-foreground"
+                      className="border-border bg-background px-3 text-[11px] text-muted-foreground"
                     >
                       {row.label}
                     </Badge>

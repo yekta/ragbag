@@ -28,6 +28,13 @@ import type { Attachment } from "@/lib/types";
 // The attachments of one message, laid out the way a messaging app lays them
 // out: an album of pictures, a bubble per voice note, a row per file.
 //
+// All three take the nested entity card's chrome from entities/shell.tsx: the
+// same fill, corner, padding and icon box. They stack in one column under one
+// message, alongside the things the pipeline found in it, so anything they
+// disagreed on read as two kinds of card rather than as one message's worth of
+// contents. The voice note was the loudest about it, carrying a tinted disc
+// and a fill of its own.
+//
 // Order is `position`, and it is preserved exactly (plan §2.2: "exactly as it
 // was sent"). That is why consecutive pictures are what get batched into a
 // grid rather than every picture in the message: a photo, a PDF and another
@@ -175,7 +182,7 @@ function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVar
         // shrink-to-fit container whose own width depends on the image inside
         // it, so until the bytes decode the picture is a few pixels wide and
         // the archive loses hundreds of pixels of height.
-        className={`relative block overflow-hidden rounded-xs border ${box ? "" : "h-52 max-w-full"}`}
+        className={`relative block overflow-hidden rounded-sm border ${box ? "" : "h-52 max-w-full"}`}
       >
         <Tile attachment={only} variant="display" fit="contain" />
       </AttachmentLink>
@@ -191,15 +198,15 @@ function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVar
           key={item.id}
           attachment={item}
           variant={variant}
-          className="relative aspect-square overflow-hidden rounded-xs border"
+          className="relative aspect-square overflow-hidden rounded-sm border"
         >
           <Tile attachment={item} variant="thumb" fit="cover" />
           {/* A chip rather than a scrim over the picture: the palette has no
               ink that reads on `--overlay` in both themes, and a corner badge
-              on the card surface says the same thing while leaving the last
+              on the panel surface says the same thing while leaving the last
               photo visible. Same surface as the upload badge above it. */}
           {overflow > 0 && i === shown.length - 1 && (
-            <span className="absolute bottom-1.5 right-1.5 rounded-full border bg-card px-2 py-0.5 font-mono text-[11px] font-medium">
+            <span className="absolute bottom-1.5 right-1.5 rounded-full border bg-panel px-2 py-0.5 font-mono text-[11px] font-medium">
               +{overflow}
             </span>
           )}
@@ -315,9 +322,9 @@ function AudioBubble({ attachment, variant }: { attachment: Attachment; variant:
   );
 
   return (
-    <div className="relative rounded-xs border bg-panel p-2.5">
+    <div className="relative rounded-sm border bg-card p-3">
       <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xs bg-muted text-muted-foreground">
           <Icon name="audio" className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
@@ -384,10 +391,10 @@ function FileRow({
     <AttachmentLink
       attachment={attachment}
       variant={variant}
-      className="relative flex items-center gap-3 rounded-xs border bg-panel p-3 transition hover:bg-accent"
+      className="relative flex items-center gap-3 rounded-sm border bg-card p-3 transition hover:bg-panel"
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <Icon name={FACE_ICON[face]} className="size-5" />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xs bg-muted text-muted-foreground">
+        <Icon name={FACE_ICON[face]} className="size-4" />
       </span>
       <span className="min-w-0">
         <span className="block truncate font-medium">
@@ -454,7 +461,7 @@ export function UploadBadge({
       }}
       className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-medium ${
         side === "left" ? "left-1.5" : "right-1.5"
-      } ${failing ? "border-destructive bg-card text-destructive" : "bg-card text-muted-foreground"}`}
+      } ${failing ? "border-destructive bg-panel text-destructive" : "bg-panel text-muted-foreground"}`}
     >
       {failing ? (
         <Icon name="alert" className="size-3" />

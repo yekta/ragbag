@@ -27,6 +27,7 @@
   --popover-foreground: oklch(0.205 0 0);
 
   --panel: oklch(0.97 0 0);
+  --panel-hover: oklch(0.945 0 0);
   --primary: oklch(0.511 0.262 276.966);
   --primary-foreground: oklch(1 0 0);
   --primary-hover: oklch(0.457 0.24 277.023);
@@ -36,7 +37,7 @@
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.54 0 0);
   --accent: oklch(0.962 0.018 272.314);
-  --accent-foreground: oklch(0.359 0.144 278.697);
+  --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-hover: oklch(0.505 0.213 27.518);
   --destructive-soft: oklch(0.955 0.021 27);
@@ -54,7 +55,7 @@
   --sidebar-primary: oklch(0.511 0.262 276.966);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.962 0.018 272.314);
-  --sidebar-accent-foreground: oklch(0.359 0.144 278.697);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.585 0.233 277.117);
   --kind-note: oklch(0.56 0.085 95);
@@ -98,6 +99,7 @@
   --popover: oklch(0.182 0 0);
   --popover-foreground: oklch(0.97 0 0);
   --panel: oklch(0.225 0 0);
+  --panel-hover: oklch(0.255 0 0);
 
   --primary: oklch(0.673 0.182 276.935);
   --primary-foreground: oklch(0.205 0.03 277);
@@ -119,7 +121,7 @@
   --warning-foreground: oklch(0.855 0.085 92);
   --success: oklch(0.29 0.045 160);
   --success-foreground: oklch(0.81 0.095 158);
-  --border: oklch(0.285 0 0);
+  --border: oklch(0.25 0 0);
   --input: oklch(0.333 0 0);
   --switch-thumb: oklch(0.97 0 0);
   --ring: oklch(0.673 0.182 276.935);
@@ -130,7 +132,7 @@
   --sidebar-primary-foreground: oklch(0.205 0.03 277);
   --sidebar-accent: oklch(0.31 0.05 277);
   --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(0.285 0 0);
+  --sidebar-border: oklch(0.25 0 0);
   --sidebar-ring: oklch(0.673 0.182 276.935);
   --kind-note: oklch(0.79 0.09 95);
   --kind-note-soft: oklch(0.312 0.038 95);
@@ -175,6 +177,7 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-panel: var(--panel);
+  --color-panel-hover: var(--panel-hover);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);

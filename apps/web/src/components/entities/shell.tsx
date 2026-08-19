@@ -10,13 +10,15 @@ import type { EntityFields } from "@/lib/types";
 //
 // Two surfaces, and the rule is where the card is rather than what it holds:
 // a row *in* a timeline is a card in its own right, drawn the way a message
-// is, and a card *inside* a message is a chip on top of one. Both keep the
-// card fill and both are bordered, so the corner is what tells them apart: the
-// row takes the card radius, the nested one takes what is left of it at the
-// depth it sits. Tinting the nested one as well would have made a message's
-// findings read as inset wells rather than as cards sitting on it. Which is
-// why this is a context rather than a prop: the six cards forward nothing, and
-// the list that draws them says once, for all of them, where they are.
+// is, and a card *inside* a message is a chip on top of one. Both are
+// bordered, and the fill now says which is which as plainly as the corner
+// does: a row sitting on the canvas takes the page's own fill, so its border
+// is the whole card, while a nested one takes the card fill and reads as
+// something laid on the message rather than cut into it. The corner follows
+// the same depth: the row takes the card radius, the nested one takes what is
+// left of it where it sits. Which is why this is a context rather than a
+// prop: the six cards forward nothing, and the list that draws them says once,
+// for all of them, where they are.
 
 type Surface = "timeline" | "nested";
 
@@ -90,9 +92,15 @@ export function EntityShell({
   // icon box keeps its own scale on a row, where a 16px corner leaves room for
   // it, and drops a rung under the nested card: at 8px it would have been
   // rounder than the card it sits in.
-  const surface = timeline ? "rounded-xl border bg-card p-3.5" : "rounded-sm border bg-card p-3";
+  const surface = timeline
+    ? "rounded-xl border bg-background p-3.5"
+    : "rounded-sm border bg-card p-3";
   const iconBox = timeline ? "rounded-md" : "rounded-xs";
-  const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
+  // One hover for both surfaces: a neutral rung above whichever fill it sits
+  // on. The nested one used to take the accent tint, which put a wash of
+  // violet on a card that is otherwise all greys. That token is for menu focus
+  // and for selection, and a hover is neither.
+  const hover = onOpen ? "cursor-pointer hover:bg-panel" : "";
   return (
     <div
       className={`flex gap-3 transition ${surface} ${hover}`}

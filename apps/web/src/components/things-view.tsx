@@ -103,7 +103,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
         <li key={attachment.id}>
           <Link
             {...messageLink(message.id, filter)}
-            className="flex items-center gap-3 rounded-xl border bg-card p-3.5 transition hover:bg-panel"
+            className="flex items-center gap-3 rounded-xl border bg-background p-3.5 transition hover:bg-panel"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <Icon name={FACE_ICON[faceForMime(attachment.mime)]} className="size-5" />

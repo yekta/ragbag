@@ -1,4 +1,4 @@
-import { CopyButton, EntityShell, str, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } from "./shell.js";
 
 // v1's LinkBody, now a card for a canonical entity: the same URL dumped in
 // five messages is one of these, enriched and snapshotted once (plan §6.6).
@@ -27,15 +27,7 @@ export function LinkCard({ entity, onOpen }: EntityCardProps) {
       }
       actions={
         <>
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex h-6 items-center gap-1 rounded-md border px-2 text-xs hover:bg-accent"
-          >
-            Open
-          </a>
+          <ExternalAction href={url}>Open</ExternalAction>
           <CopyButton value={url} label="Copy link" />
         </>
       }

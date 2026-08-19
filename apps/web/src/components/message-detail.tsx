@@ -490,7 +490,7 @@ function AttachmentFindings({ attachment }: { attachment: DetailAttachment }) {
             <li key={i}>
               <button
                 type="button"
-                className="flex w-full gap-2 rounded px-1 text-left hover:bg-accent"
+                className="flex w-full gap-2 rounded px-1 text-left hover:bg-panel-hover"
                 onClick={() => {
                   const audio = scope?.players.get(attachment.id);
                   if (!audio) return;

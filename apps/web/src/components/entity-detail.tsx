@@ -200,7 +200,7 @@ export function EntityDetail() {
                           an action on the message it sat on. */}
                       <Link
                         {...messageLink(mention.messageId, filter)}
-                        className="block rounded-lg border bg-panel p-3 transition hover:bg-accent"
+                        className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"
                         onClick={close}
                       >
                         <span className="block truncate text-sm font-medium">

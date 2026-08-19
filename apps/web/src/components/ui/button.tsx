@@ -13,6 +13,11 @@ import { cn } from "@/lib/utils";
 // the theme prefix is gone from the app entirely. Rule 2 in index.css has the
 // full argument.
 //
+// The outline variant came out of that carrying an edge colour and no width.
+// Preflight zeroes the width and nothing put it back, so it drew no edge at
+// all in either theme and leaned on its shadow to be seen, which on a white
+// card is very nearly nothing. The width is back.
+//
 // Note that this comment names none of those classes literally, and neither
 // should the next one: Tailwind scans this file as raw text, so a class spelled
 // out in prose is compiled into the bundle as a real rule. Four dead utilities
@@ -49,7 +54,7 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         outline:
-          "border-border bg-background shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+          "border border-border bg-background shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
