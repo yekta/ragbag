@@ -39,6 +39,45 @@ const TRACK_URL: Record<string, (n: string) => string> = {
 };
 
 /**
+ * A carrier as it spells itself.
+ *
+ * Everything upstream writes the carrier lowercased, because it is a key: the
+ * matcher folds what it found, the model is asked for "ups, fedex, dhl, usps",
+ * and dedupe keys on it. Keys are not names, and the shortest way from one to
+ * the other used to be `toUpperCase()`, which is right for the four
+ * initialisms and turns FedEx into FEDEX, Hermes into HERMES and Yurtiçi into
+ * YURTIÇI. So the ones that are words are spelled out, and anything unknown is
+ * title-cased, which is the better guess for a carrier nobody listed here.
+ */
+const CARRIER_NAMES: Record<string, string> = {
+  ups: "UPS",
+  usps: "USPS",
+  dhl: "DHL",
+  fedex: "FedEx",
+  gls: "GLS",
+  dpd: "DPD",
+  tnt: "TNT",
+  ptt: "PTT",
+  mng: "MNG",
+  aras: "Aras",
+  hermes: "Hermes",
+  aramex: "Aramex",
+  sendeo: "Sendeo",
+  royalmail: "Royal Mail",
+  "royal mail": "Royal Mail",
+  yurtici: "Yurtiçi",
+  yurtiçi: "Yurtiçi",
+};
+
+export function carrierName(carrier: string): string {
+  const key = carrier.trim().toLowerCase();
+  if (!key) return "";
+  return (
+    CARRIER_NAMES[key] ?? key.replace(/(^|[\s-])(\p{Ll})/gu, (_, gap, c) => gap + c.toUpperCase())
+  );
+}
+
+/**
  * Where to follow a parcel. Falls back to a web search rather than to
  * nothing: a number with an unrecognised carrier is still a number someone
  * wants to look up, and the search finds the right site more often than a
@@ -83,7 +122,7 @@ export const trackingBehaviour: EntityBehaviour = {
     return `${carrier}:${number}`;
   },
   title(value, data) {
-    const carrier = typeof data.carrier === "string" ? data.carrier.toUpperCase() : "";
+    const carrier = typeof data.carrier === "string" ? carrierName(data.carrier) : "";
     return carrier ? `${carrier} ${value}` : value;
   },
 };

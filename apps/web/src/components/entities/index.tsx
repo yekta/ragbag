@@ -41,7 +41,7 @@ export function GenericEntityCard({ entity, onOpen }: EntityCardProps) {
       title={entity.generatedTitle ?? entity.value}
       onOpen={onOpen}
       subtitle={
-        <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] uppercase tracking-wide">
+        <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px]">
           {types.label(entity.kind)}
         </span>
       }

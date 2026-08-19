@@ -20,7 +20,7 @@ export function InvoiceCard({ entity, onOpen }: EntityCardProps) {
             number ? `#${number}` : null,
           ]
             .filter(Boolean)
-            .join(" · ") || "no amount recorded"}
+            .join(" · ") || "No amount recorded"}
         </span>
       }
       actions={<CopyButton value={[vendor, number, amount].filter(Boolean).join(" ")} />}

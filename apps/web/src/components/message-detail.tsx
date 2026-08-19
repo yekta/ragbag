@@ -9,6 +9,7 @@ import { FACE_ICON, Icon } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
 import { Linkified } from "@/components/message-card";
 import { TagEditor } from "@/components/tag-editor";
+import { SectionHeading } from "@/components/typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -242,7 +243,7 @@ export function MessageDetail() {
 
               {/* the user's own words */}
               <section>
-                <SectionLabel>Your message</SectionLabel>
+                <SectionHeading>Your message</SectionHeading>
                 {editing ? (
                   <div>
                     <Textarea
@@ -288,11 +289,11 @@ export function MessageDetail() {
               {/* AI summary */}
               {message.generatedSummary && (
                 <section className="rounded-xl bg-ai-soft p-3.5">
-                  <SectionLabel>
+                  <SectionHeading>
                     <span className="flex items-center gap-1 text-ai">
                       <Icon name="sparkles" className="size-3.5" /> Summary
                     </span>
-                  </SectionLabel>
+                  </SectionHeading>
                   <p className="text-sm leading-relaxed">{message.generatedSummary}</p>
                 </section>
               )}
@@ -304,7 +305,7 @@ export function MessageDetail() {
 
               {/* tags */}
               <section>
-                <SectionLabel>Tags</SectionLabel>
+                <SectionHeading>Tags</SectionHeading>
                 <TagEditor
                   userTagNames={message.tags
                     .filter((t) => t.source === "user" && t.tag)
@@ -412,16 +413,16 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
 
   return (
     <section className="space-y-2">
-      <SectionLabel>
+      <SectionHeading>
         <span className="flex items-center gap-1.5">
           <Icon name={FACE_ICON[face]} className="size-3.5" />
           <span className="truncate">{attachment.filename}</span>
-          <span className="font-mono font-normal normal-case tracking-normal text-muted-foreground">
+          <span className="font-mono text-xs font-normal text-muted-foreground">
             {formatBytes(attachment.size)}
             {attachment.durationMs != null ? ` · ${formatDuration(attachment.durationMs)}` : ""}
           </span>
         </span>
-      </SectionLabel>
+      </SectionHeading>
 
       {face === "image" && (
         // The box is the wrapper's, from the synced dimensions, so the blurred
@@ -462,7 +463,7 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
             <p className="truncate font-medium">
               {attachment.generatedTitle ?? attachment.filename}
             </p>
-            <p className="text-xs text-muted-foreground">Stored in your ragbag</p>
+            <p className="text-xs text-muted-foreground">Stored in your archive</p>
           </div>
           <Button
             variant="outline"
@@ -545,13 +546,5 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
         </details>
       )}
     </section>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {children}
-    </h2>
   );
 }

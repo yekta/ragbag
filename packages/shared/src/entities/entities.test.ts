@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addressQuery, mapsSearchUrl } from "./address.js";
 import {
   BEHAVIOUR_KINDS,
+  carrierName,
   CATALOG,
   catalogEntry,
   partitionTypes,
@@ -370,6 +371,17 @@ describe("tracking", () => {
   it("has somewhere to send you even for a carrier it does not know", () => {
     expect(trackingUrl("ups", "1Z999")).toContain("ups.com");
     expect(trackingUrl("", "1Z999")).toContain("google.com/search");
+  });
+
+  it("spells a carrier the way the carrier does", () => {
+    // The stored value is a key, always folded; only the display side differs.
+    expect(carrierName("ups")).toBe("UPS");
+    expect(carrierName("fedex")).toBe("FedEx");
+    expect(carrierName("royal mail")).toBe("Royal Mail");
+    // Not in the table, so title case rather than a shout.
+    expect(carrierName("evri")).toBe("Evri");
+    expect(carrierName("")).toBe("");
+    expect(types.title("tracking", "1Z999", { carrier: "fedex" })).toBe("FedEx 1Z999");
   });
 });
 

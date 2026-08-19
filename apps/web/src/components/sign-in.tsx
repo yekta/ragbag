@@ -39,7 +39,7 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
             <Icon name="inbox" className="size-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">ragbag</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Ragbag</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Dump anything. Find everything, even offline.
             </p>

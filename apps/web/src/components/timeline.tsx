@@ -481,7 +481,7 @@ function Placeholder({
             ? // No spinner: sync is refused or offline, so nothing is in fact in
               // progress. The banner above says why.
               "Nothing dropped on this device yet. Drop anything below. It syncs once the connection is back."
-            : "Your ragbag is empty. Drop anything below. It syncs everywhere."}
+            : "Your archive is empty. Drop anything below. It syncs everywhere."}
         </p>
       </Centred>
     );

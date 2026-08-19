@@ -1,4 +1,4 @@
-import { trackingUrl } from "@ragbag/shared";
+import { carrierName, trackingUrl } from "@ragbag/shared";
 import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } from "./shell.js";
 
 export function TrackingCard({ entity, onOpen }: EntityCardProps) {
@@ -11,8 +11,8 @@ export function TrackingCard({ entity, onOpen }: EntityCardProps) {
       title={number}
       onOpen={onOpen}
       subtitle={
-        <span className="uppercase tracking-wide">
-          {carrier ?? "carrier unknown"}
+        <span>
+          {carrier ? carrierName(carrier) : "Carrier unknown"}
           {str(data, "status") ? ` · ${str(data, "status")}` : ""}
         </span>
       }

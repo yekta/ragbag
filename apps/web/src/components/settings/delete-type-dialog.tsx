@@ -81,7 +81,7 @@ export function DeleteTypeDialog({
             </p>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
               {count > 0
-                ? "It stays in your ragbag and in search, just not as a group."
+                ? "It stays in your archive and in search, just not as a group."
                 : "It goes back to the list of things you are not looking for."}
             </p>
             <Button

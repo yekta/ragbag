@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Icon, TYPE_ICONS } from "@/components/icon";
 import { DeleteTypeDialog } from "@/components/settings/delete-type-dialog";
+import { SectionHeading } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -242,9 +243,9 @@ function Form({
         <Button variant="ghost" size="icon-sm" title="Back" onClick={onDone}>
           <Icon name="x" className="size-4" />
         </Button>
-        <h3 className="text-sm font-medium">
+        <h2 className="text-base font-semibold">
           {type ? type.sidebarTitle : "Something new to look for"}
-        </h3>
+        </h2>
         <Button
           className="ml-auto"
           size="sm"
@@ -343,24 +344,25 @@ function Form({
       </Labelled>
 
       <div>
-        <div className="mb-1.5 flex items-center gap-2">
-          <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Details
-          </h4>
-          {!owned && (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="ml-auto text-muted-foreground"
-              onClick={() => patch({ fields: [...draft.fields, emptyField()] })}
-            >
-              <Icon name="plus" className="size-3" /> Add
-            </Button>
-          )}
-        </div>
+        <SectionHeading
+          action={
+            !owned && (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="text-muted-foreground"
+                onClick={() => patch({ fields: [...draft.fields, emptyField()] })}
+              >
+                <Icon name="plus" className="size-3" /> Add
+              </Button>
+            )
+          }
+        >
+          Details
+        </SectionHeading>
         <p className="mb-2 text-[13px] text-muted-foreground">
           {owned
-            ? "ragbag finds these on its own, so their details are fixed."
+            ? "This one is built in, so its details are fixed."
             : "What to fill in for each one. Tick the details that tell two apart."}
         </p>
         <ul className="flex flex-col gap-2">
@@ -520,8 +522,8 @@ function pluralize(label: string): string {
 function Head({ label, hint }: { label: string; hint?: string }) {
   return (
     <span className="mb-1 flex items-baseline gap-2">
-      <span className="text-[13px] font-medium">{label}</span>
-      {hint && <span className="truncate text-[11px] text-muted-foreground">{hint}</span>}
+      <span className="text-sm font-medium">{label}</span>
+      {hint && <span className="truncate text-xs text-muted-foreground">{hint}</span>}
     </span>
   );
 }

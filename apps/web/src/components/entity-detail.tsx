@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { EntityCard } from "@/components/entities";
 import { Icon } from "@/components/icon";
 import { TagEditor } from "@/components/tag-editor";
+import { SectionHeading } from "@/components/typography";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
@@ -91,7 +92,7 @@ export function EntityDetail() {
             <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
               <span className="text-sm font-medium">{types.label(entity.kind)}</span>
               <span className="text-xs text-muted-foreground">
-                first seen {dayLabel(entity.firstSeenAt)}
+                First seen {dayLabel(entity.firstSeenAt)}
               </span>
               <span className="ml-auto flex items-center gap-1">
                 <Button
@@ -112,18 +113,18 @@ export function EntityDetail() {
 
               {entity.generatedSummary && (
                 <section className="rounded-xl bg-ai-soft p-3.5">
-                  <SectionLabel>
+                  <SectionHeading>
                     <span className="flex items-center gap-1 text-ai">
                       <Icon name="sparkles" className="size-3.5" /> Summary
                     </span>
-                  </SectionLabel>
+                  </SectionHeading>
                   <p className="text-sm leading-relaxed">{entity.generatedSummary}</p>
                 </section>
               )}
 
               {structured.length > 0 && (
                 <section>
-                  <SectionLabel>Details</SectionLabel>
+                  <SectionHeading>Details</SectionHeading>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                     {structured.map((entry) => (
                       <div key={entry.name} className="contents">
@@ -136,7 +137,7 @@ export function EntityDetail() {
               )}
 
               <section>
-                <SectionLabel>Tags</SectionLabel>
+                <SectionHeading>Tags</SectionHeading>
                 <TagEditor
                   userTagNames={entity.tags
                     .filter((t) => t.source === "user" && t.tag)
@@ -161,9 +162,9 @@ export function EntityDetail() {
               </section>
 
               <section>
-                <SectionLabel>
+                <SectionHeading>
                   Seen in {entity.mentions.length} message{entity.mentions.length === 1 ? "" : "s"}
-                </SectionLabel>
+                </SectionHeading>
                 <ul className="flex flex-col gap-1.5">
                   {entity.mentions.map((mention) => (
                     <li key={mention.id}>
@@ -220,13 +221,5 @@ export function EntityDetail() {
         )}
       </DrawerContent>
     </Drawer>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {children}
-    </h2>
   );
 }

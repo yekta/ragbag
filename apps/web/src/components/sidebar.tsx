@@ -224,7 +224,7 @@ export function Sidebar({
           <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Icon name="inbox" className="size-4" />
           </span>
-          <span className="text-lg font-bold tracking-tight">ragbag</span>
+          <span className="text-lg font-bold tracking-tight">Ragbag</span>
           <SidebarTrigger className="ml-auto text-muted-foreground" title="Hide sidebar (⌘\)" />
         </div>
 
@@ -281,9 +281,9 @@ export function Sidebar({
 
         {thingRows.length > 0 && (
           <SidebarGroup className="mt-2">
-            <SidebarGroupLabel className="text-[11px] uppercase tracking-wider">
-              Things
-            </SidebarGroupLabel>
+            {/* The primitive is already 12px muted, which is the app's group
+                label (components/typography.tsx); the weight is all this adds. */}
+            <SidebarGroupLabel className="font-semibold">Things</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {thingRows.map((row) => (
@@ -301,9 +301,7 @@ export function Sidebar({
         )}
 
         <SidebarGroup className="mt-2">
-          <SidebarGroupLabel className="text-[11px] uppercase tracking-wider">
-            Tags
-          </SidebarGroupLabel>
+          <SidebarGroupLabel className="font-semibold">Tags</SidebarGroupLabel>
           <SidebarGroupContent>
             {rankedTags.length === 0 ? (
               <p className="px-2 text-xs text-muted-foreground">

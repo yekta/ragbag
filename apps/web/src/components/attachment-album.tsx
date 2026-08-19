@@ -215,12 +215,10 @@ function FileRow({ attachment, face }: { attachment: Attachment; face: Attachmen
         <span className="block truncate font-medium">
           {attachment.generatedTitle ?? attachment.filename}
         </span>
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        <span className="text-[11px] text-muted-foreground">
           {/* The size is a reading and sets its own face; the filename beside
               it is a name and keeps the document's. */}
-          <span className="font-mono normal-case tracking-normal">
-            {formatBytes(attachment.size)}
-          </span>
+          <span className="font-mono">{formatBytes(attachment.size)}</span>
           {attachment.generatedTitle && attachment.generatedTitle !== attachment.filename
             ? ` · ${attachment.filename}`
             : ""}

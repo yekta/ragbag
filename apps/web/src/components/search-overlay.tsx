@@ -3,6 +3,7 @@ import { faceForMime } from "@ragbag/shared";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FACE_ICON, Icon, iconNamed } from "@/components/icon";
+import { GroupLabel } from "@/components/typography";
 import {
   Command,
   CommandDialog,
@@ -167,7 +168,7 @@ export function SearchOverlay({
     <CommandDialog
       open={searchOpen}
       onOpenChange={setSearchOpen}
-      title="Search your ragbag"
+      title="Search your archive"
       description="Search titles, tags, summaries and content in the local index."
       showCloseButton={false}
       // Anchored near the top rather than centred: a search palette that jumps
@@ -176,7 +177,7 @@ export function SearchOverlay({
     >
       <Command shouldFilter={false}>
         <CommandInput
-          placeholder="Search your ragbag…"
+          placeholder="Search everything…"
           value={query}
           onValueChange={setQuery}
           autoFocus
@@ -192,9 +193,7 @@ export function SearchOverlay({
               <CommandEmpty>Nothing found for “{query}”.</CommandEmpty>
               {grouped.map(({ group, rows }) => (
                 <div key={group}>
-                  <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {GROUP_LABEL[group]}
-                  </p>
+                  <GroupLabel className="px-3 pb-1 pt-2">{GROUP_LABEL[group]}</GroupLabel>
                   {rows.map((result) => (
                     <ResultRow key={result.hit.id} result={result} onPick={() => pick(result)} />
                   ))}

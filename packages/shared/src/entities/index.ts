@@ -20,4 +20,4 @@ export * from "./registry.js";
 export * from "./catalog.js";
 export { BEHAVIOURS, BEHAVIOUR_KINDS, hasBehaviour } from "./behaviours.js";
 export { addressQuery, mapsSearchUrl } from "./address.js";
-export { trackingUrl } from "./tracking.js";
+export { carrierName, trackingUrl } from "./tracking.js";

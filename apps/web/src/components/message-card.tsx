@@ -5,6 +5,7 @@ import { AttachmentAlbum } from "@/components/attachment-album";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 import { EntityCard } from "@/components/entities";
 import { Icon } from "@/components/icon";
+import { GroupLabel } from "@/components/typography";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -66,7 +67,7 @@ export function Linkified({ text }: { text: string }) {
 /**
  * What ingestion is doing to this message, and how far along.
  *
- * "processing 2 of 3" comes from the attachment rows rather than from a
+ * "Reading 2 of 3" comes from the attachment rows rather than from a
  * counter on the message, because those are synced and the count is therefore
  * live on every device without a second column to keep in step.
  */
@@ -86,7 +87,7 @@ export function StatusChip({ message }: { message: Message }) {
           failed ? "bg-destructive-soft text-destructive" : "bg-warning text-warning-foreground"
         }`}
       >
-        <span title={message.error ?? undefined}>{failed ? "failed" : "partly read"}</span>
+        <span title={message.error ?? undefined}>{failed ? "Failed" : "Partly read"}</span>
         <button
           className="inline-flex items-center gap-0.5 rounded-full bg-card px-1.5 py-px text-foreground hover:bg-panel"
           title={message.error ?? "Retry ingestion"}
@@ -96,7 +97,7 @@ export function StatusChip({ message }: { message: Message }) {
             void zero.mutate(mutators.message.retryIngest({ id: message.id }));
           }}
         >
-          <Icon name="retry" className="size-3" /> retry
+          <Icon name="retry" className="size-3" /> Retry
         </button>
       </Badge>
     );
@@ -112,9 +113,9 @@ export function StatusChip({ message }: { message: Message }) {
       <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
       {status === "processing"
         ? parts > 0
-          ? `reading ${Math.min(done + 1, parts)} of ${parts}`
-          : "reading"
-        : "queued"}
+          ? `Reading ${Math.min(done + 1, parts)} of ${parts}`
+          : "Reading"
+        : "Queued"}
     </Badge>
   );
 }
@@ -194,12 +195,9 @@ function EntityStrip({ message }: { message: Message }) {
         <span className="absolute -top-[7px] -left-4 size-4 rounded-full bg-background" />
         <span className="absolute -top-[7px] -right-4 size-4 rounded-full bg-background" />
       </div>
-      {/* Tighter above than below: small caps carry their own air, and the
-          tear is not a thing to crowd. */}
+      {/* Tighter above than below: the tear is not a thing to crowd. */}
       <div className="p-3.5 pt-3">
-        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Found in this
-        </p>
+        <GroupLabel className="mb-1.5">Found in this</GroupLabel>
         <div className="flex flex-col gap-1.5">
           {entities.map((entity) => (
             <EntityCard

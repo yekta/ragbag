@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Icon, iconNamed } from "@/components/icon";
 import { TypeEditor } from "@/components/settings/type-editor";
+import { SectionHeading } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -61,13 +62,19 @@ export function Settings() {
           "md:rounded-xl md:border"
         }
       >
-        <DrawerTitle className="sr-only">Settings</DrawerTitle>
         <DrawerDescription className="sr-only">
-          What ragbag looks for, storage, appearance and your account.
+          What to look for, storage, appearance and your account.
         </DrawerDescription>
 
+        {/* The drawer's name, as the heading it is: the largest thing on the
+            surface, which is what lets the sections under it read as sections
+            and their rows as rows. It is the DrawerTitle itself rather than a
+            span next to a screen-reader-only copy of the same word, so there
+            is exactly one of it in the accessibility tree. It says "Settings"
+            in the editor too, because that is still where you are; the editor
+            carries its own heading. */}
         <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
-          <span className="text-sm font-medium">{editing ? "Edit" : "Settings"}</span>
+          <DrawerTitle className="text-lg font-semibold tracking-tight">Settings</DrawerTitle>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -93,23 +100,6 @@ export function Settings() {
         </div>
       </DrawerContent>
     </Drawer>
-  );
-}
-
-function SectionTitle({
-  children,
-  action,
-}: {
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-1 flex items-center gap-2">
-      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {children}
-      </h2>
-      {action && <span className="ml-auto">{action}</span>}
-    </div>
   );
 }
 
@@ -158,7 +148,7 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
 
   return (
     <section>
-      <SectionTitle
+      <SectionHeading
         action={
           <Button variant="outline" size="xs" onClick={() => onEdit(null)}>
             <Icon name="plus" className="size-3" /> Add
@@ -166,8 +156,8 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
         }
       >
         Look for
-      </SectionTitle>
-      <SectionNote>ragbag pulls these out of everything you drop.</SectionNote>
+      </SectionHeading>
+      <SectionNote>These get pulled out of everything you drop.</SectionNote>
       <ul className="flex flex-col gap-1.5">
         {on.map((choice) => (
           <ChoiceRow
@@ -187,8 +177,8 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
       </ul>
 
       <div className="mt-5">
-        <SectionTitle>Don't look for</SectionTitle>
-        <SectionNote>Turn one on and ragbag starts finding it in what you drop.</SectionNote>
+        <SectionHeading>Don't look for</SectionHeading>
+        <SectionNote>Turn one on to start finding it in what you drop.</SectionNote>
         <ul className="flex flex-col gap-1.5">
           {off.map((choice) => (
             <ChoiceRow
@@ -236,11 +226,11 @@ function ChoiceRow({
         <Icon name={iconNamed(choice.icon)} className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{choice.sidebarTitle}</span>
+        <span className="block truncate text-sm font-medium">{choice.sidebarTitle}</span>
         <span className="block truncate text-[13px] text-muted-foreground">
           {found > 0
             ? `${found} in ${count!.messages.size} message${count!.messages.size === 1 ? "" : "s"}`
-            : "none yet"}
+            : "None yet"}
         </span>
       </span>
       {onEdit && (
@@ -291,7 +281,7 @@ function StorageSection() {
 
   return (
     <section>
-      <SectionTitle>Storage</SectionTitle>
+      <SectionHeading>Storage</SectionHeading>
       <div className="rounded-lg border bg-panel p-3">
         <p className="text-sm">
           {usage ? formatBytes(usage.usage) : "…"} used
@@ -302,7 +292,7 @@ function StorageSection() {
         <p className="mt-0.5 text-[13px] text-muted-foreground">
           {usage && !usage.persisted
             ? "Your browser may clear this if it runs out of space."
-            : "Your whole ragbag is on this device, so search works offline."}
+            : "Your whole archive is on this device, so search works offline."}
         </p>
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" disabled={clearing} onClick={() => void clear()}>
@@ -313,7 +303,7 @@ function StorageSection() {
       </div>
       {/* A platform limit, not a bug: saying it is the only fix there is. */}
       <p className="mt-2 text-[13px] text-muted-foreground">
-        On iPhone and iPad, add ragbag to your home screen so Safari keeps it.
+        On iPhone and iPad, add Ragbag to your home screen so Safari keeps it.
       </p>
     </section>
   );
@@ -331,7 +321,7 @@ function AppearanceSection() {
   const { theme, setTheme } = useViewStore();
   return (
     <section>
-      <SectionTitle>Appearance</SectionTitle>
+      <SectionHeading>Appearance</SectionHeading>
       <div className="flex gap-1.5">
         {THEMES.map((option) => (
           <Button
@@ -356,7 +346,7 @@ function AccountSection() {
   const identity = loadIdentity();
   return (
     <section>
-      <SectionTitle>Account</SectionTitle>
+      <SectionHeading>Account</SectionHeading>
       <div className="flex flex-wrap items-center gap-3">
         <p className="min-w-0 flex-1 truncate text-sm">{identity?.email ?? "Signed in"}</p>
         <Button variant="outline" size="sm" onClick={() => void signOut()}>
