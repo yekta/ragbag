@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { timeLabel } from "@/lib/format";
 import { entityLink, messageLink, useFilter } from "@/lib/routes";
 import { isTouch } from "@/lib/touch";
-import type { Message } from "@/lib/types";
+import type { EntityFields, Message } from "@/lib/types";
 
 // One timeline entry: the user's text, the attachments they sent with it, and
 // whatever the pipeline found in the whole thing.
@@ -142,6 +142,30 @@ export function TagChips({ message, limit = 8 }: { message: Message; limit?: num
 }
 
 /**
+ * The distinct things a message mentions, in the order they were found.
+ *
+ * Deduped by entity: the same link found in the text and again inside a
+ * screenshot is one card, not two, because a card describes the *thing*.
+ * Which occurrences it came from is the entity page's business.
+ *
+ * A function rather than a line inside the strip below, because the detail
+ * panel lists the same set from the same relation, and two spellings of "what
+ * this message mentions" is how a card and its own detail view come to
+ * disagree about how many things are in a message.
+ */
+export function messageEntities(
+  mentions: readonly { readonly entity?: EntityFields | null }[],
+): EntityFields[] {
+  const seen = new Set<string>();
+  return mentions.flatMap((mention) => {
+    const entity = mention.entity;
+    if (!entity || seen.has(entity.id)) return [];
+    seen.add(entity.id);
+    return [entity];
+  });
+}
+
+/**
  * What the pipeline found in this message: the stub, and the tear it hangs
  * from.
  *
@@ -150,21 +174,11 @@ export function TagChips({ message, limit = 8 }: { message: Message; limit?: num
  * why the perforation belongs to the stub rather than to the card: no
  * findings, no seam, and the card is a plain rounded rectangle again. That
  * property falls out of the design rather than being special-cased.
- *
- * Deduped by entity: the same link found in the text and again inside a
- * screenshot is one card, not two, because the card describes the *thing*.
- * Which occurrences it came from is the entity page's business.
  */
 function EntityStrip({ message }: { message: Message }) {
   const navigate = useNavigate();
   const filter = useFilter();
-  const seen = new Set<string>();
-  const entities = message.mentions.flatMap((m) => {
-    const entity = m.entity;
-    if (!entity || seen.has(entity.id)) return [];
-    seen.add(entity.id);
-    return [entity];
-  });
+  const entities = messageEntities(message.mentions);
   if (entities.length === 0) return null;
 
   return (

@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 //
 // The scale, and the whole of it:
 //
-//   20 / 600  the name of one item        message-detail's own h1
 //   18 / 600  the name of a surface       the settings drawer's DrawerTitle
 //   16 / 600  a section inside a surface  SectionHeading
 //   14 / 500  a row's title
@@ -21,9 +20,13 @@ import { cn } from "@/lib/utils";
 //   12 / 600  the label over a group      GroupLabel
 //   11        readings: chips, counts, timestamps, byte sizes
 //
-// Two of those steps have one call site each, so they are spelled where they
-// are used rather than wrapped: a component with a single user is a name to go
-// and look up, not a rule anyone can follow.
+// One of those steps has a single call site, so it is spelled where it is used
+// rather than wrapped: a component with one user is a name to go and look up,
+// not a rule anyone can follow.
+//
+// There is no step above 18 any more. It belonged to message-detail's h1, and
+// that h1 was the model's title for the message, printed above the message
+// itself at a size that made it look like the thing a person had written.
 //
 // Sentence case throughout. Uppercase is a way of making small text look
 // deliberate, and it is paid for in word shapes, which is what a reader reads

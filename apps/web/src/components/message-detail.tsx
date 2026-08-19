@@ -3,31 +3,45 @@ import { faceForMime } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
-import { AttachmentRetry, Waveform, formatDuration } from "@/components/attachment-album";
+import {
+  AttachmentAlbum,
+  AttachmentRetry,
+  AudioPlayerScope,
+  formatDuration,
+  useAudioScope,
+} from "@/components/attachment-album";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
+import { EntityCard } from "@/components/entities";
 import { FACE_ICON, Icon } from "@/components/icon";
-import { MediaImage } from "@/components/media-image";
-import { Linkified } from "@/components/message-card";
+import { Linkified, messageEntities } from "@/components/message-card";
 import { TagEditor } from "@/components/tag-editor";
 import { SectionHeading } from "@/components/typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
-import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { mediaBox, useBlobUrl } from "@/lib/blobs";
-import { mediaUrl } from "@/lib/media";
 import { formatBytes, timeLabel } from "@/lib/format";
-import { filterLink, useFilter } from "@/lib/routes";
+import { entityLink, filterLink, useFilter } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 import { useMeta } from "@/lib/use-meta";
-import type { DetailAttachment } from "@/lib/types";
+import type { DetailAttachment, MessageDetail as MessageDetailRow } from "@/lib/types";
 
-// Route overlay (…/m/$id): everything about one message. Every attachment at
-// full size with whatever the pipeline read out of it, the tag editor, and the
-// favorite/delete/retry actions. Rendered above the timeline so scroll
-// position survives.
+// Route overlay (…/m/$id): everything about one message. Rendered above the
+// timeline so scroll position survives.
+//
+// Two parts, in the order the timeline card has them: the message exactly as
+// it was sent, then everything that came out of it. The card is the contract,
+// so the attachments here go through the same album component rather than a
+// second layout of this view's own, and nothing the pipeline wrote appears
+// above the words and files a person actually sent.
+//
+// It used to run title, text, summary, attachments, which put two pieces of
+// machine writing above the photo the message *was*, and left no way to tell
+// by looking which half of the screen someone had written. The panel's job
+// over the card is depth, not a different shape: the transcripts, the
+// extracted text, the per-part errors and retries, the tag editor and the AI
+// tags a card has no room for.
 //
 // A *child* of whichever filter is behind it (main.tsx), so the view stays in
 // the path while the overlay is open: closing goes back to `/images`, not to
@@ -55,8 +69,6 @@ export function MessageDetail() {
   const [allTags] = useQuery(queries.tags());
   const meta = useMeta();
   const isMobile = useIsMobile();
-  const [editing, setEditing] = useState(false);
-  const [textDraft, setTextDraft] = useState("");
   // Opens closed, one frame. Base UI decides whether to play an entrance from
   // `mounted` being seeded with `open` (internals/useTransitionStatus.mjs):
   //
@@ -105,14 +117,6 @@ export function MessageDetail() {
   // drawer has finished sliding in. A spinner for that frame is noise; one
   // only appears if the wait turns out to be real.
   const stillLoading = useHeld(!message, 250);
-
-  const saveText = () => {
-    if (!message) return;
-    setEditing(false);
-    if (textDraft.trim() !== (message.text ?? "")) {
-      void zero.mutate(mutators.message.edit({ id: message.id, text: textDraft.trim() }));
-    }
-  };
 
   return (
     <Drawer
@@ -236,158 +240,151 @@ export function MessageDetail() {
                 content out into a solid bar reads as a rendering fault.
                 `overflow-x-hidden` is not redundant: asking for `overflow-y`
                 alone computes the other axis from `visible` to `auto`. */}
-            <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-              {message.generatedTitle && (
-                <h1 className="text-xl font-semibold leading-snug">{message.generatedTitle}</h1>
-              )}
+            <AudioPlayerScope>
+              <div className="min-h-0 flex-1 space-y-5 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                {/* The message, first, whatever it is made of: a paragraph, a
+                    photo, a voice note, all three, or one file and nothing
+                    else. No heading over it, because it is not a section of
+                    the page: it is the thing the page is about, and the header
+                    above already says when it was sent. */}
+                <div className="space-y-2">
+                  {message.text && (
+                    <p className="whitespace-pre-wrap break-words leading-relaxed">
+                      <Linkified text={message.text} />
+                    </p>
+                  )}
+                  <AttachmentAlbum attachments={message.attachments} variant="detail" />
+                </div>
 
-              {/* the user's own words */}
-              <section>
-                <SectionHeading>Your message</SectionHeading>
-                {editing ? (
-                  <div>
-                    <Textarea
-                      className="min-h-28 leading-relaxed"
-                      value={textDraft}
-                      autoFocus
-                      onChange={(e) => setTextDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveText();
-                      }}
-                    />
-                    <div className="mt-1 flex gap-2">
-                      <Button size="sm" onClick={saveText}>
-                        Save
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className="-m-1 cursor-text rounded-xl border border-transparent p-1 hover:border-border"
-                    onClick={() => {
-                      setTextDraft(message.text ?? "");
-                      setEditing(true);
-                    }}
-                    title="Click to edit"
-                  >
-                    {message.text ? (
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        <Linkified text={message.text} />
-                      </p>
-                    ) : (
-                      <p className="text-sm italic text-muted-foreground">
-                        Click to add a comment…
+                {/* The seam. Everything below it is *about* the message rather
+                    than part of it, which is the job the tear line does on the
+                    card (message-card.tsx). Dashed for the same reason it is
+                    perforated there; the notches are not reproduced, because
+                    they are discs of page colour punched out of a card, and
+                    this panel is already the card. */}
+                <hr className="border-dashed" />
+
+                {/* What the model wrote. The generated title lives here, with
+                    the rest of it, rather than as this panel's h1: it names
+                    what the message is about, which is a reading of the
+                    message, not the message. */}
+                {(message.generatedTitle || message.generatedSummary) && (
+                  <section className="rounded-xl bg-ai-soft p-3.5">
+                    <SectionHeading>
+                      <span className="flex items-center gap-1 text-ai">
+                        <Icon name="sparkles" className="size-3.5" /> Summary
+                      </span>
+                    </SectionHeading>
+                    {message.generatedTitle && (
+                      <p className="font-semibold leading-snug">{message.generatedTitle}</p>
+                    )}
+                    {message.generatedSummary && (
+                      <p
+                        className={`text-sm leading-relaxed ${message.generatedTitle ? "mt-1" : ""}`}
+                      >
+                        {message.generatedSummary}
                       </p>
                     )}
-                  </div>
+                  </section>
                 )}
-              </section>
 
-              {/* AI summary */}
-              {message.generatedSummary && (
-                <section className="rounded-xl bg-ai-soft p-3.5">
-                  <SectionHeading>
-                    <span className="flex items-center gap-1 text-ai">
-                      <Icon name="sparkles" className="size-3.5" /> Summary
-                    </span>
-                  </SectionHeading>
-                  <p className="text-sm leading-relaxed">{message.generatedSummary}</p>
+                {/* the same things the card lists under its tear */}
+                <ThingsFound message={message} />
+
+                {/* what came out of each attachment, in the order it was sent */}
+                {message.attachments.map((attachment) => (
+                  <AttachmentFindings key={attachment.id} attachment={attachment} />
+                ))}
+
+                {/* tags */}
+                <section>
+                  <SectionHeading>Tags</SectionHeading>
+                  <TagEditor
+                    userTagNames={message.tags
+                      .filter((t) => t.source === "user" && t.tag)
+                      .map((t) => t.tag!.name)}
+                    suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
+                    onSave={(names) =>
+                      void zero.mutate(mutators.tag.setForMessage({ messageId: message.id, names }))
+                    }
+                  />
+                  {message.tags.some((t) => t.source === "ai" && t.tag) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {message.tags
+                        .filter((t) => t.source === "ai" && t.tag)
+                        .map((t) => (
+                          <Badge
+                            key={t.tagId}
+                            className="bg-ai-soft font-normal text-ai"
+                            title={`AI ${t.tag!.kind} tag`}
+                          >
+                            <Icon name="sparkles" className="size-3" />
+                            {t.tag!.name}
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
                 </section>
-              )}
 
-              {/* every attachment, in the order it was sent */}
-              {message.attachments.map((attachment) => (
-                <AttachmentSection key={attachment.id} attachment={attachment} />
-              ))}
-
-              {/* tags */}
-              <section>
-                <SectionHeading>Tags</SectionHeading>
-                <TagEditor
-                  userTagNames={message.tags
-                    .filter((t) => t.source === "user" && t.tag)
-                    .map((t) => t.tag!.name)}
-                  suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
-                  onSave={(names) =>
-                    void zero.mutate(mutators.tag.setForMessage({ messageId: message.id, names }))
-                  }
-                />
-                {message.tags.some((t) => t.source === "ai" && t.tag) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {message.tags
-                      .filter((t) => t.source === "ai" && t.tag)
-                      .map((t) => (
-                        <Badge
-                          key={t.tagId}
-                          className="bg-ai-soft font-normal text-ai"
-                          title={`AI ${t.tag!.kind} tag`}
-                        >
-                          <Icon name="sparkles" className="size-3" />
-                          {t.tag!.name}
-                        </Badge>
-                      ))}
-                  </div>
-                )}
-              </section>
-
-              {/* ingestion state */}
-              {message.status === "failed" && (
-                <Alert variant="destructive">
-                  <AlertTitle>Ingestion failed</AlertTitle>
-                  <AlertDescription>
-                    {message.error && <p>{message.error}</p>}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() =>
-                        void zero.mutate(mutators.message.retryIngest({ id: message.id }))
-                      }
-                    >
-                      <Icon name="retry" className="size-3.5" /> Retry
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {(message.status === "pending" || message.status === "processing") && (
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Icon name="spinner" className="size-3.5 animate-spin [animation-duration:2s]" />
-                  {message.status === "processing"
-                    ? "Reading this message…"
-                    : "Queued for ingestion…"}
-                </p>
-              )}
-              {/* Enrichment that finished with nothing to show. Silence here
-                  read as a broken app for a full day (the server had no
-                  OpenAI key), so absence now explains itself and offers the
-                  re-run that already existed for outright failures. */}
-              {(message.status === "done" || message.status === "partial") &&
-                !message.generatedSummary && (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                    <Icon name="sparkles" className="size-3.5 shrink-0" />
-                    <span>
-                      {message.error ??
-                        (meta && !meta.ai
-                          ? "AI is off on this server, so there are no summaries, tags or entities."
-                          : "No summary for this message yet.")}
-                    </span>
-                    {meta?.ai !== false && (
+                {/* ingestion state */}
+                {message.status === "failed" && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Ingestion failed</AlertTitle>
+                    <AlertDescription>
+                      {message.error && <p>{message.error}</p>}
                       <Button
                         variant="outline"
-                        size="xs"
+                        size="sm"
+                        className="mt-2"
                         onClick={() =>
                           void zero.mutate(mutators.message.retryIngest({ id: message.id }))
                         }
                       >
-                        <Icon name="retry" className="size-3" /> Run enrichment
+                        <Icon name="retry" className="size-3.5" /> Retry
                       </Button>
-                    )}
-                  </div>
+                    </AlertDescription>
+                  </Alert>
                 )}
-            </div>
+                {(message.status === "pending" || message.status === "processing") && (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Icon
+                      name="spinner"
+                      className="size-3.5 animate-spin [animation-duration:2s]"
+                    />
+                    {message.status === "processing"
+                      ? "Reading this message…"
+                      : "Queued for ingestion…"}
+                  </p>
+                )}
+                {/* Enrichment that finished with nothing to show. Silence here
+                  read as a broken app for a full day (the server had no
+                  OpenAI key), so absence now explains itself and offers the
+                  re-run that already existed for outright failures. */}
+                {(message.status === "done" || message.status === "partial") &&
+                  !message.generatedSummary && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <Icon name="sparkles" className="size-3.5 shrink-0" />
+                      <span>
+                        {message.error ??
+                          (meta && !meta.ai
+                            ? "AI is off on this server, so there are no summaries, tags or entities."
+                            : "No summary for this message yet.")}
+                      </span>
+                      {meta?.ai !== false && (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() =>
+                            void zero.mutate(mutators.message.retryIngest({ id: message.id }))
+                          }
+                        >
+                          <Icon name="retry" className="size-3" /> Run enrichment
+                        </Button>
+                      )}
+                    </div>
+                  )}
+              </div>
+            </AudioPlayerScope>
           </>
         )}
       </DrawerContent>
@@ -396,20 +393,57 @@ export function MessageDetail() {
 }
 
 /**
- * One attachment at full size, with what the pipeline read out of it. Every
- * `content_md` renders the same way whatever produced it, which is the point
- * of there being one representation (plan §5.3).
+ * The things this message mentions, exactly the set the card shows under its
+ * tear and drawn with the same cards. The panel had never shown them at all,
+ * so an address the timeline listed vanished when you opened the message it
+ * was found in.
  */
-function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
+function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
+  const navigate = useNavigate();
+  const filter = useFilter();
+  const entities = messageEntities(message.mentions);
+  if (entities.length === 0) return null;
+
+  return (
+    <section>
+      <SectionHeading>Things found in the message</SectionHeading>
+      <div className="flex flex-col gap-1.5">
+        {entities.map((entity) => (
+          <EntityCard
+            key={entity.id}
+            entity={entity}
+            onOpen={() => void navigate(entityLink(entity.id, filter))}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * What the pipeline read out of one attachment. Every `content_md` renders the
+ * same way whatever produced it, which is the point of there being one
+ * representation (plan §5.3).
+ *
+ * The file itself is not here: it is up in the message, where it was sent.
+ * This is only what came out of it, so a picture nobody has read yet, or a
+ * file with nothing to say, contributes nothing to the page.
+ */
+function AttachmentFindings({ attachment }: { attachment: DetailAttachment }) {
   const zero = useZero();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  // Local bytes first for the originals (a file this device captured opens
-  // before it has uploaded, and offline); the media URL is what every other
-  // device uses, and what a download link points at.
-  const local = useBlobUrl(attachment.blobId);
-  const url = local ?? mediaUrl(attachment.blobId, "original");
+  const scope = useAudioScope();
   const face = faceForMime(attachment.mime);
-  const box = mediaBox(attachment.width, attachment.height, "70vh");
+  const segments = face === "audio" ? attachment.content?.segments : null;
+  const failed = attachment.status === "failed";
+  if (
+    !attachment.generatedSummary &&
+    !attachment.content?.contentMd &&
+    !(segments && segments.length > 0) &&
+    !attachment.error &&
+    !failed
+  ) {
+    return null;
+  }
 
   return (
     <section className="space-y-2">
@@ -419,62 +453,9 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
           <span className="truncate">{attachment.filename}</span>
           <span className="font-mono text-xs font-normal text-muted-foreground">
             {formatBytes(attachment.size)}
-            {attachment.durationMs != null ? ` · ${formatDuration(attachment.durationMs)}` : ""}
           </span>
         </span>
       </SectionHeading>
-
-      {face === "image" && (
-        // The box is the wrapper's, from the synced dimensions, so the blurred
-        // placeholder and the picture occupy exactly the same space.
-        <div
-          style={box}
-          className={`overflow-hidden rounded-xl border ${box ? "" : "h-64 max-h-[70vh]"}`}
-        >
-          <MediaImage
-            blobId={attachment.blobId}
-            variant="display"
-            placeholder={attachment.placeholder}
-            alt={attachment.generatedTitle ?? attachment.filename}
-            fit="contain"
-          />
-        </div>
-      )}
-
-      {face === "pdf" && (
-        <iframe
-          src={url}
-          title={attachment.generatedTitle ?? attachment.filename}
-          className="h-[70vh] w-full rounded-xl border"
-        />
-      )}
-
-      {face === "audio" && (
-        <>
-          <Waveform peaks={attachment.waveform} />
-          <audio ref={audioRef} src={url} controls preload="metadata" className="w-full" />
-        </>
-      )}
-
-      {face === "file" && (
-        <div className="flex items-center gap-3 rounded-xl border bg-panel p-4">
-          <Icon name="file" className="size-8 text-kind-file" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">
-              {attachment.generatedTitle ?? attachment.filename}
-            </p>
-            <p className="text-xs text-muted-foreground">Stored in your archive</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<a href={url} download={attachment.filename} />}
-          >
-            Download
-          </Button>
-        </div>
-      )}
 
       {attachment.generatedSummary && (
         <p className="text-[13px] leading-relaxed text-muted-foreground">
@@ -482,7 +463,7 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
         </p>
       )}
 
-      {attachment.status === "failed" && (
+      {failed && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-destructive-soft px-3 py-2 text-xs text-destructive">
           <Icon name="alert" className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1">{attachment.error ?? "This file couldn't be read"}</span>
@@ -501,42 +482,41 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
       {/* A transcript is the one `content_md` worth rendering as something
           other than text: every line knows when it was said, so clicking one
           seeks there. That is what makes a search hit inside an hour of audio
-          worth anything. */}
-      {face === "audio" &&
-        attachment.content?.segments &&
-        attachment.content.segments.length > 0 && (
-          <ol className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl border bg-panel p-3 text-[13px] leading-relaxed">
-            {attachment.content.segments.map((segment, i) => (
-              <li key={i}>
-                <button
-                  type="button"
-                  className="flex w-full gap-2 rounded px-1 text-left hover:bg-accent"
-                  onClick={() => {
-                    const audio = audioRef.current;
-                    if (!audio) return;
-                    audio.currentTime = segment.start;
-                    void audio.play();
-                  }}
-                >
-                  {/* A column of timecodes down the left of the transcript, so
+          worth anything. The player it seeks is the voice note up in the
+          message, found through the scope both sides share. */}
+      {segments && segments.length > 0 && (
+        <ol className="max-h-72 space-y-0.5 overflow-y-auto rounded-xl border bg-panel p-3 text-[13px] leading-relaxed">
+          {segments.map((segment, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                className="flex w-full gap-2 rounded px-1 text-left hover:bg-accent"
+                onClick={() => {
+                  const audio = scope?.players.get(attachment.id);
+                  if (!audio) return;
+                  audio.currentTime = segment.start;
+                  void audio.play();
+                }}
+              >
+                {/* A column of timecodes down the left of the transcript, so
                     they have to agree on a width or the text beside them
                     ragged-edges its way down the list. */}
-                  <span className="shrink-0 font-mono text-muted-foreground">
-                    {formatDuration(segment.start * 1000)}
-                  </span>
-                  {/* Only there when the model heard more than one voice, so a
+                <span className="shrink-0 font-mono text-muted-foreground">
+                  {formatDuration(segment.start * 1000)}
+                </span>
+                {/* Only there when the model heard more than one voice, so a
                     label always means something rather than repeating. */}
-                  {segment.speaker && (
-                    <span className="shrink-0 font-medium text-muted-foreground">
-                      {segment.speaker}
-                    </span>
-                  )}
-                  <span className="min-w-0">{segment.text}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
+                {segment.speaker && (
+                  <span className="shrink-0 font-medium text-muted-foreground">
+                    {segment.speaker}
+                  </span>
+                )}
+                <span className="min-w-0">{segment.text}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
 
       {attachment.content?.contentMd && (
         <details className="rounded-xl border bg-panel">

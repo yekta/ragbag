@@ -401,7 +401,15 @@ export const mutators = defineMutators({
       );
     }),
 
-    /** Editing the text re-runs synthesis only, never per-attachment extraction. */
+    /**
+     * Editing the text re-runs synthesis only, never per-attachment
+     * extraction.
+     *
+     * Nothing calls this today: the detail panel shows the message as it was
+     * sent and offers no way to rewrite it. Kept because "not editable" is a
+     * decision about the UI rather than about the archive, and this is the
+     * whole of what re-editing would need.
+     */
     edit: defineMutator(editMessageArgs, async ({ tx, ctx, args }) => {
       const { userID } = mustBeLoggedIn(ctx);
       await mustOwnMessage(tx, userID, args.id);

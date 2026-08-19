@@ -1,7 +1,15 @@
 import { faceForMime } from "@ragbag/shared";
 import type { AttachmentFace } from "@ragbag/shared";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { FACE_ICON, Icon } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
 import { Button } from "@/components/ui/button";
@@ -24,6 +32,12 @@ import type { Attachment } from "@/lib/types";
 // was sent"). That is why consecutive pictures are what get batched into a
 // grid rather than every picture in the message: a photo, a PDF and another
 // photo stays in that order instead of being reshuffled into "images first".
+//
+// Two call sites, one layout: the timeline card and the top of the detail
+// panel. A message has to read as the same message in both, so the panel does
+// not lay its attachments out a second way. `variant` is the whole of what
+// they disagree about, and both differences are the same difference: the
+// timeline is a preview of a message, and the panel is the message open.
 
 /** Keep in step with `max-h-80` on the single-image case below. */
 const SINGLE_MAX_H = "20rem";
@@ -50,35 +64,111 @@ export function toBlocks(items: readonly Attachment[]): Block[] {
   return blocks;
 }
 
-export function AttachmentAlbum({ attachments }: { attachments: readonly Attachment[] }) {
+/**
+ * Which surface this album is on.
+ *
+ * `timeline`: a tile opens the message it belongs to, and a voice note gets
+ * the compact transport a preview has room for.
+ *
+ * `detail`: the message is already open, so a tile opens the file itself,
+ * which is where "see it at full size" lives now that the panel shows the
+ * album rather than every attachment at 70vh. The voice note gets the
+ * browser's full transport, because the panel is where you listen to it and
+ * where its transcript is.
+ */
+export type AlbumVariant = "timeline" | "detail";
+
+export function AttachmentAlbum({
+  attachments,
+  variant = "timeline",
+}: {
+  attachments: readonly Attachment[];
+  variant?: AlbumVariant;
+}) {
   if (attachments.length === 0) return null;
   return (
     <div className="mt-0.5 flex flex-col gap-1.5">
       {toBlocks(attachments).map((block) =>
         block.type === "album" ? (
-          <ImageAlbum key={block.items[0]!.id} items={block.items} />
+          <ImageAlbum key={block.items[0]!.id} items={block.items} variant={variant} />
         ) : block.face === "audio" ? (
-          <AudioBubble key={block.item.id} attachment={block.item} />
+          <AudioBubble key={block.item.id} attachment={block.item} variant={variant} />
         ) : (
-          <FileRow key={block.item.id} attachment={block.item} face={block.face} />
+          <FileRow
+            key={block.item.id}
+            attachment={block.item}
+            face={block.face}
+            variant={variant}
+          />
         ),
       )}
     </div>
   );
 }
 
-function ImageAlbum({ items }: { items: Attachment[] }) {
+/**
+ * The wrapper a tile, a bubble and a row all share, and the one thing the two
+ * call sites disagree about.
+ *
+ * The file link is a plain navigation rather than a `download`: the media
+ * route serves each blob under its own mime and answers on the API's origin,
+ * where that attribute is ignored anyway, and a browser previewing a PDF or a
+ * picture in a tab of its own is the better answer than saving it.
+ *
+ * It points at the media URL unless this device is still holding the bytes,
+ * which is the one case that URL cannot answer: the server has no blob row to
+ * presign yet. Deliberately in that order, and not `useBlobUrl` on every tile:
+ * resolving an object URL means *fetching the original*, so asking for one per
+ * attachment would download the full-size copy of every picture in the
+ * archive, which is the cost media-image.tsx is built to avoid.
+ */
+function AttachmentLink({
+  attachment,
+  variant,
+  className,
+  style,
+  children,
+}: {
+  attachment: Attachment;
+  variant: AlbumVariant;
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
   const filter = useFilter();
-  const messageId = items[0]!.messageId;
+  const upload = useBlobUploadState(attachment.blobId);
+  const pending = upload !== null && upload.stage !== "done";
+  const local = useBlobUrl(pending ? attachment.blobId : null);
+  if (variant === "detail") {
+    return (
+      <a
+        href={local ?? mediaUrl(attachment.blobId, "original")}
+        target="_blank"
+        rel="noreferrer"
+        className={className}
+        style={style}
+      >
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link {...messageLink(attachment.messageId, filter)} className={className} style={style}>
+      {children}
+    </Link>
+  );
+}
 
+function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVariant }) {
   // One picture is a picture, at its own shape. More than one is a grid, and a
   // grid of squares is what makes rows of different photos line up at all.
   if (items.length === 1) {
     const only = items[0]!;
     const box = mediaBox(only.width, only.height, SINGLE_MAX_H);
     return (
-      <Link
-        {...messageLink(messageId, filter)}
+      <AttachmentLink
+        attachment={only}
+        variant={variant}
         style={box}
         // The box goes on the wrapper, not on the image, and the wrapper is a
         // block. On an inline box the `min(100%, …)` width resolves against a
@@ -88,7 +178,7 @@ function ImageAlbum({ items }: { items: Attachment[] }) {
         className={`relative block overflow-hidden rounded-xs border ${box ? "" : "h-52 max-w-full"}`}
       >
         <Tile attachment={only} variant="display" fit="contain" />
-      </Link>
+      </AttachmentLink>
     );
   }
 
@@ -97,9 +187,10 @@ function ImageAlbum({ items }: { items: Attachment[] }) {
   return (
     <div className={`grid gap-1 ${items.length <= 4 ? "grid-cols-2" : "grid-cols-3"}`}>
       {shown.map((item, i) => (
-        <Link
+        <AttachmentLink
           key={item.id}
-          {...messageLink(messageId, filter)}
+          attachment={item}
+          variant={variant}
           className="relative aspect-square overflow-hidden rounded-xs border"
         >
           <Tile attachment={item} variant="thumb" fit="cover" />
@@ -112,7 +203,7 @@ function ImageAlbum({ items }: { items: Attachment[] }) {
               +{overflow}
             </span>
           )}
-        </Link>
+        </AttachmentLink>
       ))}
     </div>
   );
@@ -148,33 +239,112 @@ function Tile({
 }
 
 /**
+ * Where the voice notes on screen can be found, by attachment id.
+ *
+ * The detail panel puts a recording in the message at the top and its
+ * transcript down in the findings, and clicking a line of that transcript
+ * seeks the recording. Those are two subtrees, so they meet here rather than
+ * through a ref threaded down a component that has no other reason to know the
+ * panel exists, and rather than through a DOM id, which the same voice note
+ * open in the panel and sitting in the timeline behind it would both answer to.
+ *
+ * No provider means no registration and nothing to seek, which is exactly the
+ * timeline: a card has no transcript.
+ */
+type AudioScope = {
+  players: Map<string, HTMLAudioElement>;
+  /** Whether the surface has had a layout yet; see below for why that matters. */
+  settled: boolean;
+};
+
+const AudioPlayers = createContext<AudioScope | null>(null);
+
+export function AudioPlayerScope({ children }: { children: ReactNode }) {
+  // Lazily, and once: the map is the identity every player registers into.
+  const [players] = useState(() => new Map<string, HTMLAudioElement>());
+  // The panel this wraps mounts closed for one frame (message-detail.tsx), so
+  // a transport rendered in that frame has its first layout inside a popup
+  // that is still `display: none`. Chrome decides which parts of a control fit
+  // from that first layout, is given no width to fit them into, drops
+  // everything down to a clock, and never revisits it: the panel opens and the
+  // voice note has no play button for the rest of its life. Measured on
+  // headless Chrome 140, where a window resize afterwards puts the transport
+  // back, and so does mounting a fresh one into the open panel, which is what
+  // this is.
+  //
+  // One commit late, not one animation late: the entrance is a transform, and
+  // a transform does not change the width that pass reads.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => setSettled(true), []);
+  const scope = useMemo(() => ({ players, settled }), [players, settled]);
+  return <AudioPlayers.Provider value={scope}>{children}</AudioPlayers.Provider>;
+}
+
+/** This surface's players, or null outside a scope, which is the timeline. */
+export function useAudioScope(): AudioScope | null {
+  return useContext(AudioPlayers);
+}
+
+/**
  * A voice note. Playable from the local bytes; the waveform and duration were
  * measured on the capturing device, so every device draws it without
  * downloading the audio at all (plan §8.5).
  */
-function AudioBubble({ attachment }: { attachment: Attachment }) {
+function AudioBubble({ attachment, variant }: { attachment: Attachment; variant: AlbumVariant }) {
+  const scope = useAudioScope();
   // Local bytes first, so a voice note this device recorded plays before it
   // has finished uploading and while it is offline; the media URL is the
   // fallback for every other device.
   const local = useBlobUrl(attachment.blobId);
   const url = local ?? mediaUrl(attachment.blobId, "original");
+  const detail = variant === "detail";
+  // The browser's own controls: a transport this app would only be
+  // reimplementing, badly, and one that already knows how to scrub.
+  const transport = (
+    <audio
+      ref={(element) => {
+        if (!scope) return;
+        if (element) scope.players.set(attachment.id, element);
+        else scope.players.delete(attachment.id);
+      }}
+      src={url}
+      controls
+      preload="metadata"
+      className={detail ? "mt-2 w-full" : "mt-1 h-8 w-full"}
+    />
+  );
+
   return (
-    <div className="relative flex items-center gap-3 rounded-xs border bg-panel p-2.5">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Icon name="audio" className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <Waveform peaks={attachment.waveform} />
-        {/* The browser's own controls: a transport this app would only be
-            reimplementing, badly, and one that already knows how to scrub. */}
-        <audio src={url} controls preload="metadata" className="mt-1 h-8 w-full" />
-      </div>
-      {attachment.durationMs != null && (
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-          {formatDuration(attachment.durationMs)}
+    <div className="relative rounded-xs border bg-panel p-2.5">
+      <div className="flex items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon name="audio" className="size-4" />
         </span>
-      )}
-      <UploadBadge blobId={attachment.blobId} side="right" />
+        <div className="min-w-0 flex-1">
+          <Waveform peaks={attachment.waveform} />
+          {/* Squeezed onto the bubble's one line in a card, where it is a
+              preview and Chrome answers with a play button and a clock.
+              A row of its own in the panel, where you actually listen and
+              where the transcript seeks it, and which is also the one place
+              the squeezed one does not survive: the drawer mounts closed, so
+              the control's first layout happens inside a flex item with no
+              resolved width, Chrome's fitting pass decides nothing fits and
+              drops even the play button, and it never runs again when the
+              panel opens (measured, headless Chrome 140; a window resize
+              afterwards restores it). Out of the flex row it has a width from
+              the first frame and the pass has nothing to get wrong. */}
+          {!detail && transport}
+        </div>
+        {attachment.durationMs != null && (
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+            {formatDuration(attachment.durationMs)}
+          </span>
+        )}
+        <UploadBadge blobId={attachment.blobId} side="right" />
+      </div>
+      {/* Held back one commit inside a scope, for the reason spelled out at
+          AudioPlayerScope. */}
+      {detail && (!scope || scope.settled) && transport}
     </div>
   );
 }
@@ -201,11 +371,19 @@ export function Waveform({ peaks }: { peaks: readonly number[] | null | undefine
   );
 }
 
-function FileRow({ attachment, face }: { attachment: Attachment; face: AttachmentFace }) {
-  const filter = useFilter();
+function FileRow({
+  attachment,
+  face,
+  variant,
+}: {
+  attachment: Attachment;
+  face: AttachmentFace;
+  variant: AlbumVariant;
+}) {
   return (
-    <Link
-      {...messageLink(attachment.messageId, filter)}
+    <AttachmentLink
+      attachment={attachment}
+      variant={variant}
       className="relative flex items-center gap-3 rounded-xs border bg-panel p-3 transition hover:bg-accent"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -225,7 +403,7 @@ function FileRow({ attachment, face }: { attachment: Attachment; face: Attachmen
         </span>
       </span>
       <UploadBadge blobId={attachment.blobId} side="right" />
-    </Link>
+    </AttachmentLink>
   );
 }
 
