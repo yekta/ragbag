@@ -316,6 +316,19 @@ const THEMES: { value: Theme; label: string; icon: "sun" | "moon" | "monitor" }[
   { value: "system", label: "System", icon: "monitor" },
 ];
 
+/**
+ * The selected button keeps the outline variant rather than switching to
+ * secondary. These are inline-flex at auto width, so a border adds to the used
+ * width whatever box-sizing says, and a variant that drops the border made the
+ * selected button 2px narrower than its neighbours: every switch slid the row.
+ * The border stays, turns transparent, and bg-background paints under it (the
+ * default clip is the border box), so the fill still runs to the ring and the
+ * geometry cannot move. Same trick as ui/badge.tsx and ui/switch.tsx.
+ *
+ * The ring is then the only thing that marks the selection, which is nothing at
+ * all to a screen reader, hence aria-pressed. Nothing in buttonVariants styles
+ * it, so it stays silent to the eye.
+ */
 function AppearanceSection() {
   const { theme, setTheme } = useViewStore();
   return (
@@ -324,9 +337,10 @@ function AppearanceSection() {
         {THEMES.map((option) => (
           <Button
             key={option.value}
-            variant={theme === option.value ? "secondary" : "outline"}
+            variant="outline"
             size="sm"
-            className={theme === option.value ? "ring-1 ring-primary" : ""}
+            aria-pressed={theme === option.value}
+            className={theme === option.value ? "border-transparent ring-1 ring-primary" : ""}
             onClick={() => setTheme(option.value)}
           >
             <Icon name={option.icon} className="size-3.5" />
