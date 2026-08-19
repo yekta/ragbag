@@ -2,16 +2,29 @@ import { mutators, queries } from "@ragbag/contracts";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { EntityCard } from "@/components/entities";
 import { Icon } from "@/components/icon";
 import { TagEditor } from "@/components/tag-editor";
 import { SectionHeading } from "@/components/typography";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, timeLabel } from "@/lib/format";
+import { runMutation } from "@/lib/mutate";
 import { filterLink, messageLink, useFilter } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 
@@ -41,6 +54,20 @@ export function EntityDetail() {
     setOpen(true);
   }, [id]);
   const close = () => setOpen(false);
+
+  const [confirming, setConfirming] = useState(false);
+  // Deleting closes the panel, because what it was showing is gone. The dialog
+  // is dismissed first rather than left hanging over a drawer sliding out, and
+  // a refusal leaves both the panel and the thing where they were.
+  const remove = async (entityId: string) => {
+    setConfirming(false);
+    try {
+      await runMutation(zero.mutate(mutators.entity.remove({ id: entityId })));
+      close();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete this");
+    }
+  };
 
   const lastEntity = useRef(liveEntity);
   if (liveEntity) lastEntity.current = liveEntity;
@@ -168,53 +195,74 @@ export function EntityDetail() {
                 <ul className="flex flex-col gap-1.5">
                   {entity.mentions.map((mention) => (
                     <li key={mention.id}>
-                      <div className="flex items-start gap-2 rounded-lg border bg-panel p-3">
-                        <Link
-                          {...messageLink(mention.messageId, filter)}
-                          className="min-w-0 flex-1"
-                          onClick={close}
-                        >
-                          <span className="block truncate text-sm font-medium">
-                            {mention.message?.generatedTitle ??
-                              mention.message?.text?.split("\n")[0] ??
-                              "(no text)"}
+                      {/* The whole row goes to the message. It used to share the
+                          row with an eye that deleted the thing, which read as
+                          an action on the message it sat on. */}
+                      <Link
+                        {...messageLink(mention.messageId, filter)}
+                        className="block rounded-lg border bg-panel p-3 transition hover:bg-accent"
+                        onClick={close}
+                      >
+                        <span className="block truncate text-sm font-medium">
+                          {mention.message?.generatedTitle ??
+                            mention.message?.text?.split("\n")[0] ??
+                            "(no text)"}
+                        </span>
+                        {mention.snippet && (
+                          <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted-foreground">
+                            {mention.snippet}
                           </span>
-                          {mention.snippet && (
-                            <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted-foreground">
-                              {mention.snippet}
-                            </span>
-                          )}
-                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                            {mention.message && dayLabel(mention.message.createdAt)}
-                            {mention.message && ` · ${timeLabel(mention.message.createdAt)}`}
-                            {mention.attachment && ` · found in ${mention.attachment.filename}`}
-                            {mention.source === "regex" && " · pattern match"}
-                          </span>
-                        </Link>
-                        {/* The tombstone that makes re-ingestion safe: dismiss a
-                            hallucinated address once and it stays dismissed
-                            through every future run (plan §2.3). */}
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="shrink-0 text-muted-foreground"
-                          title="Not really here: dismiss this mention"
-                          onClick={() =>
-                            void zero.mutate(
-                              mutators.entity.dismiss({
-                                messageId: mention.messageId,
-                                entityId: entity.id,
-                                attachmentId: mention.attachmentId ?? null,
-                              }),
-                            )
-                          }
-                        >
-                          <Icon name="dismiss" className="size-4" />
-                        </Button>
-                      </div>
+                        )}
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                          {mention.message && dayLabel(mention.message.createdAt)}
+                          {mention.message && ` · ${timeLabel(mention.message.createdAt)}`}
+                          {mention.attachment && ` · found in ${mention.attachment.filename}`}
+                          {mention.source === "regex" && " · pattern match"}
+                        </span>
+                      </Link>
                     </li>
                   ))}
                 </ul>
+              </section>
+
+              {/* Its own section, because deleting the thing is about the thing.
+                  The confirmation says what survives it: the messages. */}
+              <section>
+                <SectionHeading>Delete</SectionHeading>
+                <p className="text-[13px] text-muted-foreground">
+                  Deletes this {types.label(entity.kind)} everywhere.{" "}
+                  {entity.mentions.length === 1
+                    ? "The message it was found in stays."
+                    : "The messages it was found in stay."}
+                </p>
+                <AlertDialog open={confirming} onOpenChange={setConfirming}>
+                  <AlertDialogTrigger
+                    render={
+                      <Button variant="destructive" size="sm" className="mt-2">
+                        <Icon name="trash" className="size-3.5" /> Delete
+                      </Button>
+                    }
+                  />
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this {types.label(entity.kind)}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        It disappears from all your devices, with its tags and everything found
+                        about it. The messages it was found in stay, and reading them again
+                        won&rsquo;t bring it back. This can&rsquo;t be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        onClick={() => void remove(entity.id)}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </section>
             </div>
           </>

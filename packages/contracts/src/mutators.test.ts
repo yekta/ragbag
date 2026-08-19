@@ -5,7 +5,6 @@ import {
   MAX_TYPE_FIELDS,
   createEntityTypeArgs,
   createMessageArgs,
-  mentionArgs,
   setEntityTypeFieldsArgs,
   setMessageTagsArgs,
   updateEntityTypeArgs,
@@ -48,16 +47,6 @@ describe("createMessageArgs", () => {
       false,
     );
     expect(createMessageArgs.safeParse({ id: "01JBQ3W4XK", text: "x" }).success).toBe(false);
-  });
-});
-
-describe("mentionArgs", () => {
-  it("takes an attachment or none: a mention can come from the text itself", () => {
-    const base = { messageId: newId(), entityId: newId() };
-    expect(mentionArgs.safeParse(base).success).toBe(true);
-    expect(mentionArgs.safeParse({ ...base, attachmentId: null }).success).toBe(true);
-    expect(mentionArgs.safeParse({ ...base, attachmentId: newId() }).success).toBe(true);
-    expect(mentionArgs.safeParse({ ...base, attachmentId: "nope" }).success).toBe(false);
   });
 });
 

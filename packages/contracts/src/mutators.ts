@@ -68,11 +68,7 @@ export const deleteMessageArgs = z.object({ id: uuidArg });
 export const retryIngestArgs = z.object({ id: uuidArg });
 export const retryAttachmentArgs = z.object({ id: uuidArg });
 
-export const mentionArgs = z.object({
-  messageId: uuidArg,
-  entityId: uuidArg,
-  attachmentId: uuidArg.nullish(),
-});
+export const removeEntityArgs = z.object({ id: uuidArg });
 
 const tagNames = z.array(z.string().trim().min(1).max(64)).max(50);
 export const setMessageTagsArgs = z.object({ messageId: uuidArg, names: tagNames });
@@ -627,18 +623,32 @@ export const mutators = defineMutators({
 
   entity: {
     /**
-     * The tombstone that makes re-ingestion safe: a dismissed mention is
-     * skipped by every future run, so a hallucinated address stays gone
-     * (plan §2.3).
+     * Delete one thing: the tombstone that makes re-ingestion safe (plan
+     * §2.3), written across every mention at once.
+     *
+     * It stamps `dismissed_at` rather than deleting rows, because that column
+     * is the whole mechanism. The skip-list a run builds is keyed by entity id,
+     * so deleting the entity would let the very next run find the value again
+     * and recreate it under a fresh id, with nothing left to say no. Keeping
+     * the mentions also keeps the row away from `collectOrphanEntities`, which
+     * reaps only entities nothing points at.
+     *
+     * From the outside it is the delete it says it is: an entity with no live
+     * mention is filtered out of every view there is (plan §5.5).
      */
-    dismiss: defineMutator(mentionArgs, async ({ tx, ctx, args }) => {
+    remove: defineMutator(removeEntityArgs, async ({ tx, ctx, args }) => {
       const { userID } = mustBeLoggedIn(ctx);
-      await setDismissed(tx, userID, args, Date.now());
-    }),
-
-    restore: defineMutator(mentionArgs, async ({ tx, ctx, args }) => {
-      const { userID } = mustBeLoggedIn(ctx);
-      await setDismissed(tx, userID, args, null);
+      await mustOwnEntity(tx, userID, args.id);
+      const now = Date.now();
+      // Mentions on a deleted message are not synced, so the optimistic run
+      // walks fewer rows than the authoritative one. Both converge, and the
+      // rows only the server sees are ones no view would have shown anyway.
+      for (const mention of await tx.run(zql.messageEntities.where("entityId", args.id))) {
+        // An earlier no keeps its own timestamp: this one is when the thing
+        // was deleted, not a re-stamp of every dismissal before it.
+        if (mention.dismissedAt != null) continue;
+        await tx.mutate.messageEntities.update({ id: mention.id, dismissedAt: now });
+      }
     }),
   },
 
@@ -712,19 +722,3 @@ export const mutators = defineMutators({
     }),
   },
 });
-
-/** Dismiss/restore share everything but the timestamp they write. */
-async function setDismissed(
-  tx: Transaction,
-  userID: string,
-  args: z.infer<typeof mentionArgs>,
-  dismissedAt: number | null,
-): Promise<void> {
-  await mustOwnMessage(tx, userID, args.messageId);
-  const mentions = await tx.run(
-    zql.messageEntities.where("messageId", args.messageId).where("entityId", args.entityId),
-  );
-  const target = mentions.find((m) => (m.attachmentId ?? null) === (args.attachmentId ?? null));
-  if (!target) throw new Error("Mention not found");
-  await tx.mutate.messageEntities.update({ id: target.id, dismissedAt });
-}
