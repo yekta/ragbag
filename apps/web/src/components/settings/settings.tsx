@@ -86,7 +86,10 @@ export function Settings() {
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        {/* Bottom padding is the safe area plus 2rem, added rather than maxed:
+            the extra is room to breathe under the last section, and the phone's
+            home indicator should not be allowed to eat it. */}
+        <div className="min-h-0 flex-1 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[calc(2rem+max(1.25rem,env(safe-area-inset-bottom)))]">
           {editing ? (
             <TypeEditor typeId={editing.id} onDone={() => setEditing(null)} />
           ) : (
