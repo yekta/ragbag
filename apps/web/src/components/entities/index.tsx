@@ -5,7 +5,7 @@ import { EmailCard } from "./email-card.js";
 import { InvoiceCard } from "./invoice-card.js";
 import { LinkCard } from "./link-card.js";
 import { PhoneCard } from "./phone-card.js";
-import { CopyButton, EntityShell, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, MentionsContext, type EntityCardProps } from "./shell.js";
 import { TrackingCard } from "./tracking-card.js";
 import { useEntityTypes } from "@/lib/entity-types";
 
@@ -50,8 +50,12 @@ export function GenericEntityCard({ entity, onOpen }: EntityCardProps) {
   );
 }
 
-export function EntityCard(props: EntityCardProps) {
+export function EntityCard({ mentions = 0, ...props }: EntityCardProps) {
   const declared = useEntityTypes().get(props.entity.kind);
   const Card = CARDS[props.entity.kind] ?? (declared ? DeclaredEntityCard : GenericEntityCard);
-  return <Card {...props} />;
+  return (
+    <MentionsContext.Provider value={mentions}>
+      <Card {...props} />
+    </MentionsContext.Provider>
+  );
 }

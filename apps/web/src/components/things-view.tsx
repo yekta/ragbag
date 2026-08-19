@@ -155,13 +155,9 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
           <li key={entity.id}>
             <EntityCard
               entity={entity}
+              mentions={entity.mentions.length}
               onOpen={() => void navigate(entityLink(entity.id, filter))}
             />
-            {entity.mentions.length > 1 && (
-              <p className="mt-0.5 pl-12 text-[11px] text-muted-foreground">
-                seen in {entity.mentions.length} messages
-              </p>
-            )}
           </li>
         ))}
       </ul>

@@ -24,10 +24,23 @@ export function TimelineEntities({ children }: { children: ReactNode }) {
   return <SurfaceContext.Provider value="timeline">{children}</SurfaceContext.Provider>;
 }
 
+/**
+ * How many messages the thing on a card was seen in. A context for the same
+ * reason the surface is one: the cards forward nothing, and `EntityCard` is the
+ * one place that sees both the count and every shell that could draw it.
+ */
+export const MentionsContext = createContext(0);
+
 export type EntityCardProps = {
   entity: EntityFields;
   /** Opens the entity's own page. Absent where there is nowhere to go. */
   onOpen?: () => void;
+  /**
+   * How many messages it was seen in, where that is worth saying. The things
+   * list passes it; a message's strip does not (its entities do not carry their
+   * mentions), nor does the entity page (which lists them in full below).
+   */
+  mentions?: number;
 };
 
 /** Read a string out of an entity's per-kind `data` without trusting it. */
@@ -61,6 +74,11 @@ export function EntityShell({
   // than baked into a map at module scope.
   const icon = iconNamed(useEntityTypes().icon(kind));
   const timeline = useContext(SurfaceContext) === "timeline";
+  // One mention is every thing in the list, so saying it says nothing.
+  const mentions = useContext(MentionsContext);
+  const footnote = mentions > 1 && (
+    <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
+  );
   const surface = timeline ? "rounded-2xl bg-card p-3.5" : "rounded-lg border bg-panel p-3";
   const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
   return (
@@ -83,7 +101,16 @@ export function EntityShell({
         {subtitle && (
           <div className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{subtitle}</div>
         )}
-        {actions && <div className="mt-2 flex flex-wrap items-center gap-1.5">{actions}</div>}
+        {/* The count rides the action row rather than a line of its own: that
+            row is the one part of a card every kind has, whatever its subtitle
+            holds, and a line under the card was a caption floating between two
+            of them, belonging to the one below as much as the one above. */}
+        {(actions || footnote) && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {actions}
+            {footnote}
+          </div>
+        )}
       </div>
       {media}
     </div>
