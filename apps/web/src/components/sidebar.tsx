@@ -80,9 +80,14 @@ function SyncDot({ sync }: { sync: SyncStatus | null }) {
  * digits are wider than any strip worth reserving. In the flow the number
  * measures itself, and `shrink-0` against a truncating name settles which of
  * the two gives way.
+ *
+ * Measuring itself is exactly why it is set in the mono: these counts move as
+ * messages land, and in a proportional face a count that goes from 1 to 2 is
+ * also a count that changes width, which takes the truncation point of the
+ * name beside it with it. Same reasoning as the chip primitive in ui/badge.tsx.
  */
 function MenuCount({ children }: { children: React.ReactNode }) {
-  return <span className="ml-auto shrink-0 pl-1 text-xs tabular-nums">{children}</span>;
+  return <span className="ml-auto shrink-0 pl-1 font-mono text-xs">{children}</span>;
 }
 
 export function Sidebar({

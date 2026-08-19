@@ -10,6 +10,30 @@
     />
     <meta name="theme-color" content="#edefee" />
     <title>ragbag</title>
+    <!-- Both romans are on the critical path: the sans is the document, and the
+         mono is every chip and counter on a timeline card, so both paint in the
+         first frame. Without these the browser can't know a font is wanted
+         until it has fetched and parsed the stylesheet that names it, which is
+         a whole round trip of the fallback face on a cold cache.
+         `crossorigin` is not optional even though these are our own files:
+         fonts are fetched in CORS mode, and a preload whose mode doesn't match
+         the request the CSS makes is a preload the browser throws away and
+         then warns about, having downloaded the file twice. The italics are
+         deliberately absent: one view uses them. -->
+    <link
+      rel="preload"
+      href="/fonts/schibsted-grotesk-v7.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/spline-sans-mono-v13.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <!-- Applies the stored theme before first paint: reading it from React
          would flash the light canvas on every dark-mode load. Kept in step with
          lib/theme.ts (same key, same class, same colors). -->

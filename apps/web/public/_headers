@@ -1,0 +1,6 @@
+# The same rule as serve.json, for hosts that read this file instead
+# (Netlify, Cloudflare Pages), exactly as _redirects mirrors the SPA fallback.
+# Safe only because every filename here carries its font's version: see the
+# note at the top of src/fonts.css.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

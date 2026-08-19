@@ -467,7 +467,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                     nobody can see is a cap that surprises you at ten. */}
                 {attachments.length > 0 && (
                   <span
-                    className={`text-xs tabular-nums ${full ? "text-warning-foreground" : "text-muted-foreground"}`}
+                    className={`font-mono text-xs ${full ? "text-warning-foreground" : "text-muted-foreground"}`}
                   >
                     {attachments.length}/{MAX_ATTACHMENTS}
                   </span>

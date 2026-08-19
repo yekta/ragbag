@@ -8,8 +8,38 @@
    `data-state="open"` *and* Base's `data-open` in one rule, which is what let
    the two libraries coexist while this migration was in flight. */
 @import "shadcn/tailwind.css";
+/* The four @font-face rules, and the argument for self-hosting them. */
+@import "./fonts.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Type. Two tokens, and preflight does the rest: Tailwind derives the document
+ * default and the default for code, sample and keyboard elements from these,
+ * so nothing here has to set a family on the body or hunt down the four places
+ * in the app that render preformatted text.
+ *
+ * Not the inline @theme further down. That block exists so `.dark` can
+ * re-point a token at runtime, which is a thing colours do and families never
+ * do; inlining a stack this long into every utility that mentions it would
+ * only make the bundle bigger.
+ *
+ * The stock stacks stay behind ours rather than getting replaced by one
+ * generic name. They are the whole of what renders during the swap, and their
+ * tail is the emoji fallback: drop it and an emoji in a note lands on whatever
+ * the first family happens to have, which for a text face is nothing.
+ *
+ * The mono is not decoration here. It is the app's instrument face, and it is
+ * doing a layout job that the sans cannot: see the note on the chip primitive
+ * in components/ui/badge.tsx. */
+@theme {
+  --font-sans:
+    "Schibsted Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+  --font-mono:
+    "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
 
 /* Muted mint, anchored at OKLCH hue 168–174.
  *

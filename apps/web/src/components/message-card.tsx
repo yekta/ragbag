@@ -331,7 +331,7 @@ export function MessageCard({
             <TagChips message={message} />
           </span>
           <time
-            className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+            className="shrink-0 font-mono text-[11px] text-muted-foreground"
             title={new Date(message.createdAt).toLocaleString()}
           >
             {timeLabel(message.createdAt)}

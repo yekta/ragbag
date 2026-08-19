@@ -93,7 +93,10 @@ export function AudioRecorder({ onRecorded }: { onRecorded: (recording: Recordin
       >
         <Icon name="x" className="size-5" />
       </Button>
-      <span className="flex items-center gap-1.5 text-sm tabular-nums text-destructive">
+      {/* The one reading in the app that moves every second. In a proportional
+          face each tick is a different width, so the timer shoves the stop
+          button sideways for the length of the recording. */}
+      <span className="flex items-center gap-1.5 font-mono text-sm text-destructive">
         <span className="size-2 animate-pulse rounded-full bg-destructive" />
         {formatElapsed(elapsed)}
       </span>

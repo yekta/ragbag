@@ -182,6 +182,25 @@ prune can't remove it. Hosts that read `_redirects` (Netlify, Cloudflare Pages) 
 from `apps/web/public`; on anything else, point unmatched paths at `index.html` with a **200**, not
 a 301.
 
+**Fonts need a cache rule, and it does not come for free.** The app self-hosts both families from
+`/fonts` (the argument is at the top of `apps/web/src/fonts.css`). `serve` sends an `ETag` and no
+`Cache-Control` at all, which means a conditional request for every face on every load: the round
+trip self-hosting exists to avoid. `apps/web/public/serve.json` pins that directory for a year, and
+`public/_headers` says the same thing for hosts that read Netlify-style headers instead. On any
+other host, set it by hand:
+
+```
+/fonts/*   Cache-Control: public, max-age=31536000, immutable
+```
+
+`immutable` is safe here only because each filename carries the font's upstream version. Nothing
+under `public/` is content-hashed by Vite, so replacing those bytes without renaming the file
+strands every browser that already holds it. Check it after a deploy:
+
+```
+curl -sI https://app.ragbag.app/fonts/schibsted-grotesk-v7.woff2 | grep -i cache-control
+```
+
 **Media must be same-origin with the app.** Every picture's `src` is `/api/media/<blobId>/<variant>`
 (plan §6.3): one stable string, so the browser can cache it, lazy-load it, decode it off the main
 thread and evict it on its own. The media service worker (`public/media-sw.js`) intercepts exactly

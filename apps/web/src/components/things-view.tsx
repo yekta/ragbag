@@ -113,10 +113,14 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
                 {attachment.generatedTitle ?? attachment.filename}
               </span>
               <span className="text-[11px] text-muted-foreground">
-                {formatBytes(attachment.size)} · {attachment.filename}
+                {/* Readings take the mono, the name it belongs to does not:
+                    a filename is not a measurement, and mono would only make
+                    the long ones truncate sooner. */}
+                <span className="font-mono">{formatBytes(attachment.size)}</span> ·{" "}
+                {attachment.filename}
               </span>
             </span>
-            <span className="shrink-0 text-[11px] text-muted-foreground">
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
               {dayLabel(message.createdAt)}
             </span>
           </Link>

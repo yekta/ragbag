@@ -108,7 +108,7 @@ function ImageAlbum({ items }: { items: Attachment[] }) {
               on the card surface says the same thing while leaving the last
               photo visible. Same surface as the upload badge above it. */}
           {overflow > 0 && i === shown.length - 1 && (
-            <span className="absolute bottom-1.5 right-1.5 rounded-full border bg-card px-2 py-0.5 text-[11px] font-medium tabular-nums">
+            <span className="absolute bottom-1.5 right-1.5 rounded-full border bg-card px-2 py-0.5 font-mono text-[11px] font-medium">
               +{overflow}
             </span>
           )}
@@ -170,7 +170,7 @@ function AudioBubble({ attachment }: { attachment: Attachment }) {
         <audio src={url} controls preload="metadata" className="mt-1 h-8 w-full" />
       </div>
       {attachment.durationMs != null && (
-        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
           {formatDuration(attachment.durationMs)}
         </span>
       )}
@@ -216,7 +216,11 @@ function FileRow({ attachment, face }: { attachment: Attachment; face: Attachmen
           {attachment.generatedTitle ?? attachment.filename}
         </span>
         <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          {formatBytes(attachment.size)}
+          {/* The size is a reading and sets its own face; the filename beside
+              it is a name and keeps the document's. */}
+          <span className="font-mono normal-case tracking-normal">
+            {formatBytes(attachment.size)}
+          </span>
           {attachment.generatedTitle && attachment.generatedTitle !== attachment.filename
             ? ` · ${attachment.filename}`
             : ""}
@@ -272,7 +276,7 @@ export function UploadBadge({
         e.stopPropagation();
         if (failing) void queue.retryBlob(blobId);
       }}
-      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+      className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-medium ${
         side === "left" ? "left-1.5" : "right-1.5"
       } ${failing ? "border-destructive bg-card text-destructive" : "bg-card text-muted-foreground"}`}
     >
@@ -283,11 +287,23 @@ export function UploadBadge({
       ) : (
         <Icon name="spinner" className="size-3 animate-spin [animation-duration:2s]" />
       )}
-      {failing
-        ? "upload failed"
-        : upload.stage === "inflight" && upload.progress !== null
-          ? `${Math.round(upload.progress * 100)}%`
-          : "uploading"}
+      {failing ? (
+        "upload failed"
+      ) : upload.stage === "inflight" && upload.progress !== null ? (
+        // The mono makes every digit the same width; this makes every *count*
+        // of digits the same width, which is the rest of the jitter. A
+        // progress event lands dozens of times per upload and two of those
+        // ticks cross a digit boundary, so without a floor the chip is a
+        // different size for 9% than for 10%. Three characters is 0-99, where
+        // all the counting happens; the frame that reads 100% overflows it and
+        // is the last one anyway. The other two states are words, and a word
+        // is not something a width in characters can help with.
+        <span className="inline-block min-w-[3ch] text-right">
+          {Math.round(upload.progress * 100)}%
+        </span>
+      ) : (
+        "uploading"
+      )}
     </button>
   );
 }

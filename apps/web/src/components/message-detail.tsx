@@ -416,7 +416,7 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
         <span className="flex items-center gap-1.5">
           <Icon name={FACE_ICON[face]} className="size-3.5" />
           <span className="truncate">{attachment.filename}</span>
-          <span className="font-normal normal-case tracking-normal text-muted-foreground">
+          <span className="font-mono font-normal normal-case tracking-normal text-muted-foreground">
             {formatBytes(attachment.size)}
             {attachment.durationMs != null ? ` · ${formatDuration(attachment.durationMs)}` : ""}
           </span>
@@ -515,7 +515,10 @@ function AttachmentSection({ attachment }: { attachment: DetailAttachment }) {
                   void audio.play();
                 }}
               >
-                <span className="shrink-0 tabular-nums text-muted-foreground">
+                {/* A column of timecodes down the left of the transcript, so
+                    they have to agree on a width or the text beside them
+                    ragged-edges its way down the list. */}
+                <span className="shrink-0 font-mono text-muted-foreground">
                   {formatDuration(segment.start * 1000)}
                 </span>
                 <span className="min-w-0">{segment.text}</span>

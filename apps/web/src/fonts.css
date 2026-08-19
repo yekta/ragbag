@@ -1,0 +1,76 @@
+/* Self-hosted type. Both families are variable, both are OFL, and both are
+ * served from our own origin rather than a font CDN: a third party in the
+ * critical path is a third party that can be slow, blocked, or gone, and a
+ * cross-origin font is a second connection to open before the first paint.
+ *
+ * Provenance, so the next person does not have to guess where the bytes came
+ * from. Upstream is the google/fonts repo (`ofl/schibstedgrotesk`,
+ * `ofl/splinesansmono`), which ships variable TTFs; the woff2 here were built
+ * from those with wawoff2, which is Google's own encoder:
+ *
+ *   npm i wawoff2
+ *   node -e 'const {compress}=require("wawoff2"),fs=require("fs");
+ *     (async()=>fs.writeFileSync("out.woff2",
+ *       Buffer.from(await compress(fs.readFileSync("in.ttf")))))()'
+ *
+ * The whole font, not Google's latin / latin-ext subsets. Their two subsets
+ * come to 67.6 KB against 70.7 KB for the entire face, so subsetting would buy
+ * about 3 KB in exchange for a subsetting toolchain and a unicode-range split.
+ * This app is a bag of other people's strings, and the coverage is worth more
+ * than the 3 KB.
+ *
+ * woff2 only. There is no woff1 fallback because there is no browser that
+ * would take it: woff2 landed in 2014-16 across the board, variable font
+ * support landed in 2017-18, so every engine that can render a variable font
+ * at all reads woff2.
+ *
+ * The version in each filename is the upstream catalogue version, and it is
+ * load-bearing. These live under `public/`, so Vite copies them through
+ * unhashed, and the cache rule that makes self-hosting worth doing pins them
+ * for a year (see public/serve.json). Replacing the bytes under a name a
+ * browser already holds would strand that browser on the old face until the
+ * year is up; changing the name is what makes the swap visible. Bump the
+ * suffix whenever the file changes.
+ *
+ * `font-weight` carries the axis range rather than a single value, which is
+ * what tells the browser this is one variable file covering the whole span
+ * instead of a static face to synthesise the other weights from. Schibsted
+ * Grotesk starts at 400: there is no light end to ask for. Spline Sans Mono
+ * runs 300-700.
+ *
+ * Real italics are declared even though the app leans on them in one place.
+ * A face costs nothing until something on the page matches it, and the
+ * alternative is the browser shearing the roman into a fake oblique.
+ */
+
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/schibsted-grotesk-v7.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("/fonts/schibsted-grotesk-italic-v7.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Spline Sans Mono";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/spline-sans-mono-v13.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Spline Sans Mono";
+  font-style: italic;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/spline-sans-mono-italic-v13.woff2") format("woff2");
+}
