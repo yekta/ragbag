@@ -89,7 +89,7 @@ export function StatusChip({ message }: { message: Message }) {
       >
         <span title={message.error ?? undefined}>{failed ? "Failed" : "Partly read"}</span>
         <button
-          className="inline-flex items-center gap-0.5 rounded-full bg-card px-1.5 py-px text-foreground hover:bg-panel"
+          className="inline-flex items-center gap-0.5 rounded-full bg-card px-1.5 py-px text-foreground hover:bg-hover"
           title={message.error ?? "Retry ingestion"}
           onClick={(e) => {
             e.preventDefault();
@@ -309,23 +309,31 @@ export function MessageCard({
           so the tear below can run the full width. It is the album's inset:
           the text takes its own, below. */}
       <div className="p-3.5">
-        {message.text && (
-          // Both of these are optical, and both are about text sharing a box
-          // with pictures. `leading-relaxed` hangs ~5px of half-leading above
-          // the first line, so an equal padding on four sides lands the glyphs
-          // visibly lower than they sit in from the left: the negative margin
-          // takes that back, and only here, because text is the first thing in
-          // a message whenever there is any. And a picture fills its box to the
-          // pixel while a letter carries its own side bearing, so the text sits
-          // further in than the album does: a hair of it on a phone, where the
-          // gutter costs line length, and on a wider card the 20px the composer
-          // sets the same words in while they are being typed.
-          <p className="-mt-0.5 px-0.5 whitespace-pre-wrap break-words leading-relaxed md:px-1.5">
-            <Linkified text={message.text} />
-          </p>
-        )}
+        {/* The air between what someone wrote and what they sent with it
+            belongs to the pair rather than to either half, so it is a gap
+            between the two and not padding on one of them: a flex gap only
+            exists when there are two children for it to sit between, so a
+            message that is only text and a message that is only pictures each
+            sit on the card's own inset with nothing added. */}
+        <div className="flex flex-col gap-1">
+          {message.text && (
+            // Both of these are optical, and both are about text sharing a box
+            // with pictures. `leading-relaxed` hangs ~5px of half-leading above
+            // the first line, so an equal padding on four sides lands the glyphs
+            // visibly lower than they sit in from the left: the negative margin
+            // takes that back, and only here, because text is the first thing in
+            // a message whenever there is any. And a picture fills its box to the
+            // pixel while a letter carries its own side bearing, so the text sits
+            // further in than the album does: a hair of it on a phone, where the
+            // gutter costs line length, and on a wider card the 20px the composer
+            // sets the same words in while they are being typed.
+            <p className="-mt-0.5 px-0.5 whitespace-pre-wrap break-words leading-relaxed md:px-1.5">
+              <Linkified text={message.text} />
+            </p>
+          )}
 
-        <AttachmentAlbum attachments={message.attachments} />
+          <AttachmentAlbum attachments={message.attachments} />
+        </div>
 
         {/* The footer stands a chip tall whether or not there is a chip in it.
             Ingestion is the one thing on a card that changes on its own, with

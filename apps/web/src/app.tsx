@@ -630,7 +630,7 @@ function FloatingButton({ className, ...props }: ComponentProps<typeof Button>) 
     <Button
       variant="ghost"
       size="icon"
-      className={`absolute rounded-full border bg-card text-muted-foreground shadow-float hover:bg-panel ${className ?? ""}`}
+      className={`absolute rounded-full border bg-card text-muted-foreground shadow-float hover:bg-background-hover ${className ?? ""}`}
       {...props}
     />
   );

@@ -53,20 +53,23 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
-        // Its hover fill is a rung off its own rest fill (--background-hover in
-        // index.css) rather than the muted fill the generator reached for. That
-        // token is a fill, not a rung: it sits a hair *under* the canvas in the
-        // light theme and well *over* it in the dark one, so a single class
-        // meant a darkening too small to see in light and, in dark, a lift that
-        // landed on --border and swallowed this variant's edge. The open state
-        // keeps the muted fill: it is not a hover, and reading as filled is the
-        // point of it.
+        // Its hover fill is a rung off its own rest fill rather than the muted
+        // fill the generator reached for. That token is a fill, not a rung: it
+        // sits a hair *under* the canvas in the light theme and well *over* it
+        // in the dark one, so a single class meant a darkening too small to see
+        // in light and, in dark, a lift that landed on --border and swallowed
+        // this variant's edge. Of the two rungs in index.css this variant takes
+        // --background-hover, the one that stops short of --border, because it
+        // has an edge to lose; the edgeless variants below take --hover, which
+        // spends that clearance. The open state takes the same fill as the
+        // hover: reading as filled is the point of it, and the muted fill it
+        // used to take was invisible in light for the same reason.
         outline:
-          "border border-border bg-background shadow-xs hover:bg-background-hover hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+          "border border-border bg-background shadow-xs hover:bg-background-hover hover:text-foreground aria-expanded:bg-background-hover aria-expanded:text-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+          "hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground",
         destructive:
           "bg-destructive-soft text-destructive hover:bg-destructive-soft-hover focus-visible:border-destructive focus-visible:ring-destructive",
         link: "text-primary underline-offset-4 hover:underline",

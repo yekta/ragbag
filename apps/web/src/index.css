@@ -20,15 +20,31 @@
     --timeline-inset-top: calc(0.75rem + 2.25rem + 1rem);
   }
   --background: oklch(0.98511 0 0);
-  /* The fill a bordered control takes under the pointer: one clear rung off
-     --background, in whichever direction the theme has room for. It is its own
-     token because the muted fill cannot do this job in both themes at once. In
-     light, muted (0.97) sits just under the canvas, so the hover was a 0.015
-     darkening nobody could see. In dark it sits 0.124 *above* it and lands on
-     --border (0.25), which erases the very edge the outline variant is named
-     for. The constraint on the dark value is exactly that: stay under --border,
-     or a bordered control turns into a slab of border colour. */
-  --background-hover: oklch(0.95 0 0);
+  /* Two hover rungs, because a control with an edge and a control without one
+     can travel different distances before they break. Both are one clear step
+     off the surface beneath them, in whichever direction the theme has room
+     for, and neither is a fill token pressed into service: --muted cannot do
+     this job in both themes at once. In light it sits 0.015 under the canvas,
+     so the hover was a darkening nobody could see. In dark it sits 0.124
+     *above* it, past --border, which erases the very edge the outline variant
+     is named for.
+
+     --background-hover is the rung for a bordered control. Its constraint is
+     that edge: it stops 0.025 short of --border in both themes, so the fill
+     never runs into the border and swallows it.
+
+     --hover is the rung for an edgeless one: ghost buttons, menu items,
+     sidebar rows, toggles, any row that has no border of its own. With no edge
+     to protect it takes the rest of the room and stops just short of --border
+     itself.
+
+     Light used to have room for neither. Every neutral it owns was packed into
+     the 0.063 between the canvas and --border, against dark's 0.105, so every
+     hover in the app measured two to eight times weaker here than there. The
+     border moved down to 0.902 to open that up, and these rungs are what the
+     room was opened for. */
+  --background-hover: oklch(0.927 0 0);
+  --hover: oklch(0.92 0 0);
   --foreground: oklch(0.205 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.205 0 0);
@@ -36,7 +52,7 @@
   --popover-foreground: oklch(0.205 0 0);
 
   --panel: oklch(0.97 0 0);
-  --panel-hover: oklch(0.945 0 0);
+  --panel-hover: oklch(0.925 0 0);
   --primary: oklch(0.511 0.262 276.966);
   --primary-foreground: oklch(1 0 0);
   --primary-hover: oklch(0.457 0.24 277.023);
@@ -45,27 +61,28 @@
   --secondary-hover: oklch(0.922 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.54 0 0);
-  --accent: oklch(0.962 0.018 272.314);
+  --accent: oklch(0.921 0.032 272.314);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-hover: oklch(0.505 0.213 27.518);
   --destructive-soft: oklch(0.955 0.021 27);
-  --destructive-soft-hover: oklch(0.928 0.034 27);
+  --destructive-soft-hover: oklch(0.902 0.046 27);
   --warning: oklch(0.955 0.035 92);
   --warning-foreground: oklch(0.415 0.075 78);
   --success: oklch(0.95 0.035 160);
   --success-foreground: oklch(0.505 0.09 158);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.902 0 0);
+  --input: oklch(0.902 0 0);
   --switch-thumb: oklch(1 0 0);
   --ring: oklch(0.585 0.233 277.117);
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.205 0 0);
   --sidebar-primary: oklch(0.511 0.262 276.966);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.962 0.018 272.314);
+  --sidebar-accent: oklch(0.921 0.032 272.314);
+  --sidebar-accent-hover: oklch(0.878 0.042 272.314);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-border: oklch(0.902 0 0);
   --sidebar-ring: oklch(0.585 0.233 277.117);
   --kind-note: oklch(0.56 0.085 95);
   --kind-note-soft: oklch(0.962 0.03 95);
@@ -102,16 +119,17 @@
 
 .dark {
   --background: oklch(0.14479 0 0);
-  /* Up rather than down, as every neutral rung in this theme goes, and stopping
-     under --border. */
+  /* Up rather than down, as every neutral rung in this theme goes. The bordered
+     rung keeps its 0.025 clear of --border; the edgeless one spends it. */
   --background-hover: oklch(0.225 0 0);
+  --hover: oklch(0.245 0 0);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.182 0 0);
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.182 0 0);
   --popover-foreground: oklch(0.97 0 0);
   --panel: oklch(0.225 0 0);
-  --panel-hover: oklch(0.255 0 0);
+  --panel-hover: oklch(0.268 0 0);
 
   --primary: oklch(0.673 0.182 276.935);
   --primary-foreground: oklch(0.205 0.03 277);
@@ -143,6 +161,7 @@
   --sidebar-primary: oklch(0.673 0.182 276.935);
   --sidebar-primary-foreground: oklch(0.205 0.03 277);
   --sidebar-accent: oklch(0.31 0.05 277);
+  --sidebar-accent-hover: oklch(0.355 0.055 277);
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(0.25 0 0);
   --sidebar-ring: oklch(0.673 0.182 276.935);
@@ -184,6 +203,7 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --color-background: var(--background);
   --color-background-hover: var(--background-hover);
+  --color-hover: var(--hover);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -221,6 +241,7 @@
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent-hover: var(--sidebar-accent-hover);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-kind-note: var(--kind-note);

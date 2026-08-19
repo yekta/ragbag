@@ -11,6 +11,8 @@
     "typecheck": "tsc",
     "//settle-proof": "Acceptance harness for the settle rule in src/lib/settle.ts: frame-by-frame proof that nothing flashes. Needs the dev stack up (pnpm dev + pnpm dev:zero-cache) and a browser: `npx playwright install chromium` once.",
     "settle-proof": "node scripts/settle-proof.mjs",
+    "//rungs-proof": "Acceptance harness for the hover rungs in src/index.css: proves every rest/hover pair steps far enough to read, in both themes, and that a bordered fill stays off its own border. No browser and no dev stack.",
+    "rungs-proof": "node scripts/rungs-proof.mjs",
     "//drawer-proof": "Acceptance harness for BASE_UI_PLAN.md §8: the detail drawer's geometry on both form factors, and the dark-mode overlay contrast the migration put at risk. Same prerequisites as settle-proof; seeds its own items.",
     "drawer-proof": "node scripts/drawer-proof.mjs",
     "//start": "Production static serving (Railway). -s is the SPA fallback: without it a hard refresh on /item/<id> 404s.",

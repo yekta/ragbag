@@ -97,11 +97,12 @@ export function EntityShell({
     ? "rounded-2xl border bg-background p-3.5"
     : "rounded-md border bg-card p-3";
   const iconBox = timeline ? "rounded-md" : "rounded-sm";
-  // One hover for both surfaces: a neutral rung above whichever fill it sits
-  // on. The nested one used to take the accent tint, which put a wash of
-  // violet on a card that is otherwise all greys. That token is for menu focus
-  // and for selection, and a hover is neither.
-  const hover = onOpen ? "cursor-pointer hover:bg-panel" : "";
+  // One hover for both surfaces: a neutral rung off whichever fill it sits on.
+  // The nested one used to take the accent tint, which put a wash of violet on
+  // a card that is otherwise all greys. That token is for menu focus and for
+  // selection, and a hover is neither. Both surfaces here are bordered, so the
+  // rung is the one that keeps its distance from --border.
+  const hover = onOpen ? "cursor-pointer hover:bg-background-hover" : "";
   return (
     <div
       className={`flex gap-3 transition ${surface} ${hover}`}

@@ -94,7 +94,13 @@ export function AttachmentAlbum({
 }) {
   if (attachments.length === 0) return null;
   return (
-    <div className="mt-0.5 flex flex-col gap-1.5">
+    // No inset of its own: a tile fills its box to the pixel, so whatever
+    // padding the surface holds is already the album's margin on all four
+    // sides, and a correction like the one the text beside it needs would just
+    // sit the pictures off-centre. The one place an album wants air above it is
+    // under a paragraph, and that gap belongs to the pair of them
+    // (message-card.tsx) rather than to every album everywhere.
+    <div className="flex flex-col gap-1.5">
       {toBlocks(attachments).map((block) =>
         block.type === "album" ? (
           <ImageAlbum key={block.items[0]!.id} items={block.items} variant={variant} />
@@ -391,7 +397,7 @@ function FileRow({
     <AttachmentLink
       attachment={attachment}
       variant={variant}
-      className="relative flex items-center gap-3 rounded-md border bg-card p-3 transition hover:bg-panel"
+      className="relative flex items-center gap-3 rounded-md border bg-card p-3 transition hover:bg-background-hover"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
         <Icon name={FACE_ICON[face]} className="size-4" />
