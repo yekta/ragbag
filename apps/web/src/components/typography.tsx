@@ -72,6 +72,10 @@ export function SectionHeading({
  * The sidebar's group labels are the one place this is not used. They come
  * from a vendored primitive (ui/sidebar.tsx) that already lands on 12px muted,
  * so those two call sites add the weight and nothing else.
+ *
+ * One call site runs 500 rather than 600: a message card's strip label carries
+ * a sparkles mark, and a label with an icon in it already reads as a label
+ * without the weight doing it a second time.
  */
 export function GroupLabel({ children, className }: { children: ReactNode; className?: string }) {
   return <p className={cn("text-xs font-semibold text-muted-foreground", className)}>{children}</p>;

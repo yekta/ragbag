@@ -81,7 +81,7 @@ export function EntityShell({
   const footnote = mentions > 1 && (
     <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
   );
-  const surface = timeline ? "rounded-2xl bg-card p-3.5" : "rounded-lg border bg-card p-3";
+  const surface = timeline ? "rounded-lg bg-card p-3.5" : "rounded-lg border bg-card p-3";
   const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
   return (
     <div

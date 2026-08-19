@@ -197,7 +197,13 @@ function EntityStrip({ message }: { message: Message }) {
       </div>
       {/* Tighter above than below: the tear is not a thing to crowd. */}
       <div className="p-3.5 pt-3">
-        <GroupLabel className="mb-2.5">Things found in the message</GroupLabel>
+        {/* The sparkles mark: everything under this label was found by the
+            pipeline rather than written by the person, and the label is the
+            one place on the card that can say so once for all of them. */}
+        <GroupLabel className="mb-2.5 flex items-center gap-1 font-medium">
+          <Icon name="sparkles" className="size-3.5 shrink-0" />
+          Things found in the message
+        </GroupLabel>
         <div className="flex flex-col gap-1.5">
           {entities.map((entity) => (
             <EntityCard
@@ -228,7 +234,7 @@ export function MessageCard({
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // borrows the card tokens directly.
     <article
-      className={`group relative rounded-2xl bg-card text-card-foreground ${
+      className={`group relative rounded-lg bg-card text-card-foreground ${
         highlight ? "ring-2 ring-ring" : ""
       }`}
       // Touch has no hover actions, so tapping the card body opens the detail
