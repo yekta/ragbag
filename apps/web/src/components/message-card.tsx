@@ -187,9 +187,9 @@ function EntityStrip({ message }: { message: Message }) {
     // would have stretched every dash with it. A box takes its height and its
     // rhythm separately, so only the thickness changed.
     //
-    // Both halves keep the card fill. The shade below it, `--panel`, is
-    // already what the entity cards themselves are made of, so tinting the
-    // stub would swallow the very things it holds.
+    // Both halves keep the card fill, and so do the entity cards in the stub:
+    // their border is the whole separation, and a second one made of fill
+    // stacked shades inside a shade for no gain.
     <>
       <div className="relative mx-2 h-[2px] bg-[repeating-linear-gradient(to_right,var(--background)_0_3px,transparent_3px_5px)]">
         <span className="absolute -top-[7px] -left-4 size-4 rounded-full bg-background" />
@@ -197,7 +197,7 @@ function EntityStrip({ message }: { message: Message }) {
       </div>
       {/* Tighter above than below: the tear is not a thing to crowd. */}
       <div className="p-3.5 pt-3">
-        <GroupLabel className="mb-1.5">Found in this</GroupLabel>
+        <GroupLabel className="mb-2.5">Things found in the message</GroupLabel>
         <div className="flex flex-col gap-1.5">
           {entities.map((entity) => (
             <EntityCard

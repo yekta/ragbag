@@ -10,10 +10,12 @@ import type { EntityFields } from "@/lib/types";
 //
 // Two surfaces, and the rule is where the card is rather than what it holds:
 // a row *in* a timeline is a surface of its own (no border, the same fill a
-// message has), and a card *inside* a message is a chip on top of one
-// (bordered, a shade up). Which is why this is a context rather than a prop:
-// the six cards forward nothing, and the list that draws them says once, for
-// all of them, where they are.
+// message has), and a card *inside* a message is a chip on top of one. Both
+// keep the card fill; the nested one is told apart by its border alone, which
+// is enough, and tinting it as well would have made a message's findings read
+// as inset wells rather than as cards sitting on it. Which is why this is a
+// context rather than a prop: the six cards forward nothing, and the list that
+// draws them says once, for all of them, where they are.
 
 type Surface = "timeline" | "nested";
 
@@ -79,7 +81,7 @@ export function EntityShell({
   const footnote = mentions > 1 && (
     <span className="ml-0.5 text-[11px] text-muted-foreground">seen in {mentions} messages</span>
   );
-  const surface = timeline ? "rounded-2xl bg-card p-3.5" : "rounded-lg border bg-panel p-3";
+  const surface = timeline ? "rounded-2xl bg-card p-3.5" : "rounded-lg border bg-card p-3";
   const hover = onOpen ? `cursor-pointer ${timeline ? "hover:bg-panel" : "hover:bg-accent"}` : "";
   return (
     <div
