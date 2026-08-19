@@ -183,32 +183,32 @@ export function Sidebar({
     [tags, tagCounts],
   );
 
-  // Where each row points, and whether it is the row you are already on: one
-  // helper, because those two are the same question. Picking the row you are on
-  // clears that one filter, which is what a second click on it always did, and
-  // the other filter rides along, because a view and a tag have always narrowed
-  // together. `aria-current` because these are links now: the highlight says
-  // "this is the view you are in" to everyone else.
-  const rowProps = (target: Filter, active: boolean) => ({
-    isActive: active,
-    render: (
-      <Link
-        {...filterLink(target)}
-        aria-current={active ? "page" : undefined}
-        onClick={closeDrawer}
-      />
-    ),
+  // Where each row points. Which row is *lit* is not asked here at all: a
+  // `<Link>` compares its own destination against the current location and
+  // says so itself, in `data-status="active"` (what ui/sidebar.tsx lights the
+  // row off) and in `aria-current="page"` (the same fact, for a screen
+  // reader). So a row cannot be highlighted as a view it does not point at,
+  // and there is no second copy of "where am I" here to drift out of step with
+  // the address bar.
+  //
+  // Drift is exactly what was wrong before: these rows began as toggles over a
+  // variable, and the toggle outlived the move to `<Link>` as an active row
+  // whose href was the *cleared* filter. A link that does not go where it says
+  // it goes is wrong in every way a link gets used, not just on the second
+  // click that made it obvious: middle-clicking the row you were on opened the
+  // whole archive in a new tab and "copy link address" copied the wrong URL.
+  //
+  // The other filter rides along in the target, because a view and a tag have
+  // always narrowed together. That is also what lights both rows at once on
+  // `/links/tags/x`, with no rule about it written anywhere: each row points at
+  // the URL you are on.
+  const rowLink = (target: Filter, activeOptions?: { exact: boolean }) => ({
+    render: <Link {...filterLink(target)} activeOptions={activeOptions} onClick={closeDrawer} />,
   });
 
-  const viewRow = (view: string) => {
-    const active = filter.view === view;
-    return rowProps({ view: active ? null : view, tagId: filter.tagId }, active);
-  };
+  const viewRow = (view: string) => rowLink({ view, tagId: filter.tagId });
 
-  const tagRow = (tagId: string) => {
-    const active = filter.tagId === tagId;
-    return rowProps({ view: filter.view, tagId: active ? null : tagId }, active);
-  };
+  const tagRow = (tagId: string) => rowLink({ view: filter.view, tagId });
 
   return (
     <SidebarRoot variant="floating" collapsible="offcanvas">
@@ -257,9 +257,12 @@ export function Sidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  {...rowProps(EVERYTHING, filter.view === null && filter.tagId === null)}
-                >
+                {/* `exact`, alone among the rows, because `/` is a prefix of
+                    every URL in the app and the stock test is a prefix test:
+                    without it Drop is lit on every screen. The rest match their
+                    own subtree, which is why a tag narrowing a view leaves the
+                    view's row lit. */}
+                <SidebarMenuButton {...rowLink(EVERYTHING, { exact: true })}>
                   <Icon name="inbox" className="size-4" />
                   <span className="truncate">Drop</span>
                   <MenuCount>{messages.length}</MenuCount>

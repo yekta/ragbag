@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PanelLeftIcon } from "lucide-react";
 
-// Local edits to the generated component. Re-apply all three on a re-pull:
+// Local edits to the generated component. Re-apply all of them on a re-pull:
 //
 // 1. The generated `setOpen` also writes a `sidebar_state` cookie. It is gone:
 //    zustand + localStorage is the single source of truth for this preference,
@@ -36,6 +36,14 @@ import { PanelLeftIcon } from "lucide-react";
 //    and the `max-w-3xl` cap centred them on that same off-by-8 box. With the
 //    panel's edge *on* the column boundary, one `px-4` in there is the whole
 //    distance either way. Both halves are commented where they are.
+// 5. A menu button lights on `data-status="active"` as well as on `data-active`.
+//    The generated component knows one way to be current: an `isActive` prop
+//    the caller works out and passes in. Every row in this app is a `<Link>`,
+//    and a link already knows whether it points at the page you are on: it
+//    compares its own destination against the current location and says so, in
+//    `data-status` and in `aria-current` (@tanstack/react-router, link.js).
+//    Styling off that is what keeps the highlight and the href the same fact.
+//    `isActive` still works for a row that is not a link.
 const SIDEBAR_WIDTH = "18rem";
 const SIDEBAR_WIDTH_MOBILE = "19rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -518,7 +526,7 @@ const sidebarMenuButtonVariants = cva(
   // to a row and answers to a click) while the fill, clipped to the padding
   // box, stops short of it. Two adjacent highlights therefore read 4px apart
   // with nothing dead in between.
-  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y-2 border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+  "peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md border-y-2 border-transparent bg-clip-padding p-2 text-left text-sm text-muted-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-[status=active]:bg-sidebar-accent data-[status=active]:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
   {
     variants: {
       variant: {
