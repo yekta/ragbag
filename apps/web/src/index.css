@@ -130,9 +130,9 @@
      switches on the same breakpoint rather than padding everything by the
      larger of the two. 48rem is that breakpoint: Tailwind's `md`, and
      MOBILE_BREAKPOINT in hooks/use-mobile.ts. */
-  --timeline-inset-top: calc(0.75rem + 2.75rem + 0.5rem); /* 4rem = 64px */
+  --timeline-inset-top: calc(0.75rem + 2.75rem + 1rem); /* 4.5rem = 72px */
   @media (min-width: 48rem) {
-    --timeline-inset-top: calc(0.75rem + 2.25rem + 0.5rem); /* 3.5rem = 56px */
+    --timeline-inset-top: calc(0.75rem + 2.25rem + 1rem); /* 4rem = 64px */
   }
 
   /* Bucket-centred (rule 3): 236.932, 238.984, 238.071. */
