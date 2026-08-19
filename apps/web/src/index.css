@@ -1,36 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* Base UI's styling companion: the `data-open` / `data-closed` / `data-disabled`
-   custom variants the vendored components compile against, plus the
-   `scroll-fade`, `no-scrollbar` and `shimmer` utilities. Purely additive. It
-   declares no `--color-*`, `--radius-*`, `--shadow-*` or `--ease-*`, so the
-   @theme block below is untouched by it. The variants match Radix's
-   `data-state="open"` *and* Base's `data-open` in one rule, which is what let
-   the two libraries coexist while this migration was in flight. */
 @import "shadcn/tailwind.css";
-/* The four @font-face rules, and the argument for self-hosting them. */
 @import "./fonts.css";
-
 @custom-variant dark (&:is(.dark *));
-
-/* Type. Two tokens, and preflight does the rest: Tailwind derives the document
- * default and the default for code, sample and keyboard elements from these,
- * so nothing here has to set a family on the body or hunt down the four places
- * in the app that render preformatted text.
- *
- * Not the inline @theme further down. That block exists so `.dark` can
- * re-point a token at runtime, which is a thing colours do and families never
- * do; inlining a stack this long into every utility that mentions it would
- * only make the bundle bigger.
- *
- * The stock stacks stay behind ours rather than getting replaced by one
- * generic name. They are the whole of what renders during the swap, and their
- * tail is the emoji fallback: drop it and an emoji in a note lands on whatever
- * the first family happens to have, which for a text face is nothing.
- *
- * The mono is not decoration here. It is the app's instrument face, and it is
- * doing a layout job that the sans cannot: see the note on the chip primitive
- * in components/ui/badge.tsx. */
 @theme {
   --font-sans:
     "Schibsted Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
@@ -40,159 +12,51 @@
     "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
 }
-
-/* Muted mint, anchored at OKLCH hue 168–174.
- *
- * Three rules hold this together:
- *
- * 1. The chroma budget is lopsided. Surfaces (background, card, popover,
- *    panel, sidebar, muted, secondary, border, input) and ink sit at
- *    0.0015–0.012, within ~2/255 of a neutral grey, so they read as "not
- *    quite grey" rather than as a green app. primary / ring / accent / the
- *    kind + ai tokens keep real chroma, because those are the places colour is
- *    supposed to do work. Every one of them, including borders and shadows,
- *    carries the mint hue; nothing here is neutral black or white.
- *
- * 2. Every colour is an opaque token, and there is no `dark:` anywhere in the
- *    app. Those are the same rule seen from two ends. An alpha fill composites
- *    against whatever happens to be behind it, so the same class lands
- *    differently on the canvas, on a card, and inside the detail drawer, and
- *    the usual patch for that is a second, dark-only alpha, which is how a
- *    palette ends up with two of everything and a `dark:` prefix deciding
- *    which one you get. Both problems disappear if the token itself changes
- *    under `.dark`: one class name, one call site, correct in both themes.
- *
- *    So soft fills get their own solid tokens (`--kind-*-soft`,
- *    `--destructive-soft`, `--ai-soft`, `--panel`) and hover states get solid
- *    `-hover` tokens. The generated components arrive built the other way (
- *    `bg-input/30`, `bg-destructive/10`, `bg-black/10`, `ring-ring/50`, each
- *    paired with a `dark:` twin) and are re-tokenised on every pull. That is
- *    the standing local edit noted at the top of ui/button.tsx.
- *
- *    The deliberate exceptions are things that are *physically* translucent:
- *    `--overlay` (you must see the page through it), the scrim that fades the
- *    page out behind the drop state, the veil that mutes an attachment still
- *    on its way up, and the shadow scale (a shadow that isn't translucent is a
- *    solid block). All are mint-tinted, all keep an opaque colour, and their
- *    strengths are named `--opacity-*` modifiers, so call sites read
- *    `bg-overlay/overlay`, `bg-background/scrim` and `bg-card/veil`, a named
- *    strength, never a loose `/40`.
- *
- * 3. The canvas lands in the middle of its 8-bit bucket. `oklch()` is resolved
- *    per paint, and the browser draws `--background` through more than one
- *    path on the same screen (the canvas fill propagated from `body`, an
- *    element that repaints it, a composited layer, the `theme-color` chrome),
- *    so a value that converts to a channel ending in .5 is a coin flip, and
- *    the two paths can land on opposite sides of it. `oklch(0.19 0.005 174)`
- *    converted to 17.589, 20.530, 19.559: every channel within 0.09 of the
- *    boundary. That is what put a full-width seam across the sign-in screen:
- *    two greys one unit apart, canvas on one side, canvas on the other. The
- *    lightness of both canvases is tuned so all three channels land within
- *    0.08 of an integer: #0f1211 and #edefee, no longer a coin flip. Both are
- *    written to five decimals because four is not enough to hold that: round
- *    the light canvas to 0.9503 and its red channel goes back to 0.084 off.
- *    Everything that paints `--background` over the canvas and expects it to
- *    disappear (the composer's strip, the settle cover) rests on this.
- *
- * Values were checked for sRGB gamut and WCAG contrast: every text pair
- * clears AA and focus rings clear 3:1. The measured ratios, light / dark:
- * foreground on background 14.00 / 15.60, foreground on card 16.04 / 13.89,
- * muted-foreground on card 5.79 / 6.59, primary-foreground on primary
- * 6.19 / 9.23, accent-foreground on accent 11.21 / 10.33, warning-foreground
- * on warning 7.67 / 9.13, every `--kind-*` on card 4.59–5.37 / 7.01–8.76,
- * ring on background 3.59 / 6.73. Recheck these when a token moves. */
-
 :root {
-  /* The app's language is already rounded-2xl floating cards. */
   --radius: 0.75rem;
-
-  /* The composer's constant distance from the bottom of the column. Defined
-     once because two things depend on it: the composer's own bottom padding,
-     and the height of the canvas strip behind it: the card grows with its
-     content but this gap never does, so the strip is sized off the gap, not
-     off the card. */
   --composer-inset: max(1.25rem, env(safe-area-inset-bottom));
-
-  /* The timeline's top padding: the band the floating controls occupy, plus a
-     little clearance. The controls sit `top-3`, so the band is offset +
-     control; nothing else feeds into this number; whatever the first row
-     happens to be, it starts below the buttons. Defined here so the padding
-     tracks the controls: change their offset or size and it follows.
-
-     This clearance is the whole gap between the chrome and the list: the
-     separator that opens the list drops the top half of its `py-3` so it
-     doesn't land on top of this (timeline.tsx).
-
-     The two controls are different sizes. The phone's menu / search buttons
-     are `size-11`, 44px, what iOS gives a navigation bar button, and the
-     desktop sidebar-reopen button is the stock `size-9`. They never render
-     together, because app.tsx picks one branch or the other at 768px, so this
-     switches on the same breakpoint rather than padding everything by the
-     larger of the two. 48rem is that breakpoint: Tailwind's `md`, and
-     MOBILE_BREAKPOINT in hooks/use-mobile.ts. */
-  --timeline-inset-top: calc(0.75rem + 2.75rem + 1rem); /* 4.5rem = 72px */
+  --timeline-inset-top: calc(0.75rem + 2.75rem + 1rem);
   @media (min-width: 48rem) {
-    --timeline-inset-top: calc(0.75rem + 2.25rem + 1rem); /* 4rem = 64px */
+    --timeline-inset-top: calc(0.75rem + 2.25rem + 1rem);
   }
+  --background: oklch(0.98511 0 0);
+  --foreground: oklch(0.205 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0 0);
 
-  /* Bucket-centred (rule 3): 236.932, 238.984, 238.071. */
-  --background: oklch(0.95026 0.0025 168); /* #edefee */
-  --foreground: oklch(0.245 0.01 172); /* #1c2220 */
-  --card: oklch(0.997 0.0015 168);
-  --card-foreground: oklch(0.245 0.01 172);
-  --popover: oklch(0.997 0.0015 168);
-  --popover-foreground: oklch(0.245 0.01 172);
-  /* Inset blocks inside a card: link/address/file bodies, extracted text. */
-  --panel: oklch(0.977 0.004 168);
-
-  --primary: oklch(0.475 0.07 170); /* #2d6956 */
-  --primary-foreground: oklch(0.985 0.012 168);
-  --primary-hover: oklch(0.425 0.068 170);
-  --secondary: oklch(0.947 0.006 168);
-  --secondary-foreground: oklch(0.305 0.012 172);
-  --secondary-hover: oklch(0.925 0.008 168);
-  --muted: oklch(0.96 0.005 168);
-  --muted-foreground: oklch(0.505 0.011 172); /* #5f6764 */
-  /* Accent stays visibly mint: it is the active-row / hover highlight, not a
-     panel surface. */
-  --accent: oklch(0.928 0.024 170); /* #d8ede5 */
-  --accent-foreground: oklch(0.295 0.024 172);
-
-  --destructive: oklch(0.545 0.18 27);
-  --destructive-hover: oklch(0.495 0.175 27);
-  /* Still ours: the failed-ingestion chip in item-card and the delete hover in
-     item-detail need a soft red *surface*. The components' own destructive
-     treatment is a tint of `--destructive` and needs no second token. */
+  --panel: oklch(0.97 0 0);
+  --primary: oklch(0.511 0.262 276.966);
+  --primary-foreground: oklch(1 0 0);
+  --primary-hover: oklch(0.457 0.24 277.023);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-hover: oklch(0.922 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.54 0 0);
+  --accent: oklch(0.962 0.018 272.314);
+  --accent-foreground: oklch(0.359 0.144 278.697);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-hover: oklch(0.505 0.213 27.518);
   --destructive-soft: oklch(0.955 0.021 27);
   --destructive-soft-hover: oklch(0.928 0.034 27);
-  /* Not shadcn tokens: the sync banner and the sync dot / todo tick need a
-     warning and a success surface that belong to this palette. */
   --warning: oklch(0.955 0.035 92);
   --warning-foreground: oklch(0.415 0.075 78);
   --success: oklch(0.95 0.035 160);
   --success-foreground: oklch(0.505 0.09 158);
-
-  --border: oklch(0.905 0.005 168);
-  --input: oklch(0.898 0.006 168);
-  /* The knob of an off switch. Its own token because no existing one is the
-     light thing on both `--input` tracks: light wants something above 0.898,
-     dark wants something above 0.345, and no pair in this palette does both.
-     An on switch borrows `--primary-foreground`, which already means "the
-     contrast to primary" in either theme. */
-  --switch-thumb: oklch(0.997 0.0015 168);
-  --ring: oklch(0.58 0.06 170);
-
-  --sidebar: oklch(0.999 0.001 168);
-  --sidebar-foreground: oklch(0.245 0.01 172);
-  --sidebar-primary: oklch(0.475 0.07 170);
-  --sidebar-primary-foreground: oklch(0.985 0.012 168);
-  --sidebar-accent: oklch(0.947 0.018 170);
-  --sidebar-accent-foreground: oklch(0.295 0.024 172);
-  --sidebar-border: oklch(0.91 0.005 168);
-  --sidebar-ring: oklch(0.58 0.06 170);
-
-  /* Item kinds: muted and hue-spaced so they read as a family next to the mint
-     chrome. `-soft` is the solid fill behind the icon, not the ink at 12%. */
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --switch-thumb: oklch(1 0 0);
+  --ring: oklch(0.585 0.233 277.117);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.511 0.262 276.966);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.962 0.018 272.314);
+  --sidebar-accent-foreground: oklch(0.359 0.144 278.697);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.585 0.233 277.117);
   --kind-note: oklch(0.56 0.085 95);
   --kind-note-soft: oklch(0.962 0.03 95);
   --kind-todo: oklch(0.535 0.085 160);
@@ -208,75 +72,18 @@
   --kind-pdf-soft: oklch(0.962 0.018 30);
   --kind-file: oklch(0.52 0.03 200);
   --kind-file-soft: oklch(0.962 0.012 200);
-  /* Everything ingestion generated: summaries, AI tags, the sparkles. */
   --ai: oklch(0.545 0.085 285);
   --ai-soft: oklch(0.962 0.017 285);
-
-  --chart-1: oklch(0.615 0.09 168);
+  --chart-1: oklch(0.615 0.13 277);
   --chart-2: oklch(0.575 0.075 212);
   --chart-3: oklch(0.65 0.075 132);
   --chart-4: oklch(0.66 0.09 84);
   --chart-5: oklch(0.56 0.08 296);
-
-  /* The scrim: the full-page fade behind the drop state. Deliberately not an
-     overlay: an overlay dims a page you are still meant to read through, and
-     the drop state isn't read-through, it takes the screen over. So it fades
-     the page toward the canvas instead of darkening it: `--background` at this
-     strength, i.e. `bg-background/scrim`. One strength for both themes: each
-     fades toward its own canvas, so the same number lands the same way either
-     way, and at 90% what shows through is a trace of the page rather than a
-     readable one.
-
-     A percentage, not a 0–1 alpha: Tailwind compiles the modifier to
-     `color-mix(in oklab, var(--background) var(--scrim-alpha), transparent)`,
-     and color-mix only takes percentages. A bare `0.9` makes the declaration
-     invalid, which silently drops it back to the opaque fallback.
-
-     `--overlay` below is its opposite number and the reason both exist. */
   --scrim-alpha: 90%;
-
-  /* One opaque overlay colour for both themes: the dark canvas taken a step
-     darker, same chroma and hue. Only the strength differs by theme:
-     `--overlay-alpha`, exposed as the named `--opacity-overlay` modifier in the
-     @theme block below so call sites read `bg-overlay/overlay` rather than a
-     baked-in alpha.
-
-     This came back with the Base UI components, which arrived carrying
-     `bg-black/10` plus `supports-backdrop-filter:backdrop-blur-xs` on every
-     backdrop. Neutral black is not in this palette, 10% does not dim a light
-     page enough to separate a panel from it, and a blur across the whole
-     viewport is a full-screen rasterise on every frame of the animation to
-     approximate what dimming already does. One mint-tinted wash, tuned per
-     theme, replaces all three. */
-  --overlay: oklch(0.14 0.005 174);
-  /* A percentage, not a 0–1 alpha, for the color-mix reason above. */
+  --overlay: oklch(0.145 0 0);
   --overlay-alpha: 40%;
-
-  /* The veil: an attachment tile whose file has not finished arriving. The
-     third of the translucent set, and the only one that mutes rather than
-     covers: the picture stays legible under it, because the stretch of time
-     you most want to see which photo you dropped is while it is still on its
-     way up.
-
-     `--card` at this strength, i.e. `bg-card/veil`, so a tile fades toward the
-     surface it already sits on: washed out in light, darkened in dark, one
-     class name and no `dark:` (rule 2). One strength for both themes, for the
-     same reason the scrim has one.
-
-     50% is chosen for how the picture reads, not for contrast, because nothing
-     reads its state off the veil: the ring and the icons sit on an opaque chip
-     over it (composer.tsx). Contrast is what makes that chip necessary. Drawn
-     straight on the veil instead, over a black photo in light or a white one
-     in dark, the `--primary` arc needs the veil at ~70% to clear 3:1, by which
-     point the picture underneath is a ghost, which defeats the point of
-     showing it at all.
-
-     A percentage, not a 0–1 alpha, for the color-mix reason above. */
   --veil-alpha: 50%;
-
-  /* Shadows are mint-tinted, never neutral black. Split into a colour and four
-     strengths so the dark theme can re-tune both without touching the scale. */
-  --shadow-tint: 57 84 75; /* oklch(0.42 0.035 172) */
+  --shadow-tint: 0 0 0;
   --shadow-a1: 0.04;
   --shadow-a2: 0.06;
   --shadow-a3: 0.1;
@@ -284,33 +91,26 @@
 }
 
 .dark {
-  /* Bucket-centred (rule 3): 15.051, 17.949, 16.995. */
-  --background: oklch(0.17835 0.005 174); /* #0f1211 */
-  --foreground: oklch(0.935 0.006 168);
-  --card: oklch(0.232 0.006 174); /* #1b1e1d */
-  --card-foreground: oklch(0.935 0.006 168);
-  --popover: oklch(0.232 0.006 174);
-  --popover-foreground: oklch(0.935 0.006 168);
-  --panel: oklch(0.268 0.007 174);
+  --background: oklch(0.14479 0 0);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.182 0 0);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.182 0 0);
+  --popover-foreground: oklch(0.97 0 0);
+  --panel: oklch(0.225 0 0);
 
-  --primary: oklch(0.78 0.09 168); /* #7bcaac */
-  --primary-foreground: oklch(0.205 0.03 172);
-  --primary-hover: oklch(0.72 0.085 168);
-  --secondary: oklch(0.282 0.007 174);
-  --secondary-foreground: oklch(0.935 0.006 168);
-  --secondary-hover: oklch(0.325 0.008 174);
-  --muted: oklch(0.282 0.007 174);
-  --muted-foreground: oklch(0.712 0.009 168);
-  --accent: oklch(0.322 0.02 172);
-  --accent-foreground: oklch(0.935 0.006 168);
+  --primary: oklch(0.673 0.182 276.935);
+  --primary-foreground: oklch(0.205 0.03 277);
+  --primary-hover: oklch(0.785 0.115 274.713);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.97 0 0);
+  --secondary-hover: oklch(0.315 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
 
-  /* The overlay colour is shared with light; only its strength changes: the
-     same wash that dims a light page barely registers on a dark one. */
+  --accent: oklch(0.31 0.05 277);
+  --accent-foreground: oklch(0.97 0 0);
   --overlay-alpha: 60%;
-
-  /* Light enough to read as *text* on the dark canvas (5.10:1 on a card), so
-     as a fill it takes dark ink rather than white, which is the contrast the
-     generated components reach for a second, dark-only alpha to get. */
   --destructive: oklch(0.665 0.165 27);
   --destructive-hover: oklch(0.615 0.17 27);
   --destructive-soft: oklch(0.265 0.042 27);
@@ -319,21 +119,19 @@
   --warning-foreground: oklch(0.855 0.085 92);
   --success: oklch(0.29 0.045 160);
   --success-foreground: oklch(0.81 0.095 158);
+  --border: oklch(0.285 0 0);
+  --input: oklch(0.333 0 0);
+  --switch-thumb: oklch(0.97 0 0);
+  --ring: oklch(0.673 0.182 276.935);
 
-  --border: oklch(0.305 0.008 174);
-  --input: oklch(0.345 0.009 174);
-  --switch-thumb: oklch(0.935 0.006 168);
-  --ring: oklch(0.68 0.06 170);
-
-  --sidebar: oklch(0.232 0.006 174);
-  --sidebar-foreground: oklch(0.935 0.006 168);
-  --sidebar-primary: oklch(0.78 0.09 168);
-  --sidebar-primary-foreground: oklch(0.205 0.03 172);
-  --sidebar-accent: oklch(0.322 0.02 172);
-  --sidebar-accent-foreground: oklch(0.935 0.006 168);
-  --sidebar-border: oklch(0.305 0.008 174);
-  --sidebar-ring: oklch(0.68 0.06 170);
-
+  --sidebar: oklch(0.182 0 0);
+  --sidebar-foreground: oklch(0.97 0 0);
+  --sidebar-primary: oklch(0.673 0.182 276.935);
+  --sidebar-primary-foreground: oklch(0.205 0.03 277);
+  --sidebar-accent: oklch(0.31 0.05 277);
+  --sidebar-accent-foreground: oklch(0.97 0 0);
+  --sidebar-border: oklch(0.285 0 0);
+  --sidebar-ring: oklch(0.673 0.182 276.935);
   --kind-note: oklch(0.79 0.09 95);
   --kind-note-soft: oklch(0.312 0.038 95);
   --kind-todo: oklch(0.78 0.09 160);
@@ -351,40 +149,25 @@
   --kind-file-soft: oklch(0.312 0.013 200);
   --ai: oklch(0.765 0.085 285);
   --ai-soft: oklch(0.312 0.036 285);
-
-  --chart-1: oklch(0.72 0.09 168);
+  --chart-1: oklch(0.72 0.13 277);
   --chart-2: oklch(0.7 0.08 212);
   --chart-3: oklch(0.75 0.075 132);
   --chart-4: oklch(0.76 0.09 84);
   --chart-5: oklch(0.68 0.08 296);
-
-  /* Near-black, still mint-hued; a dark canvas needs much more of it. */
-  --shadow-tint: 0 6 4;
+  --shadow-tint: 0 0 0;
   --shadow-a1: 0.24;
   --shadow-a2: 0.32;
   --shadow-a3: 0.44;
   --shadow-a4: 0.6;
 }
-
 @theme inline {
-  /* All seven rungs are declared. Leaving any of them out doesn't disable it:
-     it falls back to Tailwind's stock value, and stock `2xl` is 1rem, the same
-     16px as our `xl`. That collision is why cards and the blocks inside them
-     used to carry identical corners.
-
-     Nesting rule: a child flush against its parent's
-     padding is `parent radius - padding`, snapped to the nearest rung; once the
-     padding reaches the parent's radius the curves no longer interact, so the
-     child is sized by its own scale but never rounder than its parent;
-     `rounded-full` pills sit outside the ladder entirely. */
-  --radius-xs: calc(var(--radius) - 8px); /* 4px */
-  --radius-sm: calc(var(--radius) - 6px); /* 6px */
-  --radius-md: calc(var(--radius) - 4px); /* 8px */
-  --radius-lg: var(--radius); /* 12px */
-  --radius-xl: calc(var(--radius) + 4px); /* 16px */
-  --radius-2xl: calc(var(--radius) + 8px); /* 20px */
-  --radius-3xl: calc(var(--radius) + 12px); /* 24px */
-
+  --radius-xs: calc(var(--radius) - 8px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -416,7 +199,6 @@
   --color-input: var(--input);
   --color-switch-thumb: var(--switch-thumb);
   --color-ring: var(--ring);
-
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -425,7 +207,6 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-
   --color-kind-note: var(--kind-note);
   --color-kind-note-soft: var(--kind-note-soft);
   --color-kind-todo: var(--kind-todo);
@@ -443,24 +224,13 @@
   --color-kind-file-soft: var(--kind-file-soft);
   --color-ai: var(--ai);
   --color-ai-soft: var(--ai-soft);
-
-  /* A named opacity modifier, so the composer's drop state reads
-     `bg-background/scrim` rather than carrying a loose number at the call
-     site. It points at the `:root` alpha rather than inlining one, which is
-     what would let `.dark` re-tune the strength at runtime. */
   --opacity-scrim: var(--scrim-alpha);
-  /* Its opposite number in scope: one tile, not the page. `bg-card/veil`. */
   --opacity-veil: var(--veil-alpha);
-
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-
-  /* Tailwind's shadow scale, re-tinted. `inline` matters: it emits these
-     var() references into the utilities, so `.dark` can re-point the tint and
-     strengths at runtime. */
   --shadow-2xs: 0 1px 0 0 rgb(var(--shadow-tint) / var(--shadow-a1));
   --shadow-xs: 0 1px 2px 0 rgb(var(--shadow-tint) / var(--shadow-a1));
   --shadow-sm:
@@ -476,82 +246,32 @@
     0 8px 12px -4px rgb(var(--shadow-tint) / var(--shadow-a2)),
     0 20px 32px -8px rgb(var(--shadow-tint) / var(--shadow-a3));
   --shadow-2xl: 0 24px 48px -12px rgb(var(--shadow-tint) / var(--shadow-a4));
-  /* The floating-card shadow, defined once: now only the sign-in card lifts
-     off the canvas. A `@utility` writing `box-shadow` directly would have
-     clobbered any `ring-*` on the same element (Tailwind composes both into one
-     box-shadow), as a `--shadow-*` key it composes correctly instead. */
   --shadow-float:
     0 2px 6px -2px rgb(var(--shadow-tint) / var(--shadow-a2)),
     0 8px 30px -4px rgb(var(--shadow-tint) / var(--shadow-a3));
-
-  /* Motion. Things arriving decelerate hard: they cover most of the distance
-     immediately, so the panel feels like it was already there. Things leaving
-     accelerate away and take less time, because nobody waits to watch a drawer
-     close. `ease-in-out` (shadcn's default on Sheet) is wrong for both: it
-     crawls at the start, which is what reads as slow. */
   --ease-enter: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
-
-  /* The exception to the split above, and the reason it is a token: a panel
-     that slides in from an edge (the item drawer, the sidebar) is a physical
-     object, and an object does not arrive on one curve and leave on another.
-     Both directions ride this one, for the same 450ms, which is what the drawer
-     was already doing inline. Anything that only fades keeps the pair above. */
   --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
 }
-
 @layer base {
-  /* Keeps native scrollbars, form controls and the PDF iframe in item-detail
-     from staying light when the app is dark. */
   :root {
     color-scheme: light;
   }
   .dark {
     color-scheme: dark;
   }
-
-  /* …but `color-scheme` hands the scrollbar to the platform, and the platform
-     paints an opaque *track*: a slab of UA grey down the right edge of
-     anything that scrolls. It is worst in the item-detail sheet, which is its
-     own scroll container (`overflow-y-auto`) rather than a window onto the
-     document, so on desktop, where scrollbars are classic rather than
-     overlay, the drawer wears a full-height rectangle in a colour that
-     belongs to no theme here. (Stock shadcn's Sheet never scrolls itself,
-     which is why it looks fine.)
-
-     Both properties inherit, so one rule on the root reaches every scroller:
-     no track at all (the surface behind shows through) and a thumb in the
-     palette's own line colour. */
   html {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
-
   * {
     @apply border-border outline-ring;
   }
-
   body {
     @apply bg-background text-foreground;
-
-    /* The app is a bag of other people's strings: filenames, URLs, pasted
-       tokens, a note typed without a space in it. Any one of them is a single
-       unbreakable word, and CSS's default is to let a word overflow its box
-       rather than break it, which is how a 60-character filename pushed the
-       detail drawer's whole column sideways and turned every heading under it
-       into a horizontal scroll.
-       `anywhere`, not `break-word`: both break a word that would otherwise
-       overflow, but only `anywhere` also shrinks the element's min-content
-       width, which is what stops a long word from forcing a flex or grid item
-       wider than its track in the first place. Inherited, so this one
-       declaration is the default everywhere; `whitespace-nowrap` and
-       `truncate` still win where a call site has asked for one line. */
     overflow-wrap: anywhere;
   }
 
-  /* Nothing here is load-bearing motion (every panel is legible at rest), so
-     honour the OS setting rather than easing more gently. Not zero: some
-     state changes wait on `animationend`. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
