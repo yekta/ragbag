@@ -1,4 +1,5 @@
 import type { BlobVariant } from "@ragbag/contracts";
+import { API_BASE } from "@/lib/api";
 
 // Media delivery, client side (plan §6.3-§6.5).
 //
@@ -9,19 +10,52 @@ import type { BlobVariant } from "@ragbag/contracts";
 // markup either way.
 
 /**
- * Deliberately origin-relative, not `API_BASE`-prefixed.
+ * The API's own origin, not this page's.
  *
- * The media path has to be same-origin with the page for the service worker to
- * intercept it cleanly. The Vite dev proxy already gives us that, and a
- * production deployment has to preserve it: the web host must route
- * `/api/media/*` (and `/api/blobs/download-urls`, which the worker calls) to
- * the API. See DEPLOY.md.
+ * This used to be deliberately origin-relative, which made the web host
+ * responsible for routing `/api/media/*` and `/api/blobs/download-urls` to the
+ * API, on the theory that a service worker can only intercept same-origin
+ * requests cleanly. A worker sees every request its clients make, whatever the
+ * origin, so that requirement bought nothing and cost everything: a static
+ * host with no proxy (`serve`, which is what `pnpm --filter web start` runs)
+ * answers those paths with `index.html` and a 200, and an `<img>` handed HTML
+ * fires `error`. Every picture in the app then fell back to fetching its
+ * untouched original through JS: megabytes per tile instead of a 30 KB
+ * thumbnail, no native lazy loading, and nothing at all to show wherever the
+ * browser cannot decode a camera HEIC. Addressing the API directly needs no
+ * host configuration, so it cannot silently regress with one.
+ *
+ * The two hosts are separate origins but the same site (app./api.ragbag.app),
+ * so the session cookie rides along on ordinary `SameSite=Lax` rules, exactly
+ * as it does for every other API call. `API_BASE` is empty in dev, where the
+ * Vite proxy already makes this origin-relative.
  */
 export function mediaUrl(blobId: string, variant: BlobVariant): string {
-  return `/api/media/${blobId}/${variant}`;
+  return `${API_BASE}/api/media/${blobId}/${variant}`;
 }
 
-const SW_URL = "/media-sw.js";
+/**
+ * Bump to abandon every cached derivative at once: entries are never
+ * revalidated, so the only way to clear a bad one is to leave the cache it
+ * lives in.
+ *
+ * The worker is *told* this, through its registration URL, rather than
+ * carrying its own copy. A copy is how the seeding below spent a release
+ * writing into `-v1` while the worker read `-v2`: the capturing device's whole
+ * point is that it never round-trips, and it round-tripped for every picture.
+ */
+const CACHE_VERSION = "v3";
+
+/** Cache Storage bucket for one variant; the worker composes the same names. */
+function cacheName(variant: "thumb" | "display"): string {
+  return `ragbag-media-${variant}-${CACHE_VERSION}`;
+}
+
+// Everything deployment-specific reaches the worker through its own URL: it is
+// a static file, so it cannot be built with any of it. A change to either
+// value is a different script URL, which is exactly what makes the browser
+// install a new worker (and, on activation, drop the caches it replaced).
+const SW_URL = `/media-sw.js?api=${encodeURIComponent(API_BASE)}&v=${CACHE_VERSION}`;
 
 /**
  * Register the media worker. Failure is not an error state: without it,
@@ -76,11 +110,6 @@ export async function clearMediaCache(): Promise<void> {
 // server's overwrite nothing (Cache Storage is keyed by URL, and a later miss
 // simply fetches the real one).
 
-const TIER_CACHE: Partial<Record<BlobVariant, string>> = {
-  thumb: "ragbag-media-thumb-v1",
-  display: "ragbag-media-display-v1",
-};
-
 const SIZES: Partial<Record<BlobVariant, number>> = { thumb: 400, display: 1600 };
 
 /**
@@ -96,7 +125,7 @@ export async function seedMediaCache(blobId: string, file: Blob): Promise<void> 
       for (const variant of ["thumb", "display"] as const) {
         const blob = await downscale(bitmap, SIZES[variant]!);
         if (!blob) continue;
-        const cache = await caches.open(TIER_CACHE[variant]!);
+        const cache = await caches.open(cacheName(variant));
         await cache.put(
           new Request(mediaUrl(blobId, variant)),
           new Response(blob, { headers: { "content-type": blob.type } }),

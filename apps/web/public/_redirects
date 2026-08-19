@@ -1,12 +1,12 @@
-# Media has to be same-origin with the app for the service worker to intercept
-# it cleanly (DEPLOY.md §4). These two lines route it to the API, and they must
-# stay ABOVE the SPA fallback: `/*` swallows everything after it, so an image
-# request would otherwise receive index.html with a 200, which is a decode
-# failure the browser reports as a broken picture.
+# The SPA fallback, and nothing else: every view in the app is a real path
+# (/favorites, /images, /tags/<id>, …) matched by the router in the browser, so
+# a hard refresh on one must be served index.html with a 200 rather than a 404.
 #
-# The API host is deployment-specific: change it if you are not app.ragbag.app.
-
-/api/media/*              https://api.ragbag.app/api/media/:splat  200
-/api/blobs/download-urls  https://api.ragbag.app/api/blobs/download-urls  200
+# There is deliberately no proxy rule here any more. Media used to be addressed
+# origin-relative, which made this file (and its equivalent on whatever host
+# you deploy to) responsible for routing /api/media/* to the API; a host that
+# cannot proxy, like the `serve` in this app's own start script, then answered
+# every picture with index.html and a 200. Pictures now address the API
+# directly, so there is nothing left to forget. See src/lib/media.ts.
 
 /*  /index.html  200

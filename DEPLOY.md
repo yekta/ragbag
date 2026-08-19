@@ -201,35 +201,32 @@ strands every browser that already holds it. Check it after a deploy:
 curl -sI https://app.ragbag.app/fonts/schibsted-grotesk-v7.woff2 | grep -i cache-control
 ```
 
-**Media must be same-origin with the app.** Every picture's `src` is `/api/media/<blobId>/<variant>`
-(plan §6.3): one stable string, so the browser can cache it, lazy-load it, decode it off the main
-thread and evict it on its own. The media service worker (`public/media-sw.js`) intercepts exactly
-that path and `/api/blobs/download-urls`, and it can only do that cleanly for same-origin requests.
-The Vite dev server already provides this through its `/api` proxy. In production the web host has
-to route these two paths to the API:
+**Media addresses the API directly; there is nothing to configure.** Every picture's `src` is
+`<VITE_API_URL>/api/media/<blobId>/<variant>` (plan §6.3): one stable string, so the browser can
+cache it, lazy-load it, decode it off the main thread and evict it on its own. The media service
+worker (`public/media-sw.js`) intercepts exactly that URL and presigns the bytes itself; it is a
+static file, so where the API lives reaches it through its own registration URL.
+
+It did not always work that way, and the failure is worth knowing because it is invisible from the
+server side. The path used to be origin-relative, which made the web host responsible for routing
+`/api/media/*` and `/api/blobs/download-urls` to the API. `serve` (this app's own start command)
+cannot proxy anything, so it answered both with `index.html` and a 200, and an `<img>` handed HTML
+fires `error`. Every picture then fell back to fetching its untouched original through JS:
+megabytes per tile instead of a 30 KB thumbnail, no native lazy loading, and nothing at all to show
+where the browser cannot decode a camera HEIC. That was the "photos stay blurred forever" bug. A
+host that serves the SPA fallback is now the whole requirement.
+
+`VITE_API_URL` therefore carries media too. It must be the API's public origin, and like every
+`VITE_*` value it is baked into the bundle at build time. Both hosts are separate origins under one
+registrable domain, which is _same-site_, so the session cookie rides on these requests under
+ordinary `SameSite=Lax` rules, exactly as it does for the rest of the API.
+
+Verify after a deploy that the API itself answers, and that the app host is not answering for it:
 
 ```
-/api/media/*              → https://api.ragbag.app/api/media/:splat   200
-/api/blobs/download-urls  → https://api.ragbag.app/api/blobs/download-urls   200
+curl -si https://api.ragbag.app/api/media/x/thumb | head -3   # 401 JSON: the route is reachable
+curl -sI https://app.ragbag.app/api/media/x/thumb | head -3   # text/html is fine and unused now
 ```
-
-On Netlify/Cloudflare Pages that is the first two lines of `apps/web/public/_redirects`, above the
-SPA fallback. Order matters: the `/*` rule swallows everything after it, so an image request would
-otherwise receive `index.html` with a 200. Change the host there if you are not app.ragbag.app.
-
-Verify it after every deploy, because nothing else will:
-
-```
-curl -sI https://app.ragbag.app/api/media/x/thumb | head -3   # want 302, not text/html
-```
-
-Without the rule the app does not fail cleanly. `MediaImage` treats a failed load as "the media URL
-can't answer" and falls back to `/api/blobs/:id/download-url` plus an object URL, which is what v1
-did for every image, but that route serves the blob **as it was sent**. The web-safe transcode is
-reachable only through the two paths above, so a deploy missing them serves every picture as its
-camera original: JPEGs still paint (full-resolution bytes into a thumbnail-sized tile, no native
-lazy loading, no off-main-thread decode), and an iPhone HEIC paints nowhere the browser lacks a
-decoder. That is the "some photos are permanently broken" bug, and this rule is the whole of it.
 
 Watch paths:
 
@@ -272,13 +269,17 @@ application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app
    (exercises presign + R2 + bucket CORS). If it goes red with "The storage bucket blocked the
    browser's upload", the bucket CORS policy is missing, see §2, and `GET /api/debug/storage`
    to confirm the server side is fine.
-8. Hard-refresh on `/notes` and on `/item/<id>`: both must render the app (filtered, and with the
+8. Attach a photo, then open **Images** on a _second_ device. The tile must sharpen within a
+   second or two, and the network panel must show a small `api.../api/media/<id>/thumb` fetch. A
+   tile that stays blurred while a multi-megabyte `/api/blobs/<id>/download-url` runs is the media
+   path failing over to originals: check `VITE_API_URL` and §4.
+9. Hard-refresh on `/notes` and on `/item/<id>`: both must render the app (filtered, and with the
    detail drawer open), not 404.
-9. Open that note's detail view: an **AI summary and tags** must appear within a few seconds
-   (enrichment is the slow stage, the `ingested` log line goes from ~30ms to seconds when AI is
-   really running). If a summary never comes, the detail view now says why, and
-   `GET /api/debug/ingest` reports worker liveness, queue depth, recent job errors and whether AI
-   is configured at all.
+10. Open that note's detail view: an **AI summary and tags** must appear within a few seconds
+    (enrichment is the slow stage, the `ingested` log line goes from ~30ms to seconds when AI is
+    really running). If a summary never comes, the detail view now says why, and
+    `GET /api/debug/ingest` reports worker liveness, queue depth, recent job errors and whether AI
+    is configured at all.
 
 ## Notes
 

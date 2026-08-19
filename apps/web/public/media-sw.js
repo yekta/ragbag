@@ -7,6 +7,11 @@
 // worse problem with Vite builds and update lifecycles. Kept this narrow it is
 // about fifty lines of real logic.
 //
+// Those URLs point at the API's own origin, which is not this script's: a
+// worker sees every request its clients make, whatever the origin, and having
+// the app address the API directly is what removes the web host from the media
+// path entirely (src/lib/media.ts says what that cost when it was in it).
+//
 // On a hit it answers from Cache Storage. On a miss it does the presign itself
 // (batched, see below) and fetches the bytes, then stores the response and
 // returns it. Without this worker registered every one of these requests goes
@@ -16,11 +21,15 @@
 // Cache Storage keys on the request URL, so variants are naturally separate
 // entries and there is no cache-key scheme to invent.
 
-// Bumped to v2: entries written before the `fallback` check below can hold an
-// original standing in for a derivative that did not exist yet, and nothing
-// here ever revalidates a hit, so the only way to clear one is to abandon the
-// cache it lives in. Costs a refetch per tile, once.
-const VERSION = "v2";
+// Everything deployment-specific arrives in this script's own URL, because a
+// static file cannot be built with any of it (see `registerMediaWorker`): the
+// API's base, and the cache generation the app considers current. Defaults
+// cover a registration made by an older build, which passed neither.
+const PARAMS = new URL(self.location.href).searchParams;
+/** Base of the API. "" when it is same-origin, which is dev behind the proxy. */
+const API_BASE = PARAMS.get("api") ?? "";
+const API_ORIGIN = API_BASE ? new URL(API_BASE).origin : self.location.origin;
+const VERSION = PARAMS.get("v") || "v2";
 const MEDIA_PREFIX = "/api/media/";
 
 /**
@@ -59,7 +68,9 @@ self.addEventListener("activate", (event) => {
 
 /** `/api/media/<blobId>/<variant>` → its parts, or null for anything else. */
 function parseMediaUrl(url) {
-  if (url.origin !== self.location.origin) return null;
+  // The API's origin, where every `src` points, plus this one: a deployment
+  // whose API is same-origin (dev) or fronted by the app's host still works.
+  if (url.origin !== API_ORIGIN && url.origin !== self.location.origin) return null;
   if (!url.pathname.startsWith(MEDIA_PREFIX)) return null;
   const [blobId, variant] = url.pathname.slice(MEDIA_PREFIX.length).split("/");
   return blobId && variant ? { blobId, variant } : null;
@@ -94,16 +105,21 @@ async function serve(request, { blobId, variant }) {
     const { url, cacheable } = await presign(blobId, variant);
     if (url) {
       const response = await fetch(url);
-      // Only a real derivative is worth keeping. For one ingestion has not
-      // built yet the server hands back the original instead, which is the
-      // right picture to show and the wrong one to remember: it is the file
-      // exactly as sent, and a hit here is never revalidated, so caching it
-      // would pin a HEIC under the thumb key long after the webp existed.
-      if (cacheable && response.ok && response.type !== "opaque") {
-        await cache.put(request, response.clone());
-        await evict(cache, tier.max);
+      // A presign the bucket refused is not an answer. Handing the tile a 403
+      // or a 404 body puts it in the one state it cannot leave on its own, and
+      // the server route below mints a fresh URL for a second opinion.
+      if (response.ok) {
+        // Only a real derivative is worth keeping. For one ingestion has not
+        // built yet the server hands back the original instead, which is the
+        // right picture to show and the wrong one to remember: it is the file
+        // exactly as sent, and a hit here is never revalidated, so caching it
+        // would pin a HEIC under the thumb key long after the webp existed.
+        if (cacheable && response.type !== "opaque") {
+          await cache.put(request, response.clone());
+          await evict(cache, tier.max);
+        }
+        return response;
       }
-      return response;
     }
   } catch {
     // Offline, a refused presign, a bucket without a CORS rule: fall through
@@ -145,7 +161,7 @@ function presign(blobId, variant) {
       setTimeout(async () => {
         if (pending === batch) pending = null;
         try {
-          const res = await fetch("/api/blobs/download-urls", {
+          const res = await fetch(`${API_BASE}/api/blobs/download-urls`, {
             method: "POST",
             credentials: "include",
             headers: { "content-type": "application/json" },

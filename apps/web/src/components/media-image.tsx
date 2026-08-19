@@ -1,8 +1,8 @@
 import type { BlobVariant } from "@ragbag/contracts";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { thumbHashToDataURL } from "thumbhash";
 import { Icon } from "@/components/icon";
-import { useBlobUrl } from "@/lib/blobs";
+import { useBlobUrlState } from "@/lib/blobs";
 import { mediaUrl } from "@/lib/media";
 
 // Every picture in the app goes through here, so there is one place that knows
@@ -43,6 +43,76 @@ function placeholderUrl(hash: string | null | undefined): string | undefined {
   }
 }
 
+// --- the retry clock ---
+//
+// A tile that has run out of sources must not stay a blurred square for the
+// rest of the session, and every way it gets there is transient in principle:
+// a connection that dropped mid-scroll, an API restart, a photo whose
+// derivatives were still being made when the grid asked for them. Nothing here
+// retries by itself otherwise. A failed `<img>` never reloads, and the object
+// URL below is resolved once per blob, so without this a single bad moment
+// meant a permanently blurred picture and no way back but a reload: waiting,
+// which is the natural thing to try, did nothing at all.
+//
+// One clock for every tile rather than a timer each, because a grid holds
+// several hundred. It runs only while something is actually broken, gives up
+// after the last step, and starts over whenever the browser comes back online
+// or the tab is looked at again: those are the two moments a retry has a
+// genuinely new answer to get.
+const RETRY_STEPS_MS = [4_000, 15_000, 60_000];
+
+const stranded = new Set<() => void>();
+let step = 0;
+let timer: ReturnType<typeof setTimeout> | undefined;
+
+function arm(): void {
+  if (timer !== undefined || stranded.size === 0 || step >= RETRY_STEPS_MS.length) return;
+  timer = setTimeout(() => {
+    timer = undefined;
+    step += 1;
+    retryAll();
+  }, RETRY_STEPS_MS[step]);
+}
+
+/**
+ * Every stranded tile back to the top of its ladder. A tile that recovers
+ * unsubscribes on the next commit rather than mid-loop, and a Set tolerates
+ * that anyway.
+ */
+function retryAll(): void {
+  for (const retry of stranded) retry();
+  arm();
+}
+
+function watch(retry: () => void): () => void {
+  // A fresh problem gets a fresh ladder. The previous one may have run itself
+  // out hours ago, and this tile has not been tried once.
+  if (stranded.size === 0) step = 0;
+  stranded.add(retry);
+  arm();
+  return () => {
+    stranded.delete(retry);
+  };
+}
+
+if (typeof window !== "undefined") {
+  const now = () => {
+    step = 0;
+    clearTimeout(timer);
+    timer = undefined;
+    retryAll();
+  };
+  window.addEventListener("online", now);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") now();
+  });
+}
+
+/** Run `retry` on the shared clock for as long as this tile is `stranded`. */
+function useRetry(isStranded: boolean, retry: () => void): void {
+  useEffect(() => (isStranded ? watch(retry) : undefined), [isStranded, retry]);
+}
+
 export function MediaImage({
   blobId,
   variant,
@@ -71,10 +141,21 @@ export function MediaImage({
   //          error just re-set the previous one, so a picture the browser
   //          cannot read (an original HEIC reaching a fallback that only ever
   //          serves originals) sat under a broken-image glyph forever.
+  //
+  // The bottom of the ladder is not the end of the story: the clock above puts
+  // a tile that reaches it back on `media` a few seconds later.
   const [source, setSource] = useState<"media" | "local" | "gone">("media");
-  const localUrl = useBlobUrl(source === "local" ? blobId : null);
+  const local = useBlobUrlState(source === "local" ? blobId : null);
   const blur = placeholderUrl(placeholder);
-  const src = source === "media" ? mediaUrl(blobId, variant) : source === "local" ? localUrl : null;
+  const src =
+    source === "media" ? mediaUrl(blobId, variant) : source === "local" ? local.url : null;
+
+  // Out of sources: the ladder is spent, or the local bytes came back with
+  // nothing. Deliberately not the wait in between, which is a download in
+  // progress and the one thing a retry would be wrong to interrupt.
+  const spent = source === "gone" || (source === "local" && local.settled && !local.url);
+  const fromTheTop = useCallback(() => setSource("media"), []);
+  useRetry(spent, fromTheTop);
 
   if (!src) {
     return (

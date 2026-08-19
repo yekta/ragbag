@@ -121,34 +121,56 @@ function resolveUrl(queue: BlobQueue, blobId: string): Promise<string | null> {
   return promise;
 }
 
+export type BlobUrlState = {
+  /** Object URL for the bytes, or null while it resolves and if it cannot. */
+  url: string | null;
+  /**
+   * Whether the lookup has an answer yet. `!url && settled` is the only
+   * combination that means "there are no bytes to be had": callers that fall
+   * back to something else need to tell it apart from the wait, which for an
+   * original off the bucket is a real download.
+   */
+  settled: boolean;
+};
+
+const UNRESOLVED: BlobUrlState = { url: null, settled: false };
+
 /**
  * Object URL for a blob's bytes: instantly from the local store when this
  * device captured (or previously viewed) it, else lazily downloaded and
  * cached. Null while loading or when unavailable offline.
  */
-export function useBlobUrl(blobId: string | null | undefined): string | null {
+export function useBlobUrlState(blobId: string | null | undefined): BlobUrlState {
   const queue = useBlobQueue();
   // Seeded synchronously: an already-resolved blob never goes through a
   // placeholder state again for the rest of the session.
-  const [url, setUrl] = useState<string | null>(() => (blobId && resolvedUrls.get(blobId)) || null);
+  const [state, setState] = useState<BlobUrlState>(() => resolved(blobId));
 
   useEffect(() => {
-    if (!blobId) return;
-    const known = resolvedUrls.get(blobId);
-    if (known) {
-      setUrl(known);
-      return;
-    }
+    // Same object when nothing changed, so a re-render is not a state update.
+    const known = resolved(blobId);
+    setState((prev) => (prev.url === known.url && prev.settled === known.settled ? prev : known));
+    if (!blobId || known.url) return;
     let cancelled = false;
-    void resolveUrl(queue, blobId).then((u) => {
-      if (!cancelled) setUrl(u);
+    void resolveUrl(queue, blobId).then((url) => {
+      if (!cancelled) setState({ url, settled: true });
     });
     return () => {
       cancelled = true;
     };
   }, [queue, blobId]);
 
-  return blobId ? url : null;
+  return state;
+}
+
+function resolved(blobId: string | null | undefined): BlobUrlState {
+  const url = (blobId && resolvedUrls.get(blobId)) || null;
+  return url ? { url, settled: true } : UNRESOLVED;
+}
+
+/** `useBlobUrlState` for callers that only care whether there is a URL yet. */
+export function useBlobUrl(blobId: string | null | undefined): string | null {
+  return useBlobUrlState(blobId).url;
 }
 
 // Image geometry comes off the synced row (plan §8.3).
