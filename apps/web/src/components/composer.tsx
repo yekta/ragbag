@@ -3,7 +3,7 @@ import { MAX_ATTACHMENTS, MAX_BLOB_BYTES, mutators } from "@ragbag/contracts";
 import { faceForMime, newId } from "@ragbag/shared";
 import type { AttachmentFace } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { AudioRecorder } from "@/components/audio-recorder";
 import { FACE_ICON, Icon } from "@/components/icon";
@@ -98,6 +98,19 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
   const cardRef = useRef<HTMLDivElement>(null);
+  // The canvas strip behind the card is drawn to the card's own midpoint, so
+  // it has to follow a card that grows with every attachment row and every
+  // typed line.
+  const [cardHeight, setCardHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => setCardHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   /** Hash + persist one picked file, then settle its chip. */
   const captureOne = useCallback(
@@ -400,10 +413,17 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         {/* Canvas strip scoped to this container, not the shell column. It
             covers the gap between the card and the bottom of the column: the
             only strip where a scrolling card would otherwise be cut off by the
-            viewport edge, plus 1rem that tucks behind the card. Solid
-            `--background`, not a gradient: nothing translucent, and its top
-            edge is invisible anyway. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--composer-inset)_+_1rem)] bg-background" />
+            viewport edge, plus the card's own bottom half, which it tucks
+            behind. Half the card and no more: it is the tallest the strip can
+            be while its top edge stays below the corner radius, so a timeline
+            card passing under the composer is hidden everywhere the composer
+            is opaque, and the rounded corners still have canvas behind them
+            rather than a square of it. Solid `--background`, not a gradient:
+            nothing translucent, and its top edge is invisible anyway. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 bg-background"
+          style={{ height: `calc(var(--composer-inset) + ${cardHeight / 2}px)` }}
+        />
         <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
           <div
             ref={cardRef}
