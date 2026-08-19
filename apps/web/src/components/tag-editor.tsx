@@ -56,9 +56,12 @@ export function TagEditor({
       <span className="inline-flex items-center gap-1">
         <Icon name="plus" className="size-3 text-muted-foreground" />
         {/* Not a shadcn Input: this is an inline chip-row field, so it stays
-            borderless and sized to the text. */}
+            borderless and sized to the text. Bigger text than the chips it
+            makes, though: at anything under 16px iOS Safari zooms the page in
+            when you tap it (see components/ui/input.tsx), and `leading-5` is
+            what keeps the taller text from growing the row. */}
         <input
-          className="w-28 bg-transparent py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+          className="w-28 bg-transparent py-0.5 text-base leading-5 text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="add tag…"
           value={draft}
           list="tag-suggestions"

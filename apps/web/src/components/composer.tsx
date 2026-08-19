@@ -450,7 +450,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
               // Autofocus on touch would pop the keyboard the moment the app
               // opens.
               autoFocus={!isTouch}
-              className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base"
+              className="max-h-52 resize-none rounded-none border-0 bg-transparent px-5 pb-1 pt-4 text-base leading-relaxed shadow-none focus-visible:border-0 focus-visible:ring-0"
               placeholder={PLACEHOLDER}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

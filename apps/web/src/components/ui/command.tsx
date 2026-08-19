@@ -68,12 +68,14 @@ function CommandInput({
           palette's own surface is `--popover`, so a transparent field read as
           an outline, while the sidebar's search control (same job, one
           keystroke away) is a filled `--background` well. And the stock height
-          is a row in a list; this is the thing you are typing into. */}
+          is a row in a list; this is the thing you are typing into. `text-base`
+          over the stock `text-sm` because it is a field: under 16px, iOS Safari
+          zooms the page in on focus (see components/ui/input.tsx). */}
       <InputGroup className="h-10! rounded-lg! border-input bg-background shadow-none! *:data-[slot=input-group-addon]:pl-2!">
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
-            "w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+            "w-full text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
           {...props}

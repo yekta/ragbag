@@ -389,8 +389,10 @@ function Form({
                     });
                   }}
                 />
+                {/* `text-base`, like every other field: a select under 16px
+                    gets the same iOS Safari zoom (see ui/input.tsx). */}
                 <select
-                  className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-50"
+                  className="h-8 rounded-md border border-input bg-transparent px-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-50"
                   value={field.type}
                   disabled={owned}
                   aria-label="Kind of detail"
