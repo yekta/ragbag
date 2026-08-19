@@ -9,45 +9,49 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "@/app";
-import { EntityDetail } from "@/components/entity-detail";
-import { MessageDetail } from "@/components/message-detail";
-import { Settings } from "@/components/settings/settings";
-import { isViewSlug, validateMessageSearch } from "@/lib/routes";
+import { isViewSlug, validateAppSearch } from "@/lib/routes";
 
-// The screens, and how they nest:
+// The screens:
 //
 //   /{-$view}                       /  ·  /favorites  ·  /images  ·  /links
 //   /{-$view}/tags/$tagId           /tags/<id>  ·  /links/tags/<id>
-//   …/m/$id                         the message overlay, over either of those
-//   …/e/$id                         the entity overlay, same
-//   /settings                       what to look for, storage, appearance, account
 //
-// The sidebar's filters are the path (lib/routes.ts), and a detail view is an
-// overlay drawn above whichever filter is behind it, so the routes nest the way
-// the screens stack: the overlay is a *child* of the view it opened from, which
-// is what keeps that view in the URL while it is open and what closing it
-// returns to.
+// and, over either of them, the surfaces that are not places, which are query
+// params rather than routes (lib/routes.ts):
+//
+//   ?message=<id>  ?entity=<id>  ?photo=<id>  ?settings=true
+//
+// Two routes, because there are two places: a view of the archive, and a tag
+// narrowing it. Everything else in this app is drawn *over* one of those, and
+// an overlay that can open over any view is a rotten fit for a path: it has to
+// be declared under every view it can open over, which is why the panels used
+// to cost four routes (message and thing, each with and without a tag) to say
+// one thing. As params they cost none, and the shell mounts them from what the
+// query says (app.tsx).
 //
 // `{-$view}` is one optional path param, so "the chat" and "one kind of thing"
 // are the same route with and without a leading segment. That is what holds
 // this to a handful of routes rather than a pair per view, and gives every link
 // builder in lib/routes.ts a single `to` instead of a union of them.
 //
-// The App shell owns the Outlet so the timeline stays mounted (and scrolled)
-// while an overlay opens and closes. Staying *scrolled* also takes
+// No route below the root has a component, so nothing renders an Outlet: the
+// tree's whole job is to say what the path means (which view, which tag) and to
+// turn a slug it doesn't know into a redirect. The screens themselves are the
+// shell's, which is what keeps the timeline mounted, and scrolled, while a
+// panel opens and closes over it. Staying *scrolled* also takes
 // `resetScroll: false` on every navigate call now that the document is the
 // scroller; see the note in components/message-card.tsx.
 //
 // This ships as a static site, so no server ever sees these paths: the host
 // serves index.html for all of them and the matching happens here, in the
 // browser (apps/web/public/_redirects, and the `-s` in the `start` script).
-//
-// A screen that is not a view of the archive (a settings page, say) goes
-// *beside* `viewRoute`, not inside it: a static segment outranks a param, so
-// `/settings` would match its own route rather than be read as a filter slug.
 
+// The query vocabulary is declared once, here, because every route below
+// inherits the root's search params and every one of these surfaces can open
+// over every screen.
 const rootRoute = createRootRoute({
   component: App,
+  validateSearch: validateAppSearch,
 });
 
 const viewRoute = createRoute({
@@ -68,64 +72,15 @@ const viewRoute = createRoute({
   },
 });
 
-// No component on the tag route: a route without one renders its Outlet, which
-// is exactly what it is for. The screen itself is the shell.
+// A tag narrows whichever view it sits under, so it is a segment on that view
+// rather than a route of its own with its own screen.
 const tagRoute = createRoute({
   getParentRoute: () => viewRoute,
   path: "tags/$tagId",
 });
 
-// `?photo=<attachmentId>` on both of these: the full-screen photo viewer is a
-// surface of its own stacked on the panel, so it gets its own URL and its own
-// history entry rather than a piece of state that the back gesture cannot see
-// (lib/routes.ts).
-const messageRoute = createRoute({
-  getParentRoute: () => viewRoute,
-  path: "m/$id",
-  validateSearch: validateMessageSearch,
-  component: MessageDetail,
-});
-
-const tagMessageRoute = createRoute({
-  getParentRoute: () => tagRoute,
-  path: "m/$id",
-  validateSearch: validateMessageSearch,
-  component: MessageDetail,
-});
-
-// The entity overlay is the same pattern one letter apart in the path, and it
-// nests under the tag route for the same reason the message one does: closing
-// it has to land back on the view it was opened from, tag and all.
-const entityRoute = createRoute({
-  getParentRoute: () => viewRoute,
-  path: "e/$id",
-  component: EntityDetail,
-});
-
-const tagEntityRoute = createRoute({
-  getParentRoute: () => tagRoute,
-  path: "e/$id",
-  component: EntityDetail,
-});
-
-// Settings is not a view of the archive, so it sits *beside* `viewRoute` rather
-// than inside it: a static segment outranks the optional param, which is what
-// keeps `/settings` from being read as a filter slug and bounced home.
-const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "settings",
-  component: Settings,
-});
-
 const router = createRouter({
-  routeTree: rootRoute.addChildren([
-    viewRoute.addChildren([
-      messageRoute,
-      entityRoute,
-      tagRoute.addChildren([tagMessageRoute, tagEntityRoute]),
-    ]),
-    settingsRoute,
-  ]),
+  routeTree: rootRoute.addChildren([viewRoute.addChildren([tagRoute])]),
   defaultNotFoundComponent: () => null,
 });
 

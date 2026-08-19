@@ -1,7 +1,7 @@
 import { mutators, queries } from "@ragbag/contracts";
 import { faceForMime } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   AttachmentAlbum,
@@ -24,13 +24,13 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatBytes, timeLabel } from "@/lib/format";
-import { entityLink, filterLink, useFilter } from "@/lib/routes";
+import { closePanelLink, entityLink } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 import { useMeta } from "@/lib/use-meta";
 import type { DetailAttachment, MessageDetail as MessageDetailRow } from "@/lib/types";
 
-// Route overlay (…/m/$id): everything about one message. Rendered above the
-// timeline so scroll position survives.
+// The message panel (`?message=<id>`): everything about one message. Rendered
+// above the timeline so scroll position survives.
 //
 // Two parts, in the order the timeline card has them: the message exactly as
 // it was sent, then everything that came out of it. The card is the contract,
@@ -45,10 +45,10 @@ import type { DetailAttachment, MessageDetail as MessageDetailRow } from "@/lib/
 // extracted text, the per-part errors and retries, the tag editor and the AI
 // tags a card has no room for.
 //
-// A *child* of whichever filter is behind it (main.tsx), so the view stays in
-// the path while the overlay is open: closing goes back to `/images`, not to
-// the whole archive, and a link to `/images/m/<id>` opens it over the images
-// view for whoever follows it.
+// A key in the query string rather than a segment on the path (lib/routes.ts),
+// so the view it was opened from is untouched underneath it: closing goes back
+// to `/images`, not to the whole archive, and `/images?message=<id>` opens it
+// over the images view for whoever follows the link.
 //
 // A Drawer rather than a hand-rolled overlay: focus trap, scroll lock, Esc,
 // swipe-to-dismiss and the slide animation all come from Base UI. One
@@ -57,16 +57,13 @@ import type { DetailAttachment, MessageDetail as MessageDetailRow } from "@/lib/
 // which is the same floating-card language the sidebar uses at that
 // breakpoint.
 //
-// The route decides whether this screen exists; local `open` state decides
-// whether the panel is on screen, so that closing can animate before the route
-// change tears the component down.
+// The URL decides whether this screen exists (the shell mounts it on the param,
+// app.tsx); local `open` state decides whether the panel is on screen, so that
+// closing can animate before the navigation tears the component down.
 
-export function MessageDetail() {
-  const { id } = useParams({ strict: false }) as { id: string };
+export function MessageDetail({ id }: { id: string }) {
   const zero = useZero();
   const navigate = useNavigate();
-  // The view this overlay is over, which is where closing it goes back to.
-  const filter = useFilter();
   const [liveMessage] = useQuery(queries.message({ id }));
   const [allTags] = useQuery(queries.tags());
   const meta = useMeta();
@@ -81,16 +78,16 @@ export function MessageDetail() {
   // that branch never runs, `data-starting-style` is never applied, and the
   // popup is inserted straight at its resting transform, no entrance at all.
   // Closing still animates, because `open` genuinely changes there. That is the
-  // whole of "opens abruptly but closes with an animation": the route mounts
+  // whole of "opens abruptly but closes with an animation": the shell mounts
   // this component with the drawer already open, which is the one case Base UI
   // reads as "was always there".
   //
   // So hand it a real false → true. `useLayoutEffect`, not `useEffect`: the
   // flip is flushed before paint, so the closed frame is never drawn.
   //
-  // Keyed on `id`, not on mount. The router keeps this component mounted across
-  // a param change, so a mount-only effect opens the drawer for whichever
-  // message happened to mount it and never again.
+  // Keyed on `id`, not on mount. Opening another message from this panel swaps
+  // the param and keeps the component mounted, so a mount-only effect would
+  // open the drawer for whichever message happened to mount it and never again.
   const [open, setOpen] = useState(false);
   // Set when the open is *requested*, which is what makes the exit below safe
   // to act on. It used to be set when the entrance *completed*, and an entrance
@@ -100,9 +97,6 @@ export function MessageDetail() {
   // home never runs.
   const opened = useRef(false);
   useLayoutEffect(() => {
-    // Undefined while the router transitions off this route; the component is
-    // on its way out, not opening.
-    if (!id) return;
     opened.current = true;
     setOpen(true);
   }, [id]);
@@ -125,7 +119,7 @@ export function MessageDetail() {
       open={open}
       onOpenChange={(next) => !next && close()}
       onOpenChangeComplete={(nowOpen) => {
-        if (!nowOpen && opened.current) void navigate(filterLink(filter));
+        if (!nowOpen && opened.current) void navigate(closePanelLink);
       }}
       // Bottom sheet on a phone, right-hand panel on a desktop, and the handle
       // only where there is a thumb to drag it with.
@@ -166,99 +160,50 @@ export function MessageDetail() {
             {/* Header. The drawer is a flex column with its own scrolling body
                 below, so the header simply doesn't scroll.
 
-                Two rows, because the timestamp and the way back are not the
-                same kind of thing: the top row is what this message is (when
-                it was sent) and what you can do to it, and the button below is
-                where it lives. */}
-            <div className="flex shrink-0 flex-col gap-2 border-b bg-card px-5 py-3">
-              <div className="flex items-center gap-2">
-                {/* The card's stamp, to the pixel (components/message-card.tsx):
-                    same mono, same size, same grey, and the same full date on
-                    hover. A message is dated once, in one voice, wherever it is
-                    drawn. It carries the date as well as the time because this
-                    panel has no day separators above it to say which day this
-                    is.
-
-                    The inbox chip that used to sit beside it is gone: it said
-                    "message" over a panel that is nothing but one message, at
-                    twice the height of the line it was labelling, and the
-                    button below now carries that glyph where it means
-                    something. */}
-                <time
-                  className="font-mono text-[11px] text-muted-foreground"
-                  title={new Date(message.createdAt).toLocaleString()}
-                >
-                  {new Date(message.createdAt).toLocaleDateString()} ·{" "}
-                  {timeLabel(message.createdAt)}
-                </time>
-                <span className="ml-auto flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title={message.favorite ? "Remove from favorites" : "Add to favorites"}
-                    className={message.favorite ? "text-kind-note" : "text-muted-foreground"}
-                    onClick={() =>
-                      void zero.mutate(
-                        mutators.message.setFavorite({
-                          id: message.id,
-                          favorite: !message.favorite,
-                        }),
-                      )
-                    }
-                  >
-                    <Icon name="star" className="size-4" filled={message.favorite} />
-                  </Button>
-                  <DeleteMessageDialog
-                    onConfirm={() => {
-                      void zero.mutate(mutators.message.delete({ id: message.id }));
-                      close();
-                    }}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Delete"
-                      className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
-                    >
-                      <Icon name="trash" className="size-4" />
-                    </Button>
-                  </DeleteMessageDialog>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    title="Close (Esc)"
-                    className="text-muted-foreground"
-                    onClick={close}
-                  >
-                    <Icon name="x" className="size-4" />
-                  </Button>
-                </span>
-              </div>
-
-              {/* Every thing-shaped view still gets you home (plan §8.2). The
-                  id rides in the hash, so this is a real URL someone can share
-                  rather than a piece of transient state, and the timeline
-                  scrolls to it and points at it (components/timeline.tsx).
-
-                  Its own row, under the stamp, rather than wedged between the
-                  date and three icon buttons: it is the only thing in this
-                  header with a word on it, and a labelled button in a row of
-                  glyphs reads as the odd one out rather than as the way back.
-                  `self-start` so it is as wide as its words. */}
+                Nothing but the actions. What this message is, when it was sent
+                and where it lives are all part of the message, so they are
+                drawn with it in the body below rather than lifted up into a
+                title bar the card has no equivalent of. */}
+            <div className="flex shrink-0 items-center justify-end gap-1 border-b bg-card px-5 py-3">
               <Button
-                variant="outline"
-                size="sm"
-                className="self-start"
+                variant="ghost"
+                size="icon-sm"
+                title={message.favorite ? "Remove from favorites" : "Add to favorites"}
+                className={message.favorite ? "text-kind-note" : "text-muted-foreground"}
                 onClick={() =>
-                  void navigate({
-                    to: "/{-$view}",
-                    params: { view: undefined },
-                    hash: message.id,
-                    resetScroll: false,
-                  })
+                  void zero.mutate(
+                    mutators.message.setFavorite({
+                      id: message.id,
+                      favorite: !message.favorite,
+                    }),
+                  )
                 }
               >
-                <Icon name="inbox" className="size-3.5" /> Show in Messages
+                <Icon name="star" className="size-4" filled={message.favorite} />
+              </Button>
+              <DeleteMessageDialog
+                onConfirm={() => {
+                  void zero.mutate(mutators.message.delete({ id: message.id }));
+                  close();
+                }}
+              >
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Delete"
+                  className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                >
+                  <Icon name="trash" className="size-4" />
+                </Button>
+              </DeleteMessageDialog>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                title="Close (Esc)"
+                className="text-muted-foreground"
+                onClick={close}
+              >
+                <Icon name="x" className="size-4" />
               </Button>
             </div>
 
@@ -286,8 +231,14 @@ export function MessageDetail() {
                   {/* The message, first, whatever it is made of: a paragraph, a
                     photo, a voice note, all three, or one file and nothing
                     else. No heading over it, because it is not a section of
-                    the page: it is the thing the page is about, and the header
-                    above already says when it was sent. */}
+                    the page: it is the thing the page is about.
+
+                    Same parts in the same order as the card, ending the same
+                    way: words, files, then the time it was sent
+                    (components/message-card.tsx). The card is a card and this
+                    is not, and the stamp sits left here rather than right,
+                    because there is no card edge on this side of the panel for
+                    it to hang off. Everything else about it is the card's. */}
                   <div className="space-y-2">
                     {message.text && (
                       // The card's correction, for the same reason: half-leading
@@ -298,6 +249,38 @@ export function MessageDetail() {
                       </p>
                     )}
                     <AttachmentAlbum attachments={message.attachments} variant="detail" />
+                    <div className="flex flex-col items-start gap-2">
+                      <time
+                        className="font-mono text-[11px] text-muted-foreground"
+                        title={new Date(message.createdAt).toLocaleString()}
+                      >
+                        {new Date(message.createdAt).toLocaleDateString()} ·{" "}
+                        {timeLabel(message.createdAt)}
+                      </time>
+                      {/* Every thing-shaped view still gets you home (plan
+                          §8.2). The id rides in the hash, so this is a real URL
+                          someone can share rather than a piece of transient
+                          state, and the timeline scrolls to it and points at it
+                          (components/timeline.tsx).
+
+                          Under the stamp, because it is about *this* message
+                          and belongs where the message ends, not in a bar over
+                          it. */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void navigate({
+                            to: "/{-$view}",
+                            params: { view: undefined },
+                            hash: message.id,
+                            resetScroll: false,
+                          })
+                        }
+                      >
+                        <Icon name="inbox" className="size-3.5" /> Show in Messages
+                      </Button>
+                    </div>
                   </div>
 
                   {/* The seam. Everything below it is *about* the message rather
@@ -468,7 +451,6 @@ export function MessageDetail() {
  */
 function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
   const navigate = useNavigate();
-  const filter = useFilter();
   const entities = messageEntities(message.mentions);
   if (entities.length === 0) return null;
 
@@ -480,7 +462,7 @@ function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
           <EntityCard
             key={entity.id}
             entity={entity}
-            onOpen={() => void navigate(entityLink(entity.id, filter))}
+            onOpen={() => void navigate(entityLink(entity.id))}
           />
         ))}
       </div>

@@ -38,7 +38,7 @@ export function normalizeUrl(raw: string): string | null {
   return out;
 }
 
-/** True if the text is a single bare URL (what makes a dump a `link` item). */
+/** True if the text is a single bare URL (what makes a message a `link` item). */
 export function isBareUrl(text: string): boolean {
   const trimmed = text.trim();
   if (/\s/.test(trimmed)) return false;

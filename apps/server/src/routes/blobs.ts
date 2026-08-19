@@ -15,7 +15,7 @@ import { getAuthData } from "../session.js";
 
 // Blob bytes go straight between client and the object store via presigned
 // URLs: they never stream through application code (plan §5). Keys are
-// content-addressed: <user_id>/<sha256>, which makes re-dumps of the same
+// content-addressed: <user_id>/<sha256>, which makes re-sends of the same
 // file free. The /local/* routes ARE the object store when the local-disk
 // driver is active; their auth is the HMAC signature (bearer semantics,
 // exactly like an S3 presigned URL).
@@ -31,7 +31,7 @@ export const blobRoutes = new Hono()
     const { blobId, sha256, mime, size, originalName } = parsed.data;
 
     // The client's blob id always wins: its items already reference it, very
-    // possibly created offline before this request. Re-dumping identical bytes
+    // possibly created offline before this request. Re-sending identical bytes
     // therefore adds a cheap extra row pointing at the same content-addressed
     // object: the bytes are still stored exactly once, and no client ever has
     // to be told its id was reassigned.

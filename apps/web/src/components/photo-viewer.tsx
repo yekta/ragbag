@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatBytes } from "@/lib/format";
 import { mediaUrl } from "@/lib/media";
-import type { MessageSearch } from "@/lib/routes";
+import { photoLink, type AppSearch } from "@/lib/routes";
 import type { Attachment } from "@/lib/types";
 
 // One picture, as large as the screen will draw it (plan §6.3).
@@ -43,11 +43,13 @@ import type { Attachment } from "@/lib/types";
 // next door: the timeline has no viewer, and a tile there still opens the
 // message it belongs to.
 //
-// The surface is dark in both themes, so it is marked `dark` and everything
-// inside it reads the dark values of the ordinary tokens. Not an exception to
-// the palette but the plainest possible use of it: a photo wants a dark
-// surround, chrome on a dark surround wants light ink, and that pair is what
-// the dark theme already is. No viewer-only colours are invented here.
+// The surface is the app's own canvas, in whichever theme the app is in, and
+// the chrome on it is the ordinary foreground and muted-foreground. It used to
+// force `dark` and paint itself near-black in both themes, which made this the
+// one screen in the app that ignored the theme the reader chose: opening a
+// picture from a light app was a full-screen jump to black and back. A
+// picture that is mostly white now needs an edge to end on, which is what the
+// border on it is for. No viewer-only colours are invented here either way.
 
 type PhotoViewer = {
   /** Show this attachment full screen. Ignored for anything but a picture. */
@@ -72,7 +74,7 @@ export function PhotoViewerScope({
   const router = useRouter();
   // Which photo is open is in the URL (lib/routes.ts), so the back gesture
   // closes the photo and leaves the message open underneath it.
-  const { photo } = useSearch({ strict: false }) as MessageSearch;
+  const { photo } = useSearch({ strict: false }) as AppSearch;
 
   const photos = useMemo(
     () => attachments.filter((a) => faceForMime(a.mime) === "image"),
@@ -83,12 +85,7 @@ export function PhotoViewerScope({
 
   const show = useCallback(
     (id: string | undefined, replace: boolean) => {
-      void navigate({
-        to: ".",
-        search: (prev: MessageSearch) => ({ ...prev, photo: id }),
-        replace,
-        resetScroll: false,
-      });
+      void navigate({ ...photoLink(id), replace });
     },
     [navigate],
   );
@@ -187,14 +184,15 @@ export function PhotoViewerScope({
               of the app, it is the picture and nothing else, and a picture is
               judged against what surrounds it. At 90% the panel behind stayed
               legible enough to read, which put a second close button a few
-              pixels from this one's.
+              pixels from this one's. The canvas colour, not a wash over it, so
+              nothing of the panel behind shows through at any theme.
 
               Paying for the fill by hand means paying for the click by hand
               too: pressing the scrim is outside the *picture* but inside the
               popup, so Base UI's own dismissal never sees it. Anything that is
               not a control and not the picture closes. */}
           <DialogPopup
-            className="dark fixed inset-0 z-50 flex flex-col bg-overlay text-foreground outline-none"
+            className="fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none"
             onClick={(event) => {
               const target = event.target as HTMLElement;
               if (!target.closest("button, a, img")) close();
@@ -211,7 +209,15 @@ export function PhotoViewerScope({
 
                 <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
                   {photos.length > 1 && (
-                    <span className="font-mono text-[11px] text-muted-foreground">
+                    // Padded to the same corner as everything else in this row.
+                    // Bare text sits where its box does; a button's ink sits
+                    // its own padding further in, so 12px of row padding puts
+                    // the close glyph 20px off the right edge and 20px down,
+                    // and put this counter 13px off the left edge and 21px
+                    // down: square at one corner of the screen and not at the
+                    // other. The 8px is that button padding, spelled here
+                    // because this child has none of its own.
+                    <span className="pl-2 font-mono text-[11px] text-muted-foreground">
                       {index + 1} of {photos.length}
                     </span>
                   )}
@@ -259,7 +265,13 @@ export function PhotoViewerScope({
                     alt={current.generatedTitle ?? current.filename}
                     fit="contain"
                     sizing="fit"
-                    className="rounded-md"
+                    // Barely rounded, and edged. On a canvas the same colour as
+                    // the page, a photo of a white wall would otherwise have no
+                    // end: the border is what says where the picture stops.
+                    // Corners stay near-square because this is the picture at
+                    // full size rather than a tile in a layout, and 12px of
+                    // radius eats a visible bite out of it at that scale.
+                    className="rounded border"
                   />
                   {photos.length > 1 && (
                     <>

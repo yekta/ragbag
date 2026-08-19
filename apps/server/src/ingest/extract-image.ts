@@ -43,7 +43,7 @@ export async function describeImage(input: {
             {
               type: "input_text",
               text:
-                "This image was dumped into a personal archive. Describe it for search: " +
+                "This image was sent to a personal archive. Describe it for search: " +
                 "a short title (max 8 words), a 1-3 sentence description, and any legible " +
                 "text transcribed verbatim into ocr_text (empty string if none).",
             },

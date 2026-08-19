@@ -1,6 +1,6 @@
 import { mutators, queries } from "@ragbag/contracts";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EntityCard } from "@/components/entities";
@@ -25,20 +25,19 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, timeLabel } from "@/lib/format";
 import { runMutation } from "@/lib/mutate";
-import { filterLink, messageLink, useFilter } from "@/lib/routes";
+import { closePanelLink, messageLink } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 
-// Route overlay (…/e/$id): everything about one thing the pipeline found.
+// The thing panel (`?entity=<id>`): everything about one thing the pipeline
+// found, over whichever view it was opened from (lib/routes.ts).
 //
 // This is the page that only exists because entities are canonical: without
 // the entity/mention split there would be nothing that could answer
 // "everything about this parcel", only N copies of it on N messages.
 
-export function EntityDetail() {
-  const { id } = useParams({ strict: false }) as { id: string };
+export function EntityDetail({ id }: { id: string }) {
   const zero = useZero();
   const navigate = useNavigate();
-  const filter = useFilter();
   const types = useEntityTypes();
   const [liveEntity] = useQuery(queries.entity({ id }));
   const [allTags] = useQuery(queries.tags());
@@ -49,7 +48,6 @@ export function EntityDetail() {
   const [open, setOpen] = useState(false);
   const opened = useRef(false);
   useLayoutEffect(() => {
-    if (!id) return;
     opened.current = true;
     setOpen(true);
   }, [id]);
@@ -86,7 +84,7 @@ export function EntityDetail() {
       open={open}
       onOpenChange={(next) => !next && close()}
       onOpenChangeComplete={(nowOpen) => {
-        if (!nowOpen && opened.current) void navigate(filterLink(filter));
+        if (!nowOpen && opened.current) void navigate(closePanelLink);
       }}
       showSwipeHandle={isMobile}
       swipeDirection={isMobile ? "down" : "right"}
@@ -199,7 +197,7 @@ export function EntityDetail() {
                           row with an eye that deleted the thing, which read as
                           an action on the message it sat on. */}
                       <Link
-                        {...messageLink(mention.messageId, filter)}
+                        {...messageLink(mention.messageId)}
                         className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"
                         onClick={close}
                       >

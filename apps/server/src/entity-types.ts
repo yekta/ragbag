@@ -68,7 +68,7 @@ export async function loadEntityTypes(userId: string): Promise<EntityTypes> {
  *
  * Gated on `user.types_seeded_at` rather than on "has no types", which is the
  * whole point: a user who deleted Phone Number must not have it reappear on
- * their next dump, and a user who deleted everything keeps their empty archive
+ * their next message, and a user who deleted everything keeps their empty archive
  * empty. The timestamp is claimed in the same transaction that writes the rows,
  * with a conditional update, so the signup hook and the ingestion safety net
  * racing each other end with one of them doing nothing.

@@ -12,7 +12,7 @@ import { dayKey, dayLabel } from "@/lib/format";
 import { useFilter } from "@/lib/routes";
 import { BUDGET, usePatient } from "@/lib/settle";
 import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
-import type { Drop, Message } from "@/lib/types";
+import type { Messages, Message } from "@/lib/types";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
 // bottom like a messenger. Virtualized: the full personal archive is in memory
@@ -35,7 +35,7 @@ type Row = { type: "day"; key: string; label: string } | { type: "message"; mess
 /** How close to the newest message still counts as being at the newest one. */
 const AT_END_PX = 120;
 
-/** Keys that move the page. Any other keystroke is someone typing a dump. */
+/** Keys that move the page. Any other keystroke is someone typing a message. */
 const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
 
 /**
@@ -46,7 +46,7 @@ const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "Ar
  */
 const HIGHLIGHT_MS = 3000;
 
-function useRows(messages: Drop): Row[] {
+function useRows(messages: Messages): Row[] {
   // The URL is the filter (lib/routes.ts).
   const { view, tagId } = useFilter();
   return useMemo(() => {
@@ -153,7 +153,7 @@ export function Timeline({
   sync,
   listRef,
 }: {
-  messages: Drop;
+  messages: Messages;
   /** What the workspace is doing. Nothing here second-guesses it. */
   state: ArchiveState;
   sync: SyncStatus | null;
@@ -215,18 +215,18 @@ export function Timeline({
     scrollMargin,
     // Chat anchoring, from the library rather than by hand: hold the view at
     // the newest message while lazy measurements land, hold the *reader's*
-    // message still when older ones sync in above, and follow new dumps when
+    // message still when older ones sync in above, and follow new messages when
     // they are already at the end. The threshold is deliberately generous: the
     // end-of-document arithmetic uses `innerHeight`, which on iOS tracks the
     // visual viewport, so a tight one reads as "not at the end" while the URL
-    // bar is expanded, and new dumps would quietly stop following.
+    // bar is expanded, and new messages would quietly stop following.
     anchorTo: "end",
     followOnAppend: true,
     scrollEndThreshold: AT_END_PX,
     // The end-anchoring above corrects the scroll offset from inside the ref
     // callback that measures a freshly mounted row, and asks React to flush the
     // resulting render synchronously, from inside a commit, which React
-    // refuses with a console error (once per dump, since a dump is what mounts
+    // refuses with a console error (once per message, since a message is what mounts
     // a row while you are at the end). Re-rendering on the next tick instead
     // costs nothing here: `overscan: 10` is ~1000px of rows either side, so
     // nothing can scroll into view within a frame of not being rendered.
@@ -508,8 +508,8 @@ function Placeholder({
           {isSyncPaused(sync)
             ? // No spinner: sync is refused or offline, so nothing is in fact in
               // progress. The banner above says why.
-              "Nothing dropped on this device yet. Drop anything below. It syncs once the connection is back."
-            : "Your archive is empty. Drop anything below. It syncs everywhere."}
+              "Nothing here on this device yet. Send anything below. It syncs once the connection is back."
+            : "Your archive is empty. Send anything below. It syncs everywhere."}
         </p>
       </Centred>
     );

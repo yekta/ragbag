@@ -16,11 +16,16 @@ import { runMutation } from "@/lib/mutate";
 import { formatBytes } from "@/lib/format";
 import { loadIdentity } from "@/lib/identity";
 import { clearMediaCache, storageUsage, type StorageUsage } from "@/lib/media";
+import { closeSettingsLink } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
 import type { Theme } from "@/lib/theme";
 
-// Route overlay (/settings): what Ragbag looks for, what this device is
-// holding, how it looks, and who is signed in.
+// The settings drawer (`?settings=true`): what Ragbag looks for, what this
+// device is holding, how it looks, and who is signed in.
+//
+// Drawn by the shell over whichever view is behind it (app.tsx), not by a route
+// of its own: it is a surface you open where you are, so the path keeps saying
+// which view that is and closing simply drops the flag (lib/routes.ts).
 //
 // The types half is ordinary mutations over synced rows, so a change reaches
 // the sidebar, the cards and the next ingestion job by the same path any other
@@ -47,11 +52,9 @@ export function Settings() {
       open={open}
       onOpenChange={(next) => !next && setOpen(false)}
       onOpenChangeComplete={(nowOpen) => {
-        // `view: undefined` rather than `{}`: naming the param is what drops the
-        // segment, the same reason main.tsx's redirect names it.
-        if (!nowOpen && opened.current) {
-          void navigate({ to: "/{-$view}", params: { view: undefined }, resetScroll: false });
-        }
+        // The path is not ours to change: it is the view behind this drawer,
+        // and closing lands back on it with only the flag gone.
+        if (!nowOpen && opened.current) void navigate(closeSettingsLink);
       }}
       showSwipeHandle={isMobile}
       swipeDirection={isMobile ? "down" : "right"}

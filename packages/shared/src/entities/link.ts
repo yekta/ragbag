@@ -1,9 +1,9 @@
 import { normalizeUrl } from "../url.js";
 import type { EntityBehaviour, EntityCandidate } from "./types.js";
 
-// A bare URL is no longer a kind of dump: it is text that produces a link
+// A bare URL is no longer a kind of message: it is text that produces a link
 // entity, and the entity is what draws the preview card. Because links are
-// canonical per user, the same URL dumped in five messages is enriched (and
+// canonical per user, the same URL sent in five messages is enriched (and
 // snapshotted, plan §6.6) once.
 //
 // The definition lives in the catalog and, once seeded, in the user's own row.

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { timeLabel } from "@/lib/format";
-import { entityLink, messageLink, useFilter } from "@/lib/routes";
+import { entityLink, messageLink } from "@/lib/routes";
 import { isTouch } from "@/lib/touch";
 import type { EntityFields, Message } from "@/lib/types";
 
@@ -35,8 +35,9 @@ import type { EntityFields, Message } from "@/lib/types";
 // `resetScroll: false` (the router scrolls the window to the top on every
 // navigation otherwise: invisible while the timeline had its own scroll box,
 // very much not now that the document is the scroller), and it has to stay
-// *filtered*, which is why the overlay opens at `/links/m/<id>` when links is
-// what you are looking at.
+// *filtered*, which is why the panel opens at `/links?message=<id>` when links
+// is what you are looking at: the path is left exactly as it was and the
+// message rides beside it.
 
 const URL_RE = /(https?:\/\/[^\s<>"')\]]+)/g;
 
@@ -177,7 +178,6 @@ export function messageEntities(
  */
 function EntityStrip({ message }: { message: Message }) {
   const navigate = useNavigate();
-  const filter = useFilter();
   const entities = messageEntities(message.mentions);
   if (entities.length === 0) return null;
 
@@ -208,7 +208,7 @@ function EntityStrip({ message }: { message: Message }) {
             <EntityCard
               key={entity.id}
               entity={entity}
-              onOpen={() => void navigate(entityLink(entity.id, filter))}
+              onOpen={() => void navigate(entityLink(entity.id))}
             />
           ))}
         </div>
@@ -227,7 +227,6 @@ export function MessageCard({
 }) {
   const zero = useZero();
   const navigate = useNavigate();
-  const filter = useFilter();
 
   return (
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
@@ -236,18 +235,20 @@ export function MessageCard({
     // which is what leaves the cards and attachments inside it a shade to rise
     // by.
     <article
-      className={`group relative rounded-2xl border bg-background ${
-        // A pass over this card's border, held for three seconds and then
-        // dropped by the timeline, rather than a ring that stays on: see
-        // `highlight-pass` in index.css.
-        highlight ? "highlight-pass" : ""
-      }`}
+      // A pass of brand colour inside this card's edge, held for three seconds
+      // and then dropped by the timeline, rather than a ring that stays on:
+      // `highlight-pass` in index.css is the shadow and its timing. An
+      // attribute rather than a class swap because the state is the card's own
+      // and reads as one in the DOM; `|| undefined` keeps `data-highlight="false"`
+      // out, which would be present and therefore true to the variant.
+      data-highlight={highlight || undefined}
+      className="group relative rounded-2xl border bg-background data-highlight:highlight-pass"
       // Touch has no hover actions, so tapping the card body opens the detail
       // view instead; links and buttons inside keep their own behavior.
       onClick={(e) => {
         if (!isTouch) return;
         if (e.target instanceof Element && e.target.closest("a,button")) return;
-        void navigate(messageLink(message.id, filter));
+        void navigate(messageLink(message.id));
       }}
     >
       {/* hover actions. A Tooltip supplies the description, not the name: these
@@ -285,7 +286,7 @@ export function MessageCard({
                 size="icon-sm"
                 aria-label="Details and tags"
                 className="rounded-full text-muted-foreground"
-                onClick={() => void navigate(messageLink(message.id, filter))}
+                onClick={() => void navigate(messageLink(message.id))}
               />
             }
           >
@@ -340,10 +341,10 @@ export function MessageCard({
 
         {/* The footer stands a chip tall whether or not there is a chip in it.
             Ingestion is the one thing on a card that changes on its own, with
-            no one touching it: a badge appears the moment a dump lands, counts
+            no one touching it: a badge appears the moment a message lands, counts
             up through the parts, then leaves. Each of those is a row 3px
             taller than the bare timestamp, so every card below jumped 3px,
-            twice, per dump. `min-h-5` is the badge's own height held open
+            twice, per message. `min-h-5` is the badge's own height held open
             permanently, and `items-end` keeps the timestamp on the same
             baseline either way.
 

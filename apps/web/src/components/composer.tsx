@@ -14,7 +14,7 @@ import { formatBytes } from "@/lib/format";
 import { seedMediaCache } from "@/lib/media";
 import { isTouch } from "@/lib/touch";
 
-// The dump box. One send is one message: free text plus up to ten ordered
+// The message box. One send is one message: free text plus up to ten ordered
 // attachments, exactly like a chat composer. There is no type picker and no
 // kind guessing, because a message has no kind: a bare URL is just text that
 // will produce a link entity, and that entity is what draws the preview card.
@@ -27,7 +27,7 @@ import { isTouch } from "@/lib/touch";
 // stage has a deadline, and a failure is a state on the tile, not a mystery.
 // That machinery exists because uploads once died silently in production.
 
-const PLACEHOLDER = "Drop anything: a thought, a link, a file…";
+const PLACEHOLDER = "Send anything: a thought, a link, a file…";
 
 type Attachment = {
   /** Chip identity from the moment of pick, before any blobId exists. */
@@ -58,7 +58,7 @@ const CAPTURE_TIMEOUT_MS = 12_000;
 /** The write is optimistic; only the server's verdict can still surprise us. */
 function watchServer(write: { server: Promise<{ type: string }> }) {
   void write.server.then((r) => {
-    if (r.type === "error") toast.error("The server rejected a dump. Check the console.");
+    if (r.type === "error") toast.error("The server rejected a message. Check the console.");
   });
 }
 
@@ -516,7 +516,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
                       ? "Remove or retry the failed attachment first"
                       : reading
                         ? "Still reading an attachment…"
-                        : "Drop (Enter)"
+                        : "Send (Enter)"
                   }
                   disabled={!canSend}
                   onClick={send}
@@ -652,7 +652,7 @@ function AttachmentChip({
         // A picture also gets an inner edge. The 1px border is `--border`,
         // which is a *lighter* line than the canvas: it reads against a dark
         // photo and against a dark theme, and disappears against the white
-        // screenshot that is half of what gets dumped here. So a preview adds a
+        // screenshot that is half of what gets sent here. So a preview adds a
         // second hairline inside it, drawn from the shadow family (the
         // palette's one sanctioned translucent set) rather than a flat colour,
         // because only a tinted line reads over content it cannot predict.

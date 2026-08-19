@@ -46,7 +46,7 @@ export const mediaRoutes = new Hono().get("/:blobId/:variant", async (c) => {
 
   // A derivative exists only once the pipeline has made it, and asking for one
   // that does not exist yet should give you the picture rather than a 404: a
-  // freshly dumped photo is browsed before ingestion has finished with it.
+  // freshly sent photo is browsed before ingestion has finished with it.
   const key =
     variant === "original"
       ? blobKey(authData.userID, row.sha256)

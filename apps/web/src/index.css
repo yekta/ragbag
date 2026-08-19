@@ -332,15 +332,20 @@
 }
 
 /* Landing on one message, from "Show in Messages" or from a shared link.
-   A pass over the card's own border, not a state on it: the reader is being
-   pointed at a card, not shown a selected one, and the ring that used to sit
-   there stayed lit until the URL changed, which left a message looking picked
-   long after the eye had found it. In, held, out, inside three seconds: slow
-   enough to catch after the scroll lands, gone before it becomes furniture.
+   A pass over the card, not a state on it: the reader is being pointed at a
+   card, not shown a selected one, and the ring that used to sit there stayed
+   lit until the URL changed, which left a message looking picked long after
+   the eye had found it. 300ms in, 2.4s held, 300ms out, three seconds end to
+   end: the two ramps are quick enough to read as the card answering, and
+   everything between them is the card holding still while the eye finds it.
+   The percentages are those milliseconds over the 3s duration, so the three
+   move together.
 
-   It moves the border's colour and nothing else. A thicker edge would change
-   the border box, and every card below it would step down a pixel and back
-   (components/message-card.tsx has the same rule for the footer's chip).
+   What travels is the brand colour's alpha, from `primary/0` to `primary`,
+   inside an inset shadow that hugs the card's inner edge and falls off over
+   12px. Nothing else on the card is touched: the border keeps its own colour,
+   the fill keeps its own, and a shadow occupies no space, so the card cannot
+   change size or push the cards below it around.
 
    Reduced motion gets the same three seconds as a still frame rather than
    nothing at all: the base layer above collapses every animation to 1ms, so
@@ -351,17 +356,17 @@
 @keyframes highlight-pass {
   0%,
   100% {
-    border-color: var(--border);
+    box-shadow: inset 0 0 12px color-mix(in oklab, var(--primary) 0%, transparent);
   }
-  12%,
-  55% {
-    border-color: var(--ring);
+  10%,
+  90% {
+    box-shadow: inset 0 0 12px var(--primary);
   }
 }
 @utility highlight-pass {
   animation: highlight-pass 3s linear;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
-    border-color: var(--ring);
+    box-shadow: inset 0 0 12px var(--primary);
   }
 }

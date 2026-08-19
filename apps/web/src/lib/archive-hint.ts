@@ -9,7 +9,7 @@
 //
 // One number, rewritten whenever the timeline settles. It is wrong only in the
 // direction of waiting a beat longer (an archive deleted elsewhere) or opening
-// straight into the empty state (a first dump made on another device), and it
+// straight into the empty state (a first message sent on another device), and it
 // heals on the next settle either way.
 
 const KEY = "ragbag:archive";

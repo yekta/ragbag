@@ -41,7 +41,7 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Ragbag</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Dump anything. Find everything, even offline.
+              Send anything. Find everything, even offline.
             </p>
           </div>
         </CardHeader>

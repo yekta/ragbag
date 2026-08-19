@@ -123,7 +123,7 @@ describe("buildSynthesisPrompt", () => {
     expect(prompt).toContain("parcels, invoices");
   });
 
-  it("bounds what one message can cost, however much was dumped", () => {
+  it("bounds what one message can cost, however much was sent", () => {
     const huge = [{ ...sources[0]!, text: "x".repeat(500_000) }];
     const prompt = buildSynthesisPrompt({
       sources: huge,

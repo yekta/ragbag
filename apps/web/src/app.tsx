@@ -1,11 +1,13 @@
 import { ragbagZeroOptions } from "@ragbag/client-runtime";
 import { queries, type Schema } from "@ragbag/contracts";
 import { useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
-import { Outlet } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Composer } from "@/components/composer";
+import { EntityDetail } from "@/components/entity-detail";
 import { Icon } from "@/components/icon";
+import { MessageDetail } from "@/components/message-detail";
 import { SearchOverlay } from "@/components/search-overlay";
+import { Settings } from "@/components/settings/settings";
 import { SettleCover } from "@/components/settle-cover";
 import { Sidebar } from "@/components/sidebar";
 import { SignIn } from "@/components/sign-in";
@@ -21,7 +23,7 @@ import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } fro
 import { EntityTypesProvider, useEntityTypes } from "@/lib/entity-types";
 import { loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
 import { registerMediaWorker, requestPersistence } from "@/lib/media";
-import { isChatView, useFilter } from "@/lib/routes";
+import { isChatView, useFilter, usePanel, useSettingsOpen } from "@/lib/routes";
 import { useTimelineSearch } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
 import { BUDGET, useHeld, useLatch } from "@/lib/settle";
@@ -165,7 +167,7 @@ export function App() {
  * Two passes, chained (plan §7). Zero 1.8's `PreloadOptions` is `{ ttl }` and
  * nothing else: there is no priority flag, so firing both at once would let a
  * zero-cache interleave document bodies into the payload the chat is waiting
- * on. Starting `contents` when `drop.complete` resolves is what keeps the chat
+ * on. Starting `contents` when `chat.complete` resolves is what keeps the chat
  * first; the search index then silently gets deeper, because
  * `TimelineSearchIndex.sync()` is diff-based and the second pass is just
  * another call with richer docs.
@@ -192,8 +194,8 @@ const preloadArchive = (zero: Zero<Schema>) => {
   // Tiny, and everything with a kind on it needs it to draw itself: the rail
   // rows, the cards, the Details labels (lib/entity-types.tsx).
   zero.preload(queries.entityTypes(), { ttl: "forever" });
-  const drop = zero.preload(queries.drop(WHOLE_ARCHIVE), { ttl: "forever" });
-  void drop.complete.then(() => {
+  const chat = zero.preload(queries.messages(WHOLE_ARCHIVE), { ttl: "forever" });
+  void chat.complete.then(() => {
     zero.preload(queries.contents(), { ttl: "forever" });
   });
 };
@@ -366,7 +368,7 @@ function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaRespons
       <BannerAlert>
         <AlertDescription className="text-warning-foreground">
           Signed in, but sync was refused: {sync.detail}. Your archive is safe on this device; new
-          dumps stay local until sync is accepted.
+          messages stay local until sync is accepted.
         </AlertDescription>
         <Button size="xs" className={BANNER_BUTTON} onClick={() => void zero.connection.connect()}>
           Retry sync
@@ -378,7 +380,7 @@ function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaRespons
   if (sync?.name === "offline") {
     return (
       <p className={`bg-muted px-4 py-1.5 text-center text-xs text-muted-foreground ${shell}`}>
-        Offline. Dumping and search keep working; sync resumes automatically.
+        Offline. New messages and search keep working; sync resumes automatically.
       </p>
     );
   }
@@ -438,23 +440,23 @@ function ShellBody({
   meta: MetaResponse | undefined;
   status: SessionStatus;
 }) {
-  const [rawMessages, dropResult] = useQuery(queries.drop(WHOLE_ARCHIVE));
+  const [rawMessages, messagesResult] = useQuery(queries.messages(WHOLE_ARCHIVE));
   const [entities] = useQuery(queries.entities());
   // The second, deeper pass of the search index (plan §7). It arrives behind
-  // the chat by construction: its preload starts only when `drop.complete`
+  // the chat by construction: its preload starts only when `chat.complete`
   // resolves, and until then this is simply empty and search runs over
   // titles, summaries, tags, entity values and filenames.
   const [contents] = useQuery(queries.contents());
   const [tags] = useQuery(queries.tags());
   const sync = useSyncStatus(status === "expired");
   // Never fewer rows than we have already painted (lib/archive-state.ts).
-  const messages = useStableRows(rawMessages, dropResult.type);
+  const messages = useStableRows(rawMessages, messagesResult.type);
   // The list element, watched to know when the page has come to rest: the
   // reveal waits for that, not for a stopwatch.
   const listRef = useRef<HTMLDivElement>(null);
   const state = useArchiveState({
     count: messages.length,
-    resultType: dropResult.type,
+    resultType: messagesResult.type,
     sync,
     anchor: listRef,
   });
@@ -471,6 +473,12 @@ function ShellBody({
   // Chat-shaped rows filter the chat; thing-shaped rows replace it with a grid
   // or a list, because the thing IS the content (plan §8.2).
   const { view } = useFilter();
+  // Every surface that opens over the view is a query param rather than a route
+  // (lib/routes.ts), so the shell is what mounts them: the view underneath is
+  // still whatever the path says, and it neither unmounts nor re-renders as a
+  // different screen while a panel is over it.
+  const panel = usePanel();
+  const settingsOpen = useSettingsOpen();
   // The reopen button is pinned to the viewport rather than to this column, so
   // that the closing panel passes over it (the panel outranks this chrome now:
   // ui/sidebar.tsx) and it is uncovered in place instead of arriving from
@@ -603,8 +611,18 @@ function ShellBody({
       </SidebarInset>
 
       <SearchOverlay index={searchIndex} messages={messages} entities={entities} />
+
+      {/* Mounted only while open, never merely hidden: each of these plays its
+          entrance from a closed first frame, which it can only have if it was
+          not on screen before (the long note in components/message-detail.tsx).
+          Switching from one message to another keeps the panel mounted and
+          changes its `id`, which is the case that note's `useLayoutEffect` is
+          keyed for. */}
+      {panel?.kind === "message" && <MessageDetail id={panel.id} />}
+      {panel?.kind === "entity" && <EntityDetail id={panel.id} />}
+      {settingsOpen && <Settings />}
+
       <Toaster position="top-center" />
-      <Outlet />
     </>
   );
 }

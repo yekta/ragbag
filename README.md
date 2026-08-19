@@ -1,7 +1,7 @@
 # ragbag
 
-A local-first info-dump app. Drop anything (links, photos, notes, PDFs, screenshots, voice
-notes) into a chat-like box; an AI pipeline understands it, and it becomes searchable
+A local-first personal archive. Send anything (links, photos, notes, PDFs, screenshots, voice
+notes) to a chat-like box; an AI pipeline understands it, and it becomes searchable
 offline, forever.
 
 The unit of capture is a **message**: free text plus up to ten ordered attachments, sent in
@@ -39,8 +39,8 @@ account is seeded with the eight in the catalog (`packages/shared/src/entities/c
 `link`, `tracking`, `address`, `phone`, `email`, `invoice`, `iban`, `book`. From then on they
 are yours: rename them, re-word what the model is told to look for, add fields, add kinds of
 your own, switch off the ones you do not want read for, delete the ones you do not want at
-all. That is `/settings` in the app, where they sit in two lists, "looking for" and "not
-looking for", and a switched-off type is in the same list as one you never switched on. It is
+all. That is the settings drawer in the app (`?settings=true`), where they sit in one list with
+a switch each, so a switched-off type is in the same place as one you never switched on. It is
 ordinary mutations over rows every client already syncs: no migration, no deploy, no restart.
 The next synthesis job reads the table, so the model is asked for a new kind immediately, and
 the web app syncs the same rows for its card, its sidebar row, its URL and its Details
@@ -132,7 +132,7 @@ anonymous sign-in button appears so sync can be exercised without credentials.
 
 **Blobs** go straight to R2/S3 via presigned URLs. With no bucket configured,
 the server falls back to local-disk storage (`LOCAL_BLOB_DIR`, default
-`.data/blobs` in dev) served through HMAC-presigned URLs, so file dumps work
+`.data/blobs` in dev) served through HMAC-presigned URLs, so file uploads work
 out of the box.
 
 **Media** is served from one stable URL per picture, `/api/media/<blobId>/<variant>`

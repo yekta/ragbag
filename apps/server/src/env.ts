@@ -49,7 +49,7 @@ const shape = {
   // Blob storage: Cloudflare R2 via the S3 API, or any S3-compatible bucket
   // for self-hosters. When unset, LOCAL_BLOB_DIR (plain files served by this
   // server through HMAC-presigned URLs) takes over, defaulted in dev so
-  // file dumps work with zero setup, opt-in in production.
+  // file uploads work with zero setup, opt-in in production.
   R2_ENDPOINT: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),

@@ -176,9 +176,10 @@ Static build; no Dockerfile, but it does need one proxy rule (see **media**, bel
 
 `start` is `serve -s dist -l $PORT`. The `-s` is the SPA fallback, and it is load-bearing: every
 view in the app is a real path (`/favorites`, `/images`, `/links`, `/tags/<id>`,
-`/links/tags/<id>/m/<id>`, …) matched by the router in the browser, so without it a hard refresh on
-any of them 404s. `serve` is a runtime dependency of `apps/web` (not a dev one) so a production
-prune can't remove it. Hosts that read `_redirects` (Netlify, Cloudflare Pages) get the same rule
+`/links/tags/<id>`, …) matched by the router in the browser, so without it a hard refresh on
+any of them 404s. What is open over a view is a query param (`?message=<id>`, `?settings=true`),
+which needs nothing from the host. `serve` is a runtime dependency of `apps/web` (not a dev one)
+so a production prune can't remove it. Hosts that read `_redirects` (Netlify, Cloudflare Pages) get the same rule
 from `apps/web/public`; on anything else, point unmatched paths at `index.html` with a **200**, not
 a 301.
 
@@ -263,7 +264,7 @@ nothing.
 application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app/"}'`: the
    `__Secure-better-auth.state` cookie it sets carries the same `Domain` attribute the session
    cookie will.
-6. Dump a note. The sidebar's sync dot should read **Synced**, and the item should survive a
+6. Send a note. The sidebar's sync dot should read **Synced**, and the item should survive a
    reload: that round trip is the proof zero-cache forwarded the cookie and the API accepted it.
 7. Attach a file: the chip appears instantly, shows an upload progress ring, and settles
    (exercises presign + R2 + bucket CORS). If it goes red with "The storage bucket blocked the
@@ -298,6 +299,6 @@ application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app
   intact, marks the item `done`, and records a classified reason (`OpenAI rejected the API key
 (401)`, `model not found (404), check AI_ENRICH_MODEL`, …) that the item's detail view shows
   next to a **Run enrichment** button. They never burn ingest retries or discard extracted text.
-- Items that finished without a summary (e.g. everything dumped while a server ran keyless) don't
+- Items that finished without a summary (e.g. everything sent while a server ran keyless) don't
   re-run on their own: they're `done`. The sidebar offers **Enrich N items**, which re-queues them
   in bulk from the client (up to 250 per click).

@@ -198,7 +198,7 @@ export function startIngestWorker(): () => Promise<void> {
     wake = null;
   };
 
-  // NOTIFY from message.create/retry makes new dumps process instantly; if
+  // NOTIFY from message.create/retry makes new messages process instantly; if
   // LISTEN fails we still poll.
   void sql.listen("ingest_wake", wakeUp).catch((err: unknown) => {
     log.warn("LISTEN ingest_wake failed; falling back to polling", { err: String(err) });

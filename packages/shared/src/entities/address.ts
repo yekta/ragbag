@@ -4,7 +4,7 @@ import type { EntityBehaviour } from "./types.js";
 // it does not get to rewrite them). We never geocode: a maps *search* URL is
 // universal (it opens Google Maps on the web and the native app on iOS and
 // Android through the platform's own URL handling), needs no API key, and
-// tolerates the half-remembered addresses people actually dump.
+// tolerates the half-remembered addresses people actually send.
 //
 // No matcher: an address has no syntactic signature worth trusting, and a
 // regex here would only invent candidates for the model to reject.

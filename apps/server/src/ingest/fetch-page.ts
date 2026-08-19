@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { PermanentError } from "./errors.js";
 
-// Fetch a user-dumped URL with realistic headers (plan §7), a byte cap, a
+// Fetch a URL the user sent with realistic headers (plan §7), a byte cap, a
 // timeout, and a baseline SSRF guard: this server fetches arbitrary URLs on
 // behalf of users, so every hop must resolve to a public address. (DNS
 // re-resolution between check and connect remains; full pinning is M8

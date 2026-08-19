@@ -21,8 +21,8 @@ import {
 // links yet" cannot end up under a picture of an inbox.
 //
 // Not the same fact as an empty archive, which the timeline still answers for
-// itself: nothing has ever been dropped and this page holds none of it are two
-// different things, and only the first one is worth a "drop something below".
+// itself: nothing has ever been sent and this page holds none of it are two
+// different things, and only the first one is worth a "send something below".
 
 /** The icon and the plural noun the URL is asking for. */
 function viewFace(view: ViewFilter, types: EntityTypes): { icon: IconName; noun: string } {

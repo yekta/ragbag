@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type {
   Attachment,
   AttachmentContent,
-  Drop,
+  Messages,
   EntityRow,
   EntityRows,
   Message,
@@ -14,7 +14,7 @@ import type {
 // Feeds the local index (client-runtime) from Zero's live queries. Three doc
 // types share one index (plan §7), built in two passes:
 //
-//   1. the `drop` query lands: titles, summaries, tags, entity values,
+//   1. the `messages` query lands: titles, summaries, tags, entity values,
 //      filenames. Search works instantly over all of it.
 //   2. the `contents` query lands (chained behind it, see app.tsx): the same
 //      docs again, now carrying each attachment's `content_md`.
@@ -105,7 +105,7 @@ function entityDocs(entities: EntityRows, types: EntityTypes): SearchDoc[] {
 }
 
 export function buildSearchDocs(
-  messages: Drop,
+  messages: Messages,
   contents: readonly AttachmentContent[],
   entities: EntityRows,
   types: EntityTypes,
@@ -121,7 +121,7 @@ export function buildSearchDocs(
 }
 
 export function useTimelineSearch(
-  messages: Drop,
+  messages: Messages,
   contents: readonly AttachmentContent[],
   entities: EntityRows,
   types: EntityTypes,
@@ -161,7 +161,7 @@ export type Result = {
  */
 export function useSearchResults(
   index: TimelineSearchIndex,
-  messages: Drop,
+  messages: Messages,
   entities: EntityRows,
   query: string,
 ): Result[] {

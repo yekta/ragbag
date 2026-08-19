@@ -22,7 +22,7 @@ export const auth = betterAuth({
   }),
   trustedOrigins: [env.WEB_ORIGIN],
   // A new account starts with the catalog's eight kinds of thing, which is what
-  // makes an archive useful from its first dump (plan §6). Seeding is not a
+  // makes an archive useful from its first message (plan §6). Seeding is not a
   // precondition for signing up: if this fails, the account is still fine and
   // the first ingestion job seeds it instead (ingest/synthesis.ts).
   databaseHooks: {

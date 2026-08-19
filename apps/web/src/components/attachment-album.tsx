@@ -23,7 +23,7 @@ import {
 } from "@/lib/blobs";
 import { mediaUrl } from "@/lib/media";
 import { formatBytes } from "@/lib/format";
-import { messageLink, useFilter } from "@/lib/routes";
+import { messageLink } from "@/lib/routes";
 import type { Attachment } from "@/lib/types";
 
 // The attachments of one message, laid out the way a messaging app lays them
@@ -158,7 +158,6 @@ function AttachmentLink({
   style?: CSSProperties;
   children: ReactNode;
 }) {
-  const filter = useFilter();
   const viewer = usePhotoViewer();
   const upload = useBlobUploadState(attachment.blobId);
   const pending = upload !== null && upload.stage !== "done";
@@ -191,7 +190,7 @@ function AttachmentLink({
     );
   }
   return (
-    <Link {...messageLink(attachment.messageId, filter)} className={className} style={style}>
+    <Link {...messageLink(attachment.messageId)} className={className} style={style}>
       {children}
     </Link>
   );
@@ -491,7 +490,7 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * "This file hasn't reached the server yet", pinned over a freshly-dumped
+ * "This file hasn't reached the server yet", pinned over a freshly-sent
  * attachment. The bytes render locally either way (that's the local-first
  * deal); this badge is the difference between "uploading", "waiting", and
  * "failing, here's why": states that used to be invisible until another

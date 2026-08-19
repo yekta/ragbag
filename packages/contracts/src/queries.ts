@@ -27,7 +27,7 @@ export const queries = defineQueries({
    * `attachment_contents` deliberately rides in a second query (below) that
    * starts only once this one has landed (plan §7).
    */
-  drop: defineQuery(windowArgs, ({ args, ctx }) => {
+  messages: defineQuery(windowArgs, ({ args, ctx }) => {
     const q = zql.messages
       .where("userId", ctx.userID)
       .where("deletedAt", "IS", null)

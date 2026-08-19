@@ -3,7 +3,7 @@ import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } fr
 
 // v1's AddressBody. Addresses stay as they were written; the actions are what
 // make them useful, and a maps *search* URL needs no API key and tolerates the
-// half-remembered addresses people actually dump.
+// half-remembered addresses people actually send.
 
 export function AddressCard({ entity, onOpen }: EntityCardProps) {
   const data = entity.data as Record<string, unknown>;

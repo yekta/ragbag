@@ -419,7 +419,7 @@ await page.mouse.move(640, 450);
 await page.mouse.wheel(0, -900);
 await page.waitForTimeout(600);
 const parked = await page.evaluate(() => Math.round(scrollY));
-await page.locator("textarea").fill("a dump made while reading older items");
+await page.locator("textarea").fill("a message sent while reading older items");
 await page.locator("textarea").press("Enter");
 await page.waitForTimeout(2_500);
 const afterDump = await page.evaluate(() => Math.round(scrollY));
@@ -430,7 +430,7 @@ check(
 );
 
 // …and scrolling back to the bottom makes it follow again. (Scrolled with the
-// wheel, not the End key: the composer has focus after a dump, where End moves
+// wheel, not the End key: the composer has focus after a send, where End moves
 // the caret and nothing else.)
 await page.mouse.move(640, 450);
 await page.mouse.wheel(0, 4_000);
@@ -441,7 +441,7 @@ await page.waitForTimeout(2_500);
 const followed = await page.evaluate(() =>
   Math.round(document.documentElement.scrollHeight - (scrollY + innerHeight)),
 );
-check("back at the end, new dumps are followed again", followed <= 24, `${followed}px short`);
+check("back at the end, new messages are followed again", followed <= 24, `${followed}px short`);
 
 check("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
 

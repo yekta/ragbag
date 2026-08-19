@@ -6,7 +6,7 @@ import { v7 } from "uuid";
 // any id tiebreak survive. Being a plain UUID is what buys the pg `uuid`
 // column type (Zero maps it to `string`, see plan §12).
 //
-// The generator keeps a per-process sequence counter, so a burst of dumps
+// The generator keeps a per-process sequence counter, so a burst of messages
 // inside one millisecond still comes out in order.
 
 export function newId(): string {

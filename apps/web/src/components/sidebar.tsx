@@ -25,10 +25,10 @@ import {
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
 import { runMutation } from "@/lib/mutate";
 import { useEntityTypes } from "@/lib/entity-types";
-import { EVERYTHING, filterLink, useFilter, type Filter } from "@/lib/routes";
+import { EVERYTHING, filterLink, openSettingsLink, useFilter, type Filter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
 import type { SyncStatus } from "@/lib/sync-status";
-import type { Drop, EntityRows, TagRow } from "@/lib/types";
+import type { Messages, EntityRows, TagRow } from "@/lib/types";
 
 // The left panel: the chat and the things in it, over the locally-synced archive,
 // plus sync state and the account.
@@ -98,7 +98,7 @@ export function Sidebar({
   meta,
   sync,
 }: {
-  messages: Drop;
+  messages: Messages;
   entities: EntityRows;
   tags: readonly TagRow[];
   email: string;
@@ -202,7 +202,7 @@ export function Sidebar({
   // always narrowed together. That is also what lights both rows at once on
   // `/links/tags/x`, with no rule about it written anywhere: each row points at
   // the URL you are on.
-  const rowLink = (target: Filter, activeOptions?: { exact: boolean }) => ({
+  const rowLink = (target: Filter, activeOptions?: { exact: boolean; includeSearch: boolean }) => ({
     render: <Link {...filterLink(target)} activeOptions={activeOptions} onClick={closeDrawer} />,
   });
 
@@ -259,12 +259,20 @@ export function Sidebar({
               <SidebarMenuItem>
                 {/* `exact`, alone among the rows, because `/` is a prefix of
                     every URL in the app and the stock test is a prefix test:
-                    without it Drop is lit on every screen. The rest match their
-                    own subtree, which is why a tag narrowing a view leaves the
-                    view's row lit. */}
-                <SidebarMenuButton {...rowLink(EVERYTHING, { exact: true })}>
+                    without it Messages is lit on every screen. The rest match
+                    their own subtree, which is why a tag narrowing a view leaves
+                    the view's row lit.
+
+                    `includeSearch: false` comes with it, and only with it: an
+                    exact row compares the query string exactly too, so the row
+                    for `/` would go dark the moment anything added a param to
+                    the address it is already on, which every surface that opens
+                    over the chat now does (lib/routes.ts). The rest are matched
+                    partially, which an empty query always satisfies, so they
+                    need nothing. */}
+                <SidebarMenuButton {...rowLink(EVERYTHING, { exact: true, includeSearch: false })}>
                   <Icon name="inbox" className="size-4" />
-                  <span className="truncate">Drop</span>
+                  <span className="truncate">Messages</span>
                   <MenuCount>{messages.length}</MenuCount>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -341,7 +349,7 @@ export function Sidebar({
             className="text-muted-foreground"
             title="Settings"
             nativeButton={false}
-            render={<Link to="/settings" onClick={closeDrawer} />}
+            render={<Link {...openSettingsLink} onClick={closeDrawer} />}
           >
             <Icon name="settings" className="size-4" />
           </Button>
@@ -364,7 +372,13 @@ const BACKFILL_LIMIT = 250;
  * that nothing would otherwise revisit: they're "done", so no retry ever fires
  * for them.
  */
-function EnrichBackfill({ messages, meta }: { messages: Drop; meta: MetaResponse | undefined }) {
+function EnrichBackfill({
+  messages,
+  meta,
+}: {
+  messages: Messages;
+  meta: MetaResponse | undefined;
+}) {
   const zero = useZero();
   const [running, setRunning] = useState(0);
 

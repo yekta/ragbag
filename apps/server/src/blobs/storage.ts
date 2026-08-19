@@ -20,7 +20,7 @@ import { env, localBlobDir, r2Configured } from "../env.js";
 //   - r2: Cloudflare R2 / any S3-compatible bucket, the SaaS + self-host path.
 //   - local: plain files under LOCAL_BLOB_DIR served by this server through
 //     HMAC-"presigned" URLs with the same bearer semantics as S3 presigning.
-//     Default in dev (file dumps work with zero setup); production only when
+//     Default in dev (file uploads work with zero setup); production only when
 //     LOCAL_BLOB_DIR is set explicitly.
 //
 // The server itself reads/writes objects too: ingestion (M4) pulls blob bytes
@@ -287,7 +287,7 @@ export function blobKey(userId: string, sha256: string): string {
  * Where a derivative of a blob lives (plan §6.2).
  *
  * Derived from the source content address, which is what makes derivatives
- * free to dedupe and idempotent to regenerate: the same photo dumped twice
+ * free to dedupe and idempotent to regenerate: the same photo sent twice
  * hashes the same, so it is transcoded once, and re-running ingestion
  * overwrites the same keys rather than accumulating. They need no blob rows
  * and no ids of their own; the attachment row carries only `variants`, saying

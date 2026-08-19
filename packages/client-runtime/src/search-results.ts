@@ -2,7 +2,7 @@ import type { SearchHit } from "./search-index.js";
 
 // Turning one ranked list of hits into the two sections search shows.
 //
-// **Messages** answers "which of my dumps was this in", one row per message:
+// **Messages** answers "which of my messages was this in", one row per message:
 // the message doc already carries its own text, its summary, its tags and the
 // names of the files inside it.
 //
@@ -16,13 +16,13 @@ import type { SearchHit } from "./search-index.js";
 //
 // Nothing in Things is ever folded into a message. An entity is canonical
 // across every message that mentions it, so it belongs to none of them; a file
-// belongs to exactly one message and still is not that message, because a dump
+// belongs to exactly one message and still is not that message, because a message
 // and the picture inside it are two different answers to "what did I find".
 // Both open the message, because that is where a file lives.
 //
-// The price is that one dump can put two rows on screen when the query matches
+// The price is that one message can put two rows on screen when the query matches
 // the message and the picture in it. That is the deal entities have always
-// had, and each row says something the other cannot: one names the dump, the
+// had, and each row says something the other cannot: one names the message, the
 // other shows the picture.
 //
 // Pure, and here rather than in the web app, because this is the part worth

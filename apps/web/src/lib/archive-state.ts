@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { loadArchiveHint, saveArchiveHint } from "@/lib/archive-hint";
 import { BUDGET, useHeld, useLayoutSettled } from "@/lib/settle";
 import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
-import type { Drop } from "@/lib/types";
+import type { Messages } from "@/lib/types";
 
 // What the workspace is doing, in one word, with a reason for each. Readiness
 // used to be four booleans spread across the app shell, the timeline and the
@@ -71,8 +71,8 @@ export function useArchiveHintWriter(state: ArchiveState, count: number): void {
  * screen and back. A `complete` empty result still
  * clears the list, so deleting your last item works.
  */
-export function useStableRows(items: Drop, resultType: "unknown" | "complete" | "error") {
-  const last = useRef<Drop>(items);
+export function useStableRows(items: Messages, resultType: "unknown" | "complete" | "error") {
+  const last = useRef<Messages>(items);
   const warned = useRef(false);
   if (items.length > 0 || resultType !== "unknown") last.current = items;
 

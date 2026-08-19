@@ -15,10 +15,10 @@ import {
 } from "@/components/ui/command";
 import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, formatBytes } from "@/lib/format";
-import { entityLink, messageLink, useFilter } from "@/lib/routes";
+import { entityLink, messageLink } from "@/lib/routes";
 import { RESULT_GROUPS, useSearchResults, type Result, type ResultGroup } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
-import type { Drop, EntityRows } from "@/lib/types";
+import type { Messages, EntityRows } from "@/lib/types";
 
 // The single search box: a ⌘K overlay over the local index. Instant,
 // search-as-you-type, fully offline.
@@ -26,7 +26,7 @@ import type { Drop, EntityRows } from "@/lib/types";
 // Two sections, and the split is the point (lib/search.ts, and `groupHits` in
 // client-runtime):
 //
-//   Messages  which dump was this in. One row per message.
+//   Messages  which message was this in. One row per message.
 //   Things    what is this thing. The pictures and files inside messages as
 //             much as what the pipeline found in them, because that is what
 //             the sidebar files under Things: one row each, never folded into
@@ -150,12 +150,11 @@ export function SearchOverlay({
   entities,
 }: {
   index: TimelineSearchIndex;
-  messages: Drop;
+  messages: Messages;
   entities: EntityRows;
 }) {
   const { searchOpen, setSearchOpen } = useViewStore();
   const navigate = useNavigate();
-  const filter = useFilter();
   const [query, setQuery] = useState("");
   const results = useSearchResults(index, messages, entities, query);
 
@@ -191,9 +190,9 @@ export function SearchOverlay({
     // opens over the view the search was called from, and closing it lands
     // back there.
     const to = result.entity
-      ? entityLink(result.entity.id, filter)
+      ? entityLink(result.entity.id)
       : result.message
-        ? messageLink(result.message.id, filter)
+        ? messageLink(result.message.id)
         : null;
     if (to) void navigate(to);
   };

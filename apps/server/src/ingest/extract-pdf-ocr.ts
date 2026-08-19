@@ -53,7 +53,7 @@ export type PdfOcrResult = z.infer<typeof PdfTranscription> & {
 
 /** What the model is asked for; the page markers are the downstream contract. */
 const PROMPT =
-  "This PDF was dumped into a personal archive and has no usable text layer. " +
+  "This PDF was sent to a personal archive and has no usable text layer. " +
   "Transcribe it for search: put the text of each page into content_md under a " +
   "`## Page N` heading, in order, preserving headings and tables as markdown. " +
   "Transcribe verbatim; never summarise inside content_md and never invent text " +

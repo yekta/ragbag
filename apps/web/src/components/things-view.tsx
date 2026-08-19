@@ -9,7 +9,7 @@ import { MediaImage } from "@/components/media-image";
 import { useEntityTypes } from "@/lib/entity-types";
 import { attachmentFaceOf, entityKindOf, entityLink, messageLink, useFilter } from "@/lib/routes";
 import { dayLabel, formatBytes } from "@/lib/format";
-import type { Attachment, Drop, EntityRows, Message } from "@/lib/types";
+import type { Attachment, Messages, EntityRows, Message } from "@/lib/types";
 
 // The other half of the sidebar (plan §8.2). Chat-shaped rows filter the chat;
 // thing-shaped rows replace it with a grid (images) or a list (everything
@@ -26,7 +26,7 @@ export function ThingsView({
   entities,
   listRef,
 }: {
-  messages: Drop;
+  messages: Messages;
   entities: EntityRows;
   /** Owned by the shell, which watches it to know when the page has settled. */
   listRef: RefObject<HTMLDivElement | null>;
@@ -51,7 +51,7 @@ export function ThingsView({
 type Found = { attachment: Attachment; message: Message };
 
 /** Newest first, and "newest" is the message's time, not the file's position. */
-function useAttachments(messages: Drop, face: string): Found[] {
+function useAttachments(messages: Messages, face: string): Found[] {
   return useMemo(() => {
     const found: Found[] = [];
     for (const message of messages) {
@@ -69,8 +69,7 @@ function useAttachments(messages: Drop, face: string): Found[] {
   }, [messages, face]);
 }
 
-function AttachmentThings({ messages, face }: { messages: Drop; face: string }) {
-  const filter = useFilter();
+function AttachmentThings({ messages, face }: { messages: Messages; face: string }) {
   const found = useAttachments(messages, face);
 
   if (found.length === 0) return <EmptyScreen />;
@@ -81,7 +80,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
         {found.map(({ attachment, message }) => (
           <Link
             key={attachment.id}
-            {...messageLink(message.id, filter)}
+            {...messageLink(message.id)}
             title={attachment.generatedTitle ?? attachment.filename}
             className="relative aspect-square overflow-hidden rounded-xl border"
           >
@@ -103,7 +102,7 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
       {found.map(({ attachment, message }) => (
         <li key={attachment.id}>
           <Link
-            {...messageLink(message.id, filter)}
+            {...messageLink(message.id)}
             className="flex items-center gap-3 rounded-2xl border bg-background p-3.5 transition hover:bg-background-hover"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -132,7 +131,6 @@ function AttachmentThings({ messages, face }: { messages: Drop; face: string }) 
 }
 
 function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }) {
-  const filter = useFilter();
   const navigate = useNavigate();
 
   // Mentions to deleted messages are already excluded by the query, so an
@@ -156,7 +154,7 @@ function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }
             <EntityCard
               entity={entity}
               mentions={entity.mentions.length}
-              onOpen={() => void navigate(entityLink(entity.id, filter))}
+              onOpen={() => void navigate(entityLink(entity.id))}
             />
           </li>
         ))}

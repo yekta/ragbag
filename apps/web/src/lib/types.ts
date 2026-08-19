@@ -6,8 +6,8 @@ import type { QueryResultType } from "@rocicorp/zero";
 // definitions so a contracts change breaks the build here instead of at
 // runtime.
 
-export type Drop = QueryResultType<typeof queries.drop>;
-export type Message = Drop[number];
+export type Messages = QueryResultType<typeof queries.messages>;
+export type Message = Messages[number];
 export type Attachment = Message["attachments"][number];
 /** One occurrence of an entity inside a message, with the entity attached. */
 export type Mention = Message["mentions"][number];

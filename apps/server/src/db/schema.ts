@@ -58,7 +58,7 @@ export const user = pgTable("user", {
    *
    * It is a timestamp rather than a count so seeding is *once* rather than "top
    * up whatever is missing": a user who deletes Phone Number must not have it
-   * reappear on their next dump.
+   * reappear on their next message.
    */
   typesSeededAt: timestamp("types_seeded_at", { withTimezone: true, mode: "date" }),
   ...timestamps,

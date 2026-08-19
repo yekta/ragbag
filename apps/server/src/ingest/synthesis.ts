@@ -151,8 +151,8 @@ export function buildSynthesisPrompt(input: {
   types: EntityTypes;
 }): string {
   const lines: string[] = [
-    "You are the synthesis stage of ragbag, a personal info-dump archive. One message was " +
-      "dumped: the owner's own words plus the files they sent with it. Title it, summarize it, " +
+    "You are the synthesis stage of ragbag, a personal archive. One message was sent: " +
+      "the owner's own words plus the files they sent with it. Title it, summarize it, " +
       "tag it, and pull out the things worth finding again.",
     "",
     "Rules:",
@@ -428,7 +428,7 @@ function clamp01(value: number): number | null {
 /**
  * Fetch each link's page for its title, description, favicon and preview
  * image. Links being canonical entities is what makes this cheap: the same URL
- * dumped in five messages is fetched (and snapshotted) once, keyed by the
+ * sent in five messages is fetched (and snapshotted) once, keyed by the
  * entity rather than by the message.
  */
 async function enrichLinks(
