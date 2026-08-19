@@ -5,7 +5,6 @@ import {
   carrierName,
   CATALOG,
   catalogEntry,
-  partitionTypes,
   dataSchema,
   field,
   fieldEntries,
@@ -15,6 +14,7 @@ import {
   resolveEntityTypes,
   snippetAround,
   trackingUrl,
+  typeChoices,
   typeFromRows,
   typeRowFor,
   type EntityTypeDef,
@@ -158,7 +158,7 @@ describe("the catalog", () => {
   });
 });
 
-const row = (over: Partial<Parameters<typeof partitionTypes>[0][number]> = {}) => ({
+const row = (over: Partial<Parameters<typeof typeChoices>[0][number]> = {}) => ({
   id: "id-1",
   kind: "link",
   sidebarTitle: "Links",
@@ -169,38 +169,43 @@ const row = (over: Partial<Parameters<typeof partitionTypes>[0][number]> = {}) =
   ...over,
 });
 
-describe("the two lists settings shows", () => {
-  it("puts what is on in one list and everything else in the other", () => {
-    const { on, off } = partitionTypes([
+describe("the list settings shows", () => {
+  it("lists everything that can be found, on or off", () => {
+    const choices = typeChoices([
       row(),
       row({ id: "id-2", kind: "book", sidebarTitle: "Books", enabled: false }),
     ]);
-    expect(on.map((t) => t.kind)).toEqual(["link"]);
-    // Books is off, and the six catalog entries with no row at all join it.
-    expect(off.map((t) => t.kind)).toContain("book");
-    expect(off.map((t) => t.kind)).toContain("iban");
-    expect(off).toHaveLength(CATALOG.length - 1);
+    // Every catalog entry is here, whether or not it has a row.
+    expect(choices).toHaveLength(CATALOG.length);
+    expect(choices.filter((t) => t.enabled).map((t) => t.kind)).toEqual(["link"]);
+    expect(choices.find((t) => t.kind === "book")!.enabled).toBe(false);
+    expect(choices.find((t) => t.kind === "iban")!.enabled).toBe(false);
   });
 
   it("does not tell a switched-off type from one never switched on", () => {
-    const { off } = partitionTypes([row({ enabled: false })]);
-    const switchedOff = off.find((t) => t.kind === "link")!;
-    const neverOn = off.find((t) => t.kind === "book")!;
+    const choices = typeChoices([row({ enabled: false })]);
+    const switchedOff = choices.find((t) => t.kind === "link")!;
+    const neverOn = choices.find((t) => t.kind === "book")!;
     // One has a row to update, the other has none to install: the only
     // difference, and the screen does not show it.
     expect(switchedOff.id).toBeTruthy();
     expect(neverOn.id).toBeUndefined();
+    expect(switchedOff.enabled).toBe(false);
+    expect(neverOn.enabled).toBe(false);
     expect(switchedOff.understood).toBe(true);
     expect(neverOn.understood).toBe(false);
   });
 
   it("keeps a type the catalog has never heard of, and sorts by title", () => {
-    const { on } = partitionTypes([
-      row({ id: "id-3", kind: "trading_card", sidebarTitle: "Trading Cards", origin: "user" }),
-      row(),
-    ]);
-    expect(on.map((t) => t.sidebarTitle)).toEqual(["Links", "Trading Cards"]);
-    expect(on[1]!.origin).toBe("user");
+    const choices = typeChoices(
+      [
+        row({ id: "id-3", kind: "trading_card", sidebarTitle: "Trading Cards", origin: "user" }),
+        row(),
+      ],
+      [],
+    );
+    expect(choices.map((t) => t.sidebarTitle)).toEqual(["Links", "Trading Cards"]);
+    expect(choices[1]!.origin).toBe("user");
   });
 });
 

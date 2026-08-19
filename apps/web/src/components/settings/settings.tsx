@@ -1,5 +1,5 @@
 import { mutators, queries } from "@ragbag/contracts";
-import { newId, partitionTypes, type TypeChoice } from "@ragbag/shared";
+import { newId, typeChoices, type TypeChoice } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { TypeEditor } from "@/components/settings/type-editor";
 import { SectionHeading } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { Toggle } from "@/components/ui/toggle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { signOut } from "@/lib/auth-client";
 import { runMutation } from "@/lib/mutate";
@@ -18,7 +19,7 @@ import { clearMediaCache, storageUsage, type StorageUsage } from "@/lib/media";
 import { useViewStore } from "@/lib/store";
 import type { Theme } from "@/lib/theme";
 
-// Route overlay (/settings): what ragbag looks for, what this device is
+// Route overlay (/settings): what Ragbag looks for, what this device is
 // holding, how it looks, and who is signed in.
 //
 // The types half is ordinary mutations over synced rows, so a change reaches
@@ -63,7 +64,7 @@ export function Settings() {
         }
       >
         <DrawerDescription className="sr-only">
-          What to look for, storage, appearance and your account.
+          Things to look for, storage, appearance and your account.
         </DrawerDescription>
 
         {/* The drawer's name, as the heading it is: the largest thing on the
@@ -93,7 +94,7 @@ export function Settings() {
           {editing ? (
             <TypeEditor typeId={editing.id} onDone={() => setEditing(null)} />
           ) : (
-            <div className="space-y-7">
+            <div className="space-y-8">
               <TypesSection onEdit={(id) => setEditing({ id })} />
               <StorageSection />
               <AppearanceSection />
@@ -106,9 +107,33 @@ export function Settings() {
   );
 }
 
-/** The one line under a heading that says what the list below it is for. */
-function SectionNote({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 text-[13px] text-muted-foreground">{children}</p>;
+/**
+ * A section of this drawer: its name, the one line under it, and the thing
+ * itself.
+ *
+ * The spacing lives here rather than at four call sites because it is a rhythm
+ * and not a decoration. A heading sat 6px off its own content, which is closer
+ * than the words of the heading are to each other, so "Storage" read as part of
+ * the box under it instead of as its name. The three steps are: heading to its
+ * note, 4px, because they are one thought; the pair to what they introduce,
+ * 16px; and section to section, 32px, from the stack above.
+ */
+function Section({
+  title,
+  note,
+  children,
+}: {
+  title: React.ReactNode;
+  note?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <SectionHeading className={note ? "mb-1" : "mb-4"}>{title}</SectionHeading>
+      {note && <p className="mb-4 text-[13px] text-muted-foreground">{note}</p>}
+      {children}
+    </section>
+  );
 }
 
 // --- what to look for ---
@@ -132,7 +157,7 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
     return seen;
   }, [entities]);
 
-  const { on, off } = useMemo(() => partitionTypes(rows), [rows]);
+  const choices = useMemo(() => typeChoices(rows), [rows]);
 
   const setOn = async (choice: TypeChoice, wanted: boolean) => {
     try {
@@ -149,81 +174,51 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
     }
   };
 
+  // One list, not two. A second heading ("Don't look for") turned a switch into
+  // a place, so turning something off made its row leave the screen and reappear
+  // further down, and the reader had to find it again to change their mind. The
+  // toggle says the same thing without moving anything.
   return (
-    <section>
-      <SectionHeading
-        action={
-          <Button variant="outline" size="xs" onClick={() => onEdit(null)}>
-            <Icon name="plus" className="size-3" /> Add
-          </Button>
-        }
-      >
-        Look for
-      </SectionHeading>
-      <SectionNote>These get pulled out of everything you drop.</SectionNote>
-      <ul className="flex flex-col gap-1.5">
-        {on.map((choice) => (
+    <Section
+      title="Things to look for"
+      note="These get pulled out of your messages. Turn any off, or add your own."
+    >
+      <Button variant="outline" onClick={() => onEdit(null)}>
+        <Icon name="plus" /> Add
+      </Button>
+      <ul className="mt-4 flex flex-col gap-1.5">
+        {choices.map((choice) => (
           <ChoiceRow
             key={choice.kind}
             choice={choice}
             count={counts.get(choice.kind)}
-            action="off"
-            onToggle={() => void setOn(choice, false)}
-            onEdit={() => onEdit(choice.id!)}
+            onToggle={(wanted) => void setOn(choice, wanted)}
+            onEdit={choice.id ? () => onEdit(choice.id!) : undefined}
           />
         ))}
-        {on.length === 0 && (
-          <li className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
-            Nothing yet. Turn one on below.
-          </li>
-        )}
       </ul>
-
-      <div className="mt-5">
-        <SectionHeading>Don't look for</SectionHeading>
-        <SectionNote>Turn one on to start finding it in what you drop.</SectionNote>
-        <ul className="flex flex-col gap-1.5">
-          {off.map((choice) => (
-            <ChoiceRow
-              key={choice.kind}
-              choice={choice}
-              count={counts.get(choice.kind)}
-              action="on"
-              onToggle={() => void setOn(choice, true)}
-              onEdit={choice.id ? () => onEdit(choice.id!) : undefined}
-            />
-          ))}
-          {off.length === 0 && (
-            <li className="text-[13px] text-muted-foreground">
-              Nothing: you are looking for all of them.
-            </li>
-          )}
-        </ul>
-      </div>
-    </section>
+    </Section>
   );
 }
 
 function ChoiceRow({
   choice,
   count,
-  action,
   onToggle,
   onEdit,
 }: {
   choice: TypeChoice;
   count: { things: number; messages: Set<string> } | undefined;
-  action: "on" | "off";
-  onToggle: () => void;
+  onToggle: (wanted: boolean) => void;
   /** Absent for one of ours with no row yet: there is nothing to edit. */
   onEdit?: () => void;
 }) {
   const found = count?.things ?? 0;
   return (
-    <li className="flex items-center gap-3 rounded-lg border bg-panel p-2.5" title={choice.hint}>
+    <li className="flex items-center gap-3 rounded-lg border p-2.5" title={choice.hint}>
       <span
         className={`flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground ${
-          action === "on" ? "opacity-60" : ""
+          choice.enabled ? "" : "opacity-60"
         }`}
       >
         <Icon name={iconNamed(choice.icon)} className="size-4" />
@@ -247,14 +242,24 @@ function ChoiceRow({
           <Icon name="edit" className="size-4" />
         </Button>
       )}
-      <Button
-        variant={action === "on" ? "default" : "outline"}
+      {/* Stock aria-pressed styling is a grey fill, which is the wrong way round
+          in a list where every other row is outlined: off would have been the
+          loud one. On is the primary fill instead. The width is fixed because
+          "On" and "Off" are different widths and the row must not shift under
+          the thumb that just pressed it, and the `before:` strip is the 44px
+          floor ui/button.tsx builds in and this primitive does not: it grows
+          vertically only (the button is already wider than 44) so it stays
+          inside its own row. */}
+      <Toggle
+        variant="outline"
         size="sm"
-        className="shrink-0"
-        onClick={onToggle}
+        pressed={choice.enabled}
+        onPressedChange={onToggle}
+        aria-label={`Look for ${choice.sidebarTitle}`}
+        className="relative w-14 shrink-0 before:absolute before:top-1/2 before:left-1/2 before:size-full before:min-h-11 before:-translate-x-1/2 before:-translate-y-1/2 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary-hover"
       >
-        {action === "on" ? "On" : "Off"}
-      </Button>
+        {choice.enabled ? "On" : "Off"}
+      </Toggle>
     </li>
   );
 }
@@ -283,21 +288,20 @@ function StorageSection() {
   };
 
   return (
-    <section>
-      <SectionHeading>Storage</SectionHeading>
-      <div className="rounded-lg border bg-panel p-3">
+    <Section title="Storage">
+      <div className="rounded-lg border p-3.5">
         <p className="text-sm">
           {usage ? formatBytes(usage.usage) : "…"} used
           {usage && usage.quota > 0 && (
             <span className="text-muted-foreground"> of {formatBytes(usage.quota)}</span>
           )}
         </p>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           {usage && !usage.persisted
             ? "Your browser may clear this if it runs out of space."
             : "Your whole archive is on this device, so search works offline."}
         </p>
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" disabled={clearing} onClick={() => void clear()}>
             <Icon name="trash" className="size-3.5" /> Clear cached pictures
           </Button>
@@ -305,10 +309,10 @@ function StorageSection() {
         </div>
       </div>
       {/* A platform limit, not a bug: saying it is the only fix there is. */}
-      <p className="mt-2 text-[13px] text-muted-foreground">
+      <p className="mt-2.5 text-[13px] text-muted-foreground">
         On iPhone and iPad, add Ragbag to your home screen so Safari keeps it.
       </p>
-    </section>
+    </Section>
   );
 }
 
@@ -323,8 +327,7 @@ const THEMES: { value: Theme; label: string; icon: "sun" | "moon" | "monitor" }[
 function AppearanceSection() {
   const { theme, setTheme } = useViewStore();
   return (
-    <section>
-      <SectionHeading>Appearance</SectionHeading>
+    <Section title="Appearance">
       <div className="flex gap-1.5">
         {THEMES.map((option) => (
           <Button
@@ -339,7 +342,7 @@ function AppearanceSection() {
           </Button>
         ))}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -348,14 +351,13 @@ function AppearanceSection() {
 function AccountSection() {
   const identity = loadIdentity();
   return (
-    <section>
-      <SectionHeading>Account</SectionHeading>
+    <Section title="Account">
       <div className="flex flex-wrap items-center gap-3">
         <p className="min-w-0 flex-1 truncate text-sm">{identity?.email ?? "Signed in"}</p>
         <Button variant="outline" size="sm" onClick={() => void signOut()}>
           <Icon name="logout" className="size-3.5" /> Sign out
         </Button>
       </div>
-    </section>
+    </Section>
   );
 }

@@ -345,6 +345,7 @@ function Form({
 
       <div>
         <SectionHeading
+          className="mb-1"
           action={
             !owned && (
               <Button
@@ -360,14 +361,14 @@ function Form({
         >
           Details
         </SectionHeading>
-        <p className="mb-2 text-[13px] text-muted-foreground">
+        <p className="mb-4 text-[13px] text-muted-foreground">
           {owned
             ? "This one is built in, so its details are fixed."
             : "What to fill in for each one. Tick the details that tell two apart."}
         </p>
         <ul className="flex flex-col gap-2">
           {draft.fields.map((field, index) => (
-            <li key={field.uid} className="rounded-lg border bg-panel p-2.5">
+            <li key={field.uid} className="rounded-lg border p-2.5">
               <div className="flex items-center gap-2">
                 {/* readOnly rather than disabled on the text inputs: a disabled
                     input is drawn at half strength, which made a fixed type's

@@ -201,7 +201,7 @@ export function catalogEntry(kind: string): EntityTypeDef | undefined {
   return CATALOG.find((def) => def.kind === kind);
 }
 
-/** One entry of the two lists settings shows, whether or not it has a row yet. */
+/** One entry of the list settings shows, whether or not it has a row yet. */
 export type TypeChoice = {
   /** Absent for a catalog entry this user has never turned on. */
   id?: string;
@@ -213,9 +213,11 @@ export type TypeChoice = {
   understood: boolean;
   /** 'catalog' for one of ours, 'user' for one they made. */
   origin: "catalog" | "user";
+  /** Whether this one is being pulled out of what arrives. */
+  enabled: boolean;
 };
 
-/** What settings needs off a row to place it in one of the two lists. */
+/** What settings needs off a row to list it. */
 export type TypeChoiceRow = {
   id: string;
   kind: string;
@@ -227,12 +229,13 @@ export type TypeChoiceRow = {
 };
 
 /**
- * The two lists settings is made of: what this user is having found, and what
- * they could be.
+ * The list settings is made of: everything that can be found, each carrying
+ * whether it is being found.
  *
- * The second list mixes two things a person has no reason to tell apart: a type
- * they switched off, and one of ours they never switched on (or deleted, which
- * puts it back here). Turning either on is one tap; whether that is an update
+ * One list rather than two, because the second one was three states pretending
+ * to be a place: a type switched off, one of ours never switched on, and one
+ * deleted (which puts it back) all landed there, and a person has no reason to
+ * tell them apart. Turning any of them on is one tap; whether that is an update
  * or an insert is the mutator's problem, not the screen's.
  */
 const byTitle = (a: TypeChoice, b: TypeChoice) => a.sidebarTitle.localeCompare(b.sidebarTitle);
@@ -245,29 +248,30 @@ const choiceOf = (row: TypeChoiceRow): TypeChoice => ({
   hint: row.hint,
   understood: hasBehaviour(row.kind),
   origin: row.origin === "catalog" ? "catalog" : "user",
+  enabled: row.enabled,
 });
 
-export function partitionTypes(
+export function typeChoices(
   rows: readonly TypeChoiceRow[],
   catalog: readonly EntityTypeDef[] = CATALOG,
-): { on: TypeChoice[]; off: TypeChoice[] } {
-  const on: TypeChoice[] = [];
-  const off: TypeChoice[] = [];
+): TypeChoice[] {
+  const choices: TypeChoice[] = [];
   const claimed = new Set<string>();
   for (const row of rows) {
     claimed.add(row.kind);
-    (row.enabled ? on : off).push(choiceOf(row));
+    choices.push(choiceOf(row));
   }
   for (const def of catalog) {
     if (claimed.has(def.kind)) continue;
-    off.push({
+    choices.push({
       kind: def.kind,
       sidebarTitle: def.sidebarTitle,
       icon: def.icon,
       hint: def.promptHint,
       understood: hasBehaviour(def.kind),
       origin: "catalog",
+      enabled: false,
     });
   }
-  return { on: on.toSorted(byTitle), off: off.toSorted(byTitle) };
+  return choices.toSorted(byTitle);
 }
