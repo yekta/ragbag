@@ -222,7 +222,7 @@ export function MessageCard({
   highlight = false,
 }: {
   message: Message;
-  /** Arrived here from "show in chat": say which one. */
+  /** Arrived here from "Show in Messages": point at this one. */
   highlight?: boolean;
 }) {
   const zero = useZero();
@@ -237,7 +237,10 @@ export function MessageCard({
     // by.
     <article
       className={`group relative rounded-2xl border bg-background ${
-        highlight ? "ring-2 ring-ring" : ""
+        // A pass over this card's border, held for three seconds and then
+        // dropped by the timeline, rather than a ring that stays on: see
+        // `highlight-pass` in index.css.
+        highlight ? "highlight-pass" : ""
       }`}
       // Touch has no hover actions, so tapping the card body opens the detail
       // view instead; links and buttons inside keep their own behavior.

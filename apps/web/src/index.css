@@ -330,3 +330,38 @@
     }
   }
 }
+
+/* Landing on one message, from "Show in Messages" or from a shared link.
+   A pass over the card's own border, not a state on it: the reader is being
+   pointed at a card, not shown a selected one, and the ring that used to sit
+   there stayed lit until the URL changed, which left a message looking picked
+   long after the eye had found it. In, held, out, inside three seconds: slow
+   enough to catch after the scroll lands, gone before it becomes furniture.
+
+   It moves the border's colour and nothing else. A thicker edge would change
+   the border box, and every card below it would step down a pixel and back
+   (components/message-card.tsx has the same rule for the footer's chip).
+
+   Reduced motion gets the same three seconds as a still frame rather than
+   nothing at all: the base layer above collapses every animation to 1ms, so
+   without this branch the one affordance that says "this one" would flash past
+   unseen. The class is removed on a timer either way
+   (components/timeline.tsx), so the still frame ends when the pass would
+   have. */
+@keyframes highlight-pass {
+  0%,
+  100% {
+    border-color: var(--border);
+  }
+  12%,
+  55% {
+    border-color: var(--ring);
+  }
+}
+@utility highlight-pass {
+  animation: highlight-pass 3s linear;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    border-color: var(--ring);
+  }
+}

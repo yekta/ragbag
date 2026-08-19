@@ -164,74 +164,102 @@ export function MessageDetail() {
         ) : (
           <>
             {/* Header. The drawer is a flex column with its own scrolling body
-                below, so the header simply doesn't scroll. */}
-            <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
-              <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Icon name="inbox" className="size-3.5" />
-              </span>
-              <time className="text-xs text-muted-foreground">
-                {new Date(message.createdAt).toLocaleDateString()} · {timeLabel(message.createdAt)}
-              </time>
-              <span className="ml-auto flex items-center gap-1">
-                {/* Every thing-shaped view still gets you home (plan §8.2).
-                    The id rides in the hash, so this is a real URL someone can
-                    share rather than a piece of transient state, and the
-                    timeline scrolls to it and holds there. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    void navigate({
-                      to: "/{-$view}",
-                      params: { view: undefined },
-                      hash: message.id,
-                      resetScroll: false,
-                    })
-                  }
+                below, so the header simply doesn't scroll.
+
+                Two rows, because the timestamp and the way back are not the
+                same kind of thing: the top row is what this message is (when
+                it was sent) and what you can do to it, and the button below is
+                where it lives. */}
+            <div className="flex shrink-0 flex-col gap-2 border-b bg-card px-5 py-3">
+              <div className="flex items-center gap-2">
+                {/* The card's stamp, to the pixel (components/message-card.tsx):
+                    same mono, same size, same grey, and the same full date on
+                    hover. A message is dated once, in one voice, wherever it is
+                    drawn. It carries the date as well as the time because this
+                    panel has no day separators above it to say which day this
+                    is.
+
+                    The inbox chip that used to sit beside it is gone: it said
+                    "message" over a panel that is nothing but one message, at
+                    twice the height of the line it was labelling, and the
+                    button below now carries that glyph where it means
+                    something. */}
+                <time
+                  className="font-mono text-[11px] text-muted-foreground"
+                  title={new Date(message.createdAt).toLocaleString()}
                 >
-                  <Icon name="inbox" className="size-3.5" /> Show in chat
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title={message.favorite ? "Remove from favorites" : "Add to favorites"}
-                  className={message.favorite ? "text-kind-note" : "text-muted-foreground"}
-                  onClick={() =>
-                    void zero.mutate(
-                      mutators.message.setFavorite({
-                        id: message.id,
-                        favorite: !message.favorite,
-                      }),
-                    )
-                  }
-                >
-                  <Icon name="star" className="size-4" filled={message.favorite} />
-                </Button>
-                <DeleteMessageDialog
-                  onConfirm={() => {
-                    void zero.mutate(mutators.message.delete({ id: message.id }));
-                    close();
-                  }}
-                >
+                  {new Date(message.createdAt).toLocaleDateString()} ·{" "}
+                  {timeLabel(message.createdAt)}
+                </time>
+                <span className="ml-auto flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Delete"
-                    className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                    title={message.favorite ? "Remove from favorites" : "Add to favorites"}
+                    className={message.favorite ? "text-kind-note" : "text-muted-foreground"}
+                    onClick={() =>
+                      void zero.mutate(
+                        mutators.message.setFavorite({
+                          id: message.id,
+                          favorite: !message.favorite,
+                        }),
+                      )
+                    }
                   >
-                    <Icon name="trash" className="size-4" />
+                    <Icon name="star" className="size-4" filled={message.favorite} />
                   </Button>
-                </DeleteMessageDialog>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Close (Esc)"
-                  className="text-muted-foreground"
-                  onClick={close}
-                >
-                  <Icon name="x" className="size-4" />
-                </Button>
-              </span>
+                  <DeleteMessageDialog
+                    onConfirm={() => {
+                      void zero.mutate(mutators.message.delete({ id: message.id }));
+                      close();
+                    }}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Delete"
+                      className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                    >
+                      <Icon name="trash" className="size-4" />
+                    </Button>
+                  </DeleteMessageDialog>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Close (Esc)"
+                    className="text-muted-foreground"
+                    onClick={close}
+                  >
+                    <Icon name="x" className="size-4" />
+                  </Button>
+                </span>
+              </div>
+
+              {/* Every thing-shaped view still gets you home (plan §8.2). The
+                  id rides in the hash, so this is a real URL someone can share
+                  rather than a piece of transient state, and the timeline
+                  scrolls to it and points at it (components/timeline.tsx).
+
+                  Its own row, under the stamp, rather than wedged between the
+                  date and three icon buttons: it is the only thing in this
+                  header with a word on it, and a labelled button in a row of
+                  glyphs reads as the odd one out rather than as the way back.
+                  `self-start` so it is as wide as its words. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() =>
+                  void navigate({
+                    to: "/{-$view}",
+                    params: { view: undefined },
+                    hash: message.id,
+                    resetScroll: false,
+                  })
+                }
+              >
+                <Icon name="inbox" className="size-3.5" /> Show in Messages
+              </Button>
             </div>
 
             {/* The scroller. DrawerContent is `overflow-hidden` by

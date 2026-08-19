@@ -38,6 +38,14 @@ const AT_END_PX = 120;
 /** Keys that move the page. Any other keystroke is someone typing a dump. */
 const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
 
+/**
+ * How long a jumped-to card is pointed at. Keep in step with `highlight-pass`
+ * in index.css: the class runs the animation, this drops it again, and a card
+ * still carrying it is a card that would flash a second time the next time it
+ * scrolled back into view.
+ */
+const HIGHLIGHT_MS = 3000;
+
 function useRows(messages: Drop): Row[] {
   // The URL is the filter (lib/routes.ts).
   const { view, tagId } = useFilter();
@@ -157,10 +165,13 @@ export function Timeline({
   // observe it have to re-run when it appears.
   const hasRows = rows.length > 0;
   const { view, tagId } = useFilter();
-  // "Show in chat", from a thing-shaped view or a detail overlay: the message
-  // id rides in the hash, which is what makes the jump a real, shareable URL
-  // rather than a piece of transient state.
+  // "Show in Messages", from a thing-shaped view or a detail overlay: the
+  // message id rides in the hash, which is what makes the jump a real,
+  // shareable URL rather than a piece of transient state.
   const { hash } = useLocation();
+  // Which card the reader was just taken to, for as long as the pass over its
+  // border runs (components/message-card.tsx).
+  const [pointedAt, setPointedAt] = useState<string | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   const [width, setWidth] = useState(700);
 
@@ -245,7 +256,15 @@ export function Timeline({
   // the jump target every time anything in the archive moved.
   const jumpedTo = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (!hash || jumpedTo.current === hash) return;
+    // Opening the overlay drops the hash, so asking for the same message a
+    // second time is a second request and not one already served: without
+    // this it would neither scroll nor light up again, which was invisible
+    // while the highlight stayed on forever and is not now that it fades.
+    if (!hash) {
+      jumpedTo.current = null;
+      return;
+    }
+    if (jumpedTo.current === hash) return;
     const index = rows.findIndex((r) => r.type === "message" && r.message.id === hash);
     if (index < 0) return;
     jumpedTo.current = hash;
@@ -253,7 +272,17 @@ export function Timeline({
     // must stop pulling them back to the newest message.
     readerScrolled.current = true;
     virtualizer.scrollToIndex(index, { align: "center" });
+    setPointedAt(hash);
   }, [hash, rows, virtualizer]);
+
+  // And stop pointing when the pass is over. The hash stays in the URL (it is
+  // where the reader is, and it is still shareable); what ends is the card
+  // saying so.
+  useEffect(() => {
+    if (!pointedAt) return;
+    const timer = setTimeout(() => setPointedAt(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [pointedAt]);
 
   // Was the reader at the newest message? Sampled while scrolling, because by
   // the time a resize arrives it is too late to ask: the new viewport height
@@ -425,7 +454,7 @@ export function Timeline({
                   </div>
                 ) : (
                   <div className="pb-3">
-                    <MessageCard message={row.message} highlight={row.message.id === hash} />
+                    <MessageCard message={row.message} highlight={row.message.id === pointedAt} />
                   </div>
                 )}
               </div>
