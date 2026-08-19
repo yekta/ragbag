@@ -3,6 +3,7 @@ import { faceForMime } from "@ragbag/shared";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FACE_ICON, Icon, iconNamed } from "@/components/icon";
+import { MediaImage } from "@/components/media-image";
 import { GroupLabel } from "@/components/typography";
 import {
   Command,
@@ -13,7 +14,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useEntityTypes } from "@/lib/entity-types";
-import { dayLabel } from "@/lib/format";
+import { dayLabel, formatBytes } from "@/lib/format";
 import { entityLink, messageLink, useFilter } from "@/lib/routes";
 import { RESULT_GROUPS, useSearchResults, type Result, type ResultGroup } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
@@ -25,10 +26,11 @@ import type { Drop, EntityRows } from "@/lib/types";
 // Two sections, and the split is the point (lib/search.ts, and `groupHits` in
 // client-runtime):
 //
-//   Messages  which dump was this in. A message and the files inside it are one
-//             row, naming the file when the file is why it is here.
-//   Things    what is this thing. One row per thing, never folded into a message,
-//             opening the thing's own page.
+//   Messages  which dump was this in. One row per message.
+//   Things    what is this thing. The pictures and files inside messages as
+//             much as what the pipeline found in them, because that is what
+//             the sidebar files under Things: one row each, never folded into
+//             a message, and a picture's row is the picture.
 //
 // cmdk owns keyboard navigation, selection and focus; `shouldFilter={false}`
 // because the ranking is ours (minisearch), not cmdk's substring match.
@@ -41,8 +43,10 @@ const GROUP_LABEL: Record<ResultGroup, string> = {
 /** One line describing what matched, and what it belongs to. */
 function useDescribe(result: Result): {
   icon: React.ComponentProps<typeof Icon>["name"];
+  /** A picture describes itself, so its row takes the icon's place with it. */
+  thumb?: { blobId: string; placeholder: string | null };
   title: string;
-  context: string;
+  context: React.ReactNode;
   when: number | null;
 } {
   const types = useEntityTypes();
@@ -60,21 +64,37 @@ function useDescribe(result: Result): {
     };
   }
 
+  // A file is a thing of its own, so the row is the file: its own name, its own
+  // reading, and the picture itself when it is one. The message it came in is
+  // still where it opens, and the day on the right is that message's.
+  if (result.attachment) {
+    const { attachment } = result;
+    const face = faceForMime(attachment.mime);
+    const title = attachment.generatedTitle ?? attachment.filename;
+    return {
+      icon: FACE_ICON[face],
+      thumb:
+        face === "image"
+          ? { blobId: attachment.blobId, placeholder: attachment.placeholder }
+          : undefined,
+      title,
+      // The line a file gets everywhere else in the app (attachment-album.tsx,
+      // things-view.tsx): the size is a reading and takes the mono, the name
+      // beside it is a name and keeps the document's face. The filename only
+      // earns its place when the title is not already it.
+      context: (
+        <>
+          <span className="font-mono">{formatBytes(attachment.size)}</span>
+          {title === attachment.filename ? "" : ` · ${attachment.filename}`}
+        </>
+      ),
+      when: result.message?.createdAt ?? null,
+    };
+  }
+
   const message = result.message;
   if (!message) return { icon: "inbox", title: "", context: "", when: null };
   const messageTitle = message.generatedTitle ?? message.text?.split("\n")[0] ?? "(no text)";
-
-  // A file matched inside it: the message is still the row, but the file is what
-  // to say, because "matched in scan.pdf" is the useful half.
-  if (result.attachment) {
-    const { attachment } = result;
-    return {
-      icon: FACE_ICON[faceForMime(attachment.mime)],
-      title: messageTitle,
-      context: attachment.generatedTitle ?? attachment.filename,
-      when: message.createdAt,
-    };
-  }
 
   return {
     icon: "inbox",
@@ -90,13 +110,28 @@ function useDescribe(result: Result): {
 }
 
 function ResultRow({ result, onPick }: { result: Result; onPick: () => void }) {
-  const { icon, title, context, when } = useDescribe(result);
+  const { icon, thumb, title, context, when } = useDescribe(result);
   return (
     <CommandItem value={result.hit.id} onSelect={onPick} className="gap-3 rounded-lg px-3 py-2.5">
-      <span className="flex size-6 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        {/* text-current is load-bearing: CommandItem paints bare `svg`
-            children muted-foreground, and the tint lives on the span. */}
-        <Icon name={icon} className="size-3.5 text-current" />
+      {/* One rail for every row, whether it holds a glyph or a photograph, so
+          the titles line up down the list. 32px is the size at which a thumb
+          is a picture rather than a coloured square, and it is still shorter
+          than the two lines of text beside it. */}
+      <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground">
+        {thumb ? (
+          // No alt text: the title is right beside it, and the picture is the
+          // same fact said twice.
+          <MediaImage
+            blobId={thumb.blobId}
+            variant="thumb"
+            placeholder={thumb.placeholder}
+            alt=""
+          />
+        ) : (
+          /* text-current is load-bearing: CommandItem paints bare `svg`
+             children muted-foreground, and the tint lives on the span. */
+          <Icon name={icon} className="size-4 text-current" />
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{title}</span>
@@ -151,9 +186,10 @@ export function SearchOverlay({
 
   const pick = (result: Result) => {
     setSearchOpen(false);
-    // A thing opens its own page; a message opens the message. Either way the
-    // overlay opens over the view the search was called from, and closing it
-    // lands back there.
+    // An entity opens its own page; a message, and a file inside one, open the
+    // message, because that is where a file lives. Either way the overlay
+    // opens over the view the search was called from, and closing it lands
+    // back there.
     const to = result.entity
       ? entityLink(result.entity.id, filter)
       : result.message

@@ -23,8 +23,9 @@ import type {
 // call with richer docs and only the changed ones are touched.
 //
 // Results come back in two sections, Messages and Things (client-runtime's
-// `groupHits`): a message and its files are one row, and a thing is always its
-// own row rather than folded into whichever message happened to match too.
+// `groupHits`). Things means what the sidebar means by it: the pictures and
+// files inside messages as much as what the pipeline found in them, each its
+// own row rather than folded into the message that carried it.
 
 function messageDoc(message: Message): SearchDoc {
   return {
@@ -138,15 +139,16 @@ export function useTimelineSearch(
 export { RESULT_GROUPS } from "@ragbag/client-runtime";
 export type { ResultGroup } from "@ragbag/client-runtime";
 
-/** One row of results: a message (with the file that matched, if one did), or a thing. */
+/** One row of results: a message, or a thing (a file, or something found in one). */
 export type Result = {
   group: ResultGroup;
   /** Which hit put it here, for its score and the terms it matched. */
   hit: SearchHit;
-  /** A Messages row: the message, and the file inside it that matched. */
+  /** The message this row opens: a Messages row's own, or the one a file came in. */
   message?: Message;
+  /** A Things row that is a file, alongside the message above. */
   attachment?: Attachment;
-  /** A Things row: the thing itself. */
+  /** A Things row that is an entity. */
   entity?: EntityRow;
 };
 
@@ -163,26 +165,41 @@ export function useSearchResults(
   entities: EntityRows,
   query: string,
 ): Result[] {
+  // Keyed on the archive rather than on the query: these three answer both
+  // "does this still exist" and "what do I render it from", and neither
+  // question changes between keystrokes.
+  const live = useMemo(() => {
+    const byMessage = new Map(messages.map((m) => [m.id, m]));
+    const byEntity = new Map(entities.map((e) => [e.id, e]));
+    // A file is its own row now, so it is addressed by its own id, and the
+    // message it came in rides along: that is what the row opens.
+    const byAttachment = new Map<string, { message: Message; attachment: Attachment }>();
+    for (const message of messages) {
+      for (const attachment of message.attachments) {
+        byAttachment.set(attachment.id, { message, attachment });
+      }
+    }
+    return { byMessage, byAttachment, byEntity };
+  }, [messages, entities]);
+
   return useMemo(() => {
     const hits = index.search(query);
     if (hits.length === 0) return [];
-    const byMessage = new Map(messages.map((m) => [m.id, m]));
-    const byEntity = new Map(entities.map((e) => [e.id, e]));
+    const { byMessage, byAttachment, byEntity } = live;
 
     return groupHits(hits, {
       hasMessage: (id) => byMessage.has(id),
+      hasAttachment: (id) => byAttachment.has(id),
       hasEntity: (id) => byEntity.has(id),
     }).map((row) => {
-      const message = row.messageId ? byMessage.get(row.messageId) : undefined;
+      const file = row.attachmentId ? byAttachment.get(row.attachmentId) : undefined;
       return {
         group: row.group,
         hit: row.hit,
-        message,
-        attachment: row.attachmentId
-          ? message?.attachments.find((a) => a.id === row.attachmentId)
-          : undefined,
+        message: file?.message ?? (row.messageId ? byMessage.get(row.messageId) : undefined),
+        attachment: file?.attachment,
         entity: row.entityId ? byEntity.get(row.entityId) : undefined,
       };
     });
-  }, [index, messages, entities, query]);
+  }, [index, live, query]);
 }

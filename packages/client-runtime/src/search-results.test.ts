@@ -11,10 +11,10 @@ function hit(over: Partial<SearchHit> & { type: SearchHit["type"]; targetId: str
   };
 }
 
-const all = { hasMessage: () => true, hasEntity: () => true };
+const all = { hasMessage: () => true, hasAttachment: () => true, hasEntity: () => true };
 
 describe("groupHits", () => {
-  it("collapses a message and the files inside it into one row", () => {
+  it("never folds a file into its message: the file is its own thing", () => {
     const rows = groupHits(
       [
         hit({ type: "message", targetId: "m1", messageId: "m1", score: 9 }),
@@ -23,27 +23,22 @@ describe("groupHits", () => {
       ],
       all,
     );
-    expect(rows).toEqual([
-      {
-        group: "messages",
-        hit: expect.objectContaining({ targetId: "m1" }),
-        messageId: "m1",
-        attachmentId: undefined,
-      },
+    expect(rows.map((r) => [r.group, r.messageId, r.attachmentId])).toEqual([
+      ["messages", "m1", undefined],
+      ["things", "m1", "a1"],
+      ["things", "m1", "a2"],
     ]);
   });
 
-  it("says which file matched when the file is why the message is here", () => {
-    const rows = groupHits(
-      [
-        hit({ type: "attachment", targetId: "a1", messageId: "m1", score: 9 }),
-        hit({ type: "message", targetId: "m2", messageId: "m2", score: 3 }),
-      ],
-      all,
-    );
-    expect(rows.map((r) => [r.messageId, r.attachmentId])).toEqual([
-      ["m1", "a1"],
-      ["m2", undefined],
+  it("keeps the message a file came in, because that is what opening it opens", () => {
+    const rows = groupHits([hit({ type: "attachment", targetId: "a1", messageId: "m1" })], all);
+    expect(rows).toEqual([
+      {
+        group: "things",
+        hit: expect.objectContaining({ targetId: "a1" }),
+        messageId: "m1",
+        attachmentId: "a1",
+      },
     ]);
   });
 
@@ -72,12 +67,17 @@ describe("groupHits", () => {
       [
         hit({ type: "entity", targetId: "e1", score: 9 }),
         hit({ type: "message", targetId: "m1", messageId: "m1", score: 8 }),
-        hit({ type: "entity", targetId: "e2", score: 7 }),
+        hit({ type: "attachment", targetId: "a1", messageId: "m2", score: 7 }),
         hit({ type: "message", targetId: "m2", messageId: "m2", score: 6 }),
       ],
       all,
     );
-    expect(rows.map((r) => r.messageId ?? r.entityId)).toEqual(["m1", "m2", "e1", "e2"]);
+    expect(rows.map((r) => r.attachmentId ?? r.entityId ?? r.messageId)).toEqual([
+      "m1",
+      "m2",
+      "e1",
+      "a1",
+    ]);
   });
 
   it("drops what the archive no longer has, deleted since it was indexed", () => {
@@ -85,9 +85,10 @@ describe("groupHits", () => {
       [
         hit({ type: "message", targetId: "gone", messageId: "gone" }),
         hit({ type: "entity", targetId: "gone-too" }),
+        hit({ type: "attachment", targetId: "gone-as-well", messageId: "gone" }),
         hit({ type: "message", targetId: "m1", messageId: "m1" }),
       ],
-      { hasMessage: (id) => id === "m1", hasEntity: () => false },
+      { hasMessage: (id) => id === "m1", hasAttachment: () => false, hasEntity: () => false },
     );
     expect(rows.map((r) => r.messageId)).toEqual(["m1"]);
   });
@@ -102,5 +103,20 @@ describe("groupHits", () => {
     const rows = groupHits(many, { ...all, limit: 2 });
     expect(rows.filter((r) => r.group === "messages")).toHaveLength(2);
     expect(rows.filter((r) => r.group === "things")).toHaveLength(2);
+  });
+
+  it("caps Things as one section, files and entities together", () => {
+    const rows = groupHits(
+      [
+        ...Array.from({ length: 3 }, (_, i) =>
+          hit({ type: "attachment", targetId: `a${i}`, messageId: "m1", score: 10 - i }),
+        ),
+        ...Array.from({ length: 3 }, (_, i) =>
+          hit({ type: "entity", targetId: `e${i}`, score: 1 }),
+        ),
+      ],
+      { ...all, limit: 4 },
+    );
+    expect(rows.map((r) => r.attachmentId ?? r.entityId)).toEqual(["a0", "a1", "a2", "e0"]);
   });
 });
