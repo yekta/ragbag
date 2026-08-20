@@ -82,7 +82,7 @@ const DAY_ROW = 46;
 /** The opening separator, which draws no gap above itself (see the render). */
 const FIRST_DAY_ROW = DAY_ROW - 12;
 /** Card chrome: vertical padding, the footer row, and the gap below the card. */
-const CARD_CHROME = 68;
+const CARD_CHROME = 72;
 /** `leading-relaxed` at the timeline's font size. */
 const LINE = 26;
 /** Average glyph advance, for turning a character count into lines. */

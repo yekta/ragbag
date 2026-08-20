@@ -1,6 +1,7 @@
 import { mutators } from "@ragbag/contracts";
 import { useZero } from "@rocicorp/zero/react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { AttachmentAlbum } from "@/components/attachment-album";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 import { EntityCard } from "@/components/entities";
@@ -8,10 +9,14 @@ import { Icon } from "@/components/icon";
 import { GroupLabel } from "@/components/typography";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { timeLabel } from "@/lib/format";
 import { entityLink, messageLink } from "@/lib/routes";
-import { isTouch } from "@/lib/touch";
 import type { EntityFields, Message } from "@/lib/types";
 
 // One timeline entry: the user's text, the attachments they sent with it, and
@@ -217,6 +222,99 @@ function EntityStrip({ message }: { message: Message }) {
   );
 }
 
+/**
+ * What you can do to a message, on the card, at any width.
+ *
+ * These were a pill that appeared over the card's top edge on hover, which
+ * meant a phone could not reach a single one of them: deleting was a desktop
+ * action, and the favorite state had to be repeated as a bare star in the
+ * footer so that touch had at least something to look at. Hover is not
+ * something a design can be built on when half the devices have no pointer, so
+ * the actions are simply here, always, in the one row of the card that was
+ * already mostly empty. One set of controls, one behaviour, both form factors.
+ *
+ * The negative margin is what lets a 32px control live in a 20px row. A ghost
+ * button is mostly the fill it paints when pointed at: 16px of glyph inside 8px
+ * of padding on each side. Six of those pixels go back to the row top and
+ * bottom, so the footer stands exactly as tall as it did when it held a
+ * timestamp and a chip, and no card in the timeline grew by a pixel.
+ *
+ * `gap-0.5` is not free spacing either: every button here carries the 44px
+ * touch strip described in ui/button.tsx, and at 32px with a 2px gap it bleeds
+ * 4px sideways, which stays inside the 8px of padding around its neighbour's
+ * icon. That is the rule that keeps this cluster at 32px rather than the 24px
+ * an 11px timestamp would otherwise ask for.
+ */
+function MessageActions({ message }: { message: Message }) {
+  const zero = useZero();
+  // The menu unmounts its items the moment one is clicked, so the confirmation
+  // cannot hang off a trigger inside it: this holds the state and the dialog
+  // sits outside the menu (components/delete-message-dialog.tsx).
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <span className="-my-1.5 flex items-center gap-0.5">
+      {/* A Link, not a click handler: the panel is a URL (lib/routes.ts), so
+          this is something to open in a new tab or copy the address of, and
+          `nativeButton={false}` tells Base UI the button is an anchor now. */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground"
+        nativeButton={false}
+        render={<Link {...messageLink(message.id)} />}
+      >
+        Show details
+      </Button>
+      {/* Colour and fill, nothing else: the box is the same in both states.
+          `aria-pressed` because a filled star is not a state a screen reader
+          can see. */}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-pressed={message.favorite}
+        aria-label={message.favorite ? "Remove from favorites" : "Add to favorites"}
+        className={message.favorite ? "text-kind-note" : "text-muted-foreground"}
+        onClick={() =>
+          void zero.mutate(
+            mutators.message.setFavorite({ id: message.id, favorite: !message.favorite }),
+          )
+        }
+      >
+        <Icon name="star" className="size-4" filled={message.favorite} />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="More actions"
+              className="text-muted-foreground"
+            />
+          }
+        >
+          <Icon name="more" className="size-4" />
+        </DropdownMenuTrigger>
+        {/* Anchored at its right edge, because the trigger is at the card's.
+            `w-auto` undoes the component's default of matching the anchor's
+            width, which is meant for a select-shaped trigger and here would be
+            a menu the width of one icon. */}
+        <DropdownMenuContent align="end" className="w-auto min-w-36">
+          <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
+            <Icon name="trash" className="size-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DeleteMessageDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        onConfirm={() => void zero.mutate(mutators.message.delete({ id: message.id }))}
+      />
+    </span>
+  );
+}
+
 export function MessageCard({
   message,
   highlight = false,
@@ -225,9 +323,6 @@ export function MessageCard({
   /** Arrived here from "Show in Messages": point at this one. */
   highlight?: boolean;
 }) {
-  const zero = useZero();
-  const navigate = useNavigate();
-
   return (
     // Not <Card>: it has no asChild and this needs to stay an <article>, so it
     // draws its own surface. That surface is the page's own fill: a message is
@@ -242,73 +337,8 @@ export function MessageCard({
       // and reads as one in the DOM; `|| undefined` keeps `data-highlight="false"`
       // out, which would be present and therefore true to the variant.
       data-highlight={highlight || undefined}
-      className="group relative rounded-2xl border bg-background data-highlight:highlight-pass"
-      // Touch has no hover actions, so tapping the card body opens the detail
-      // view instead; links and buttons inside keep their own behavior.
-      onClick={(e) => {
-        if (!isTouch) return;
-        if (e.target instanceof Element && e.target.closest("a,button")) return;
-        void navigate(messageLink(message.id));
-      }}
+      className="relative rounded-2xl border bg-background data-highlight:highlight-pass"
     >
-      {/* hover actions. A Tooltip supplies the description, not the name: these
-          are icon-only, so each still needs its own aria-label. z-10 because
-          the album below is `relative` (it pins upload badges) and so paints
-          over an auto-z-index sibling that precedes it in the DOM. */}
-      <div className="absolute -top-3 right-3 z-10 hidden items-center gap-0.5 rounded-full border bg-card p-1 group-hover:flex">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={message.favorite ? "Remove from favorites" : "Add to favorites"}
-                className={`rounded-full ${message.favorite ? "text-kind-note" : "text-muted-foreground"}`}
-                onClick={() =>
-                  void zero.mutate(
-                    mutators.message.setFavorite({ id: message.id, favorite: !message.favorite }),
-                  )
-                }
-              />
-            }
-          >
-            <Icon name="star" className="size-4" filled={message.favorite} />
-          </TooltipTrigger>
-          <TooltipContent>
-            {message.favorite ? "Remove from favorites" : "Add to favorites"}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Details and tags"
-                className="rounded-full text-muted-foreground"
-                onClick={() => void navigate(messageLink(message.id))}
-              />
-            }
-          >
-            <Icon name="tag" className="size-4" />
-          </TooltipTrigger>
-          <TooltipContent>Details &amp; tags</TooltipContent>
-        </Tooltip>
-        <DeleteMessageDialog
-          onConfirm={() => void zero.mutate(mutators.message.delete({ id: message.id }))}
-        >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-full text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
-            aria-label="Delete"
-            title="Delete"
-          >
-            <Icon name="trash" className="size-4" />
-          </Button>
-        </DeleteMessageDialog>
-      </div>
-
       {/* What the person sent. The padding is here rather than on the article
           so the tear below can run the full width. It is the album's inset:
           the text takes its own, below. */}
@@ -345,26 +375,37 @@ export function MessageCard({
             up through the parts, then leaves. Each of those is a row 3px
             taller than the bare timestamp, so every card below jumped 3px,
             twice, per message. `min-h-5` is the badge's own height held open
-            permanently, and `items-end` keeps the timestamp on the same
-            baseline either way.
+            permanently, and the controls hold themselves to it (`MessageActions`
+            above), so what a reader sees appear and disappear in this row never
+            moves the row.
 
             It closes the message rather than the card: a timestamp under the
             findings would date the reading, and it is the writing that has a
-            time worth knowing. */}
-        <div className="mt-2 flex min-h-5 items-end justify-between gap-2">
+            time worth knowing.
+
+            12px of air above rather than 8: the buttons paint 6px past the row
+            they measure, and a hover fill landing 2px off the edge of a photo
+            reads as a mistake. It wraps because on a phone the actions and the
+            stamp are most of the width: with tags and a status badge beside
+            them there is no line that fits both, and the cluster drops below
+            the chips rather than squeezing them into a column. */}
+        <div className="mt-3 flex min-h-5 flex-wrap items-center justify-between gap-2">
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {/* hover actions are unreachable on touch, so favorites need a
-                mark that is always visible */}
-            {message.favorite && <Icon name="star" className="size-3.5 text-kind-note" filled />}
             <StatusChip message={message} />
             <TagChips message={message} />
           </span>
-          <time
-            className="shrink-0 font-mono text-[11px] text-muted-foreground"
-            title={new Date(message.createdAt).toLocaleString()}
-          >
-            {timeLabel(message.createdAt)}
-          </time>
+          {/* `ml-auto`, not just `justify-between`: with no chips at all the
+              left span is an empty flex item and there is nothing to be
+              between. */}
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            <MessageActions message={message} />
+            <time
+              className="shrink-0 font-mono text-[11px] text-muted-foreground"
+              title={new Date(message.createdAt).toLocaleString()}
+            >
+              {timeLabel(message.createdAt)}
+            </time>
+          </span>
         </div>
       </div>
 
