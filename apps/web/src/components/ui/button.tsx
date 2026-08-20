@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
+import { LoaderIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        // The ink itself as a fill, and the background as the ink. For the one
+        // action on a screen that has no competition and needs no colour to
+        // say so: the way in. The brand fill says "this is a Ragbag thing" on
+        // a card that is already nothing but the mark and the name, and a
+        // saturated purple is the loudest object in a light theme.
+        //
+        // Its hover is the one rung in index.css that travels toward the
+        // canvas rather than away from it, because this fill is the canvas
+        // inverted; the argument is written there.
+        foreground: "bg-foreground text-background hover:bg-foreground-hover",
         // Its hover fill is a rung off its own rest fill rather than the muted
         // fill the generator reached for. That token is a fill, not a rung: it
         // sits a hair *under* the canvas in the light theme and well *over* it
@@ -95,18 +106,64 @@ const buttonVariants = cva(
   },
 );
 
+// --- the pending state ---
+//
+// An action that leaves the app (signing in, signing out) or takes a network
+// round trip has to say so on the button that started it, or the only feedback
+// a press gets is that nothing happened, and the second press is the reflex.
+//
+// Two rules make it worth having here rather than at each call site. It must
+// not move anything: a spinner that replaces a label re-measures the button,
+// and a row of them re-flows. And it must cover whatever the button holds,
+// which is text as often as it is an icon and a label.
+//
+// So the content is hidden in place. `visibility` rather than a colour or an
+// opacity, because it is the one of the three that inherits into text nodes:
+// `text-transparent` would have to be undone on the spinner (which then needs
+// each variant's own ink back), and `opacity` cannot reach a bare string at
+// all. The wrapper it hangs on is `display: contents`, so it is not a box:
+// every child stays a direct flex item of the button, and the gap, the padding
+// and the icon rules see exactly the markup they saw before. It is there only
+// while the button is busy, so an idle button is the same tree it always was:
+// the one thing a wrapper does change is what counts as a *direct* child, and
+// there are call sites that size their icon that way (ui/input-group.tsx).
+//
+// The spinner is centred with auto margins against `inset-0` rather than a
+// translate, so nothing it does can compose with the rotation animating on it,
+// and it carries no size class of its own: that leaves it to the button's own
+// `[&_svg]` rules, which is how it comes out at 12px in an `xs` and 16px in a
+// default without being told.
+//
+// Not `disabled`: a disabled button drops out of the tab order under the
+// cursor and fades to half strength, taking the spinner with it. It is
+// `aria-disabled` and inert to clicks instead, so focus stays where it was and
+// what you see is a control that is busy rather than one that is gone.
 function Button({
   className,
   variant = "default",
   size = "default",
+  pending = false,
+  children,
+  onClick,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    /** Working: hide the label, spin in its place, and swallow further presses. */
+    pending?: boolean;
+  }) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-pending={pending || undefined}
+      aria-busy={pending || undefined}
+      aria-disabled={pending || undefined}
+      onClick={pending ? undefined : onClick}
+      className={cn(buttonVariants({ variant, size, className }), pending && "pointer-events-none")}
       {...props}
-    />
+    >
+      {pending ? <span className="contents invisible">{children}</span> : children}
+      {pending && <LoaderIcon className="absolute inset-0 m-auto animate-spin" strokeWidth={1.6} />}
+    </ButtonPrimitive>
   );
 }
 

@@ -1,3 +1,4 @@
+import type { BlobVariant } from "@ragbag/contracts";
 import { faceForMime } from "@ragbag/shared";
 import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import {
@@ -20,7 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatBytes } from "@/lib/format";
-import { mediaUrl } from "@/lib/media";
+import { mediaUrl, rendersInBrowser } from "@/lib/media";
 import { photoLink, type AppSearch } from "@/lib/routes";
 import type { Attachment } from "@/lib/types";
 
@@ -43,6 +44,14 @@ import type { Attachment } from "@/lib/types";
 // next door: the timeline has no viewer, and a tile there still opens the
 // message it belongs to.
 //
+// What is on screen is the file itself, not the transcode the tiles are drawn
+// from. The point of opening a picture full screen is to see the picture, and
+// a 1600px web copy of a 12MP photo is a preview of one; every other surface
+// in the app is already showing previews. So this is the one caller that asks
+// for `original`, wherever the browser can read the format at all
+// (`rendersInBrowser`, lib/media.ts). It costs a real wait on a real photo,
+// which is what the box below is for.
+//
 // The surface is the app's own canvas, in whichever theme the app is in, and
 // the chrome on it is the ordinary foreground and muted-foreground. It used to
 // force `dark` and paint itself near-black in both themes, which made this the
@@ -50,6 +59,11 @@ import type { Attachment } from "@/lib/types";
 // picture from a light app was a full-screen jump to black and back. A
 // picture that is mostly white now needs an edge to end on, which is what the
 // border on it is for. No viewer-only colours are invented here either way.
+
+/** Which bytes a picture is shown from here: its own, unless HEIC. */
+function sourceVariant(photo: Attachment): BlobVariant {
+  return rendersInBrowser(photo.mime) ? "original" : "display";
+}
 
 type PhotoViewer = {
   /** Show this attachment full screen. Ignored for anything but a picture. */
@@ -155,15 +169,30 @@ export function PhotoViewerScope({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [current, step]);
 
-  // Both neighbours, fetched while you look at this one. The media URL is
-  // stable and the worker caches by it (lib/media.ts), so this is exactly what
-  // the next step reads: the difference between arrowing through an album and
-  // watching each picture arrive.
+  // Both neighbours, fetched while you look at this one: the difference
+  // between arrowing through an album and watching each picture arrive.
+  //
+  // Held, rather than started and dropped. Setting `src` on a throwaway
+  // `Image` was enough while this fetched the display variant, because that
+  // one lands in the service worker's Cache Storage and the next step reads it
+  // back out. An original is deliberately outside those tiers (public/
+  // media-sw.js: megabytes each, and keeping them would evict thousands of
+  // thumbnails), so nothing but the browser's own memory cache remembers it,
+  // and that keeps a response for exactly as long as something is holding the
+  // element that asked for it. Two at a time, released when the viewer closes.
+  const warm = useRef<HTMLImageElement[]>([]);
   useEffect(() => {
     if (!current) return;
-    for (const near of [photos[index - 1], photos[index + 1]]) {
-      if (near) new Image().src = mediaUrl(near.blobId, "display");
-    }
+    warm.current = [photos[index - 1], photos[index + 1]]
+      .filter((near): near is Attachment => near !== undefined)
+      .map((near) => {
+        const image = new Image();
+        image.src = mediaUrl(near.blobId, sourceVariant(near));
+        return image;
+      });
+    return () => {
+      warm.current = [];
+    };
   }, [current, index, photos]);
 
   return (
@@ -222,10 +251,12 @@ export function PhotoViewerScope({
                     </span>
                   )}
                   <span className="ml-auto flex items-center gap-1">
-                    {/* The bytes exactly as they were sent, which is what the
-                        tile used to open. Still worth an explicit way to: the
-                        picture above is the web-safe transcode, and a phone
-                        photo's original is the one with its metadata in it. */}
+                    {/* The file on its own, out of the app: to save it, to
+                        zoom it past the frame in the browser's own viewer, or
+                        to read a format this one draws the transcode for. It
+                        used to be labelled "Original" and was the only way to
+                        see one; the picture above is the original now, so what
+                        is left is the file, and that is what it says. */}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -238,7 +269,7 @@ export function PhotoViewerScope({
                         />
                       }
                     >
-                      <Icon name="external" className="size-3.5" /> Original
+                      <Icon name="external" className="size-3.5" /> Open file
                     </Button>
                     <Button
                       variant="ghost"
@@ -255,13 +286,26 @@ export function PhotoViewerScope({
                 <div className="relative flex min-h-0 flex-1 items-center justify-center px-3">
                   {/* Keyed, so stepping is a fresh picture rather than the
                       previous one's source ladder carried over: a photo that
-                      had run out of sources would otherwise hand its blurred
-                      stand-in to the next one. */}
+                      had run out of sources would otherwise hand its stand-in
+                      to the next one. */}
                   <MediaImage
                     key={current.id}
                     blobId={current.blobId}
-                    variant="display"
-                    placeholder={current.placeholder}
+                    variant={sourceVariant(current)}
+                    // The dimensions off the row, which every device has before
+                    // any bytes (lib/blobs.tsx), so the box is the picture's own
+                    // box from the first frame: the fill below is exactly where
+                    // the photo will be, and nothing on screen moves when it
+                    // lands.
+                    width={current.width}
+                    height={current.height}
+                    // No blurred stand-in, though the row carries the hash for
+                    // one. A thumbhash is a guess at a picture, and it is a
+                    // fine one to paint under a tile that resolves in a moment;
+                    // an original is a wait long enough that the guess would be
+                    // the thing you sat looking at. An empty frame at the right
+                    // size says "this, shortly" without pretending to be it.
+                    placeholder={null}
                     alt={current.generatedTitle ?? current.filename}
                     fit="contain"
                     sizing="fit"
@@ -271,7 +315,10 @@ export function PhotoViewerScope({
                     // Corners stay near-square because this is the picture at
                     // full size rather than a tile in a layout, and 12px of
                     // radius eats a visible bite out of it at that scale.
-                    className="rounded border"
+                    //
+                    // The fill is that same edge colour, so what waits is the
+                    // frame itself rather than a second value inside it.
+                    className="rounded border bg-border"
                   />
                   {photos.length > 1 && (
                     <>

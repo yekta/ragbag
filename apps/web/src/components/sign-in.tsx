@@ -1,5 +1,5 @@
 import type { MetaResponse } from "@ragbag/contracts";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -20,6 +20,18 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
   // indistinguishable from a first visit unless the error survives the redirect.
   const [error, setError] = useState<string | undefined>(OAUTH_REDIRECT_ERROR);
 
+  // One transition per button, because each is its own action and only the one
+  // that was pressed should be spinning.
+  //
+  // A transition rather than a `useState` boolean of our own: React holds
+  // `pending` for exactly as long as the async function runs, including the
+  // part after the await, so there is no pair of set-calls to keep in step and
+  // no way to leave a button spinning by returning early. The Google leg never
+  // resolves at all when it works, the browser having left for accounts.google
+  // .com, and a button that stays busy until the page goes is the honest state.
+  const [signingIn, startSignIn] = useTransition();
+  const [devSigningIn, startDevSignIn] = useTransition();
+
   // This screen only shows when no device identity exists: first visit, or
   // right after an explicit sign-out. Clearing local stores here (not during
   // sign-out) lets Zero close first; on a fresh browser it's a no-op.
@@ -35,7 +47,7 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
     <main className="flex h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm shadow-float">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
-          <Logo className="size-12" />
+          <Logo className="size-10" />
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Ragbag</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -48,10 +60,14 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
           {meta?.googleAuth && (
             <Button
               size="lg"
-              onClick={() => {
-                setError(undefined);
-                void signInWithGoogle().then(setError);
-              }}
+              variant="foreground"
+              pending={signingIn}
+              onClick={() =>
+                startSignIn(async () => {
+                  setError(undefined);
+                  setError(await signInWithGoogle());
+                })
+              }
             >
               Continue with Google
             </Button>
@@ -59,12 +75,14 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
           {meta?.devLogin && (
             <Button
               variant="outline"
-              onClick={() => {
-                setError(undefined);
-                void authClient.signIn
-                  .anonymous()
-                  .then(({ error: err }) => setError(err?.message ?? undefined));
-              }}
+              pending={devSigningIn}
+              onClick={() =>
+                startDevSignIn(async () => {
+                  setError(undefined);
+                  const { error: err } = await authClient.signIn.anonymous();
+                  setError(err?.message ?? undefined);
+                })
+              }
             >
               Dev sign-in (anonymous)
             </Button>

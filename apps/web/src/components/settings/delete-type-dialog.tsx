@@ -35,7 +35,9 @@ export function DeleteTypeDialog({
   const zero = useZero();
   const [entities] = useQuery(queries.entities());
   const [confirmation, setConfirmation] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Which of the two is running, not merely that one is: they are two buttons,
+  // and a spinner belongs on the one that was pressed.
+  const [busy, setBusy] = useState<false | "keep" | "all">(false);
 
   const count = useMemo(
     () => entities.filter((e) => e.kind === type.kind && e.mentions.length > 0).length,
@@ -44,7 +46,7 @@ export function DeleteTypeDialog({
   const typedIt = confirmation.trim().toLowerCase() === type.sidebarTitle.trim().toLowerCase();
 
   const run = async (deleteEntities: boolean) => {
-    setBusy(true);
+    setBusy(deleteEntities ? "all" : "keep");
     try {
       await runMutation(zero.mutate(mutators.entityType.remove({ id: type.id, deleteEntities })));
       toast.success(`${type.sidebarTitle} deleted`);
@@ -88,7 +90,8 @@ export function DeleteTypeDialog({
               className="mt-2"
               variant={count > 0 ? "outline" : "default"}
               size="sm"
-              disabled={busy}
+              pending={busy === "keep"}
+              disabled={busy === "all"}
               onClick={() => void run(false)}
             >
               Delete
@@ -115,7 +118,8 @@ export function DeleteTypeDialog({
                 <Button
                   variant="destructive"
                   size="sm"
-                  disabled={busy || !typedIt}
+                  pending={busy === "all"}
+                  disabled={busy === "keep" || !typedIt}
                   onClick={() => void run(true)}
                 >
                   <Icon name="trash" className="size-3.5" /> Delete everything
@@ -126,7 +130,7 @@ export function DeleteTypeDialog({
         </div>
 
         <div className="flex justify-end">
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
+          <Button variant="ghost" size="sm" disabled={busy !== false} onClick={onClose}>
             Cancel
           </Button>
         </div>

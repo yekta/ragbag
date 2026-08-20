@@ -35,6 +35,30 @@ export function mediaUrl(blobId: string, variant: BlobVariant): string {
 }
 
 /**
+ * Whether an `<img>` can paint this file itself, or has to take the transcode.
+ *
+ * The full-screen viewer shows the file exactly as it was sent (plan §2.2),
+ * because a picture opened full screen is the one place in the app where a
+ * 1600px copy of it is not the picture. Everything a camera, a screenshot or a
+ * download produces goes straight in.
+ *
+ * HEIC is the exception, and it is why this is asked at all: it decodes in
+ * Safari and nowhere else, which is the entire reason the server transcodes
+ * (server/src/ingest/derivatives.ts). Those go on showing the display variant.
+ *
+ * Decided from the mime rather than by trying the original and demoting it on
+ * `error`, because a browser that cannot read a format downloads the whole
+ * file before saying so: several megabytes per photo to learn what the mime
+ * already said.
+ */
+const BROWSER_IMAGE =
+  /^image\/(jpe?g|png|apng|gif|webp|avif|bmp|svg\+xml|x-icon|vnd\.microsoft\.icon)$/i;
+
+export function rendersInBrowser(mime: string): boolean {
+  return BROWSER_IMAGE.test(mime);
+}
+
+/**
  * Bump to abandon every cached derivative at once: entries are never
  * revalidated, so the only way to clear a bad one is to leave the cache it
  * lives in.

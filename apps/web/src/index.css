@@ -46,6 +46,13 @@
   --background-hover: oklch(0.927 0 0);
   --hover: oklch(0.92 0 0);
   --foreground: oklch(0.205 0 0);
+  /* The rung for a control filled with the ink itself (ui/button.tsx's
+     foreground variant). It steps *toward* the canvas in both themes, which is
+     the opposite of every rung above and the same rule as all of them: a hover
+     moves away from the surface it sits on, and the surface here is inverted.
+     Away from the canvas has nowhere to go anyway, dark's ink being 0.03 off
+     white. Ink stays --background, over 10:1 on both. */
+  --foreground-hover: oklch(0.32 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.205 0 0);
   --popover: oklch(1 0 0);
@@ -131,6 +138,7 @@
   --background-hover: oklch(0.225 0 0);
   --hover: oklch(0.245 0 0);
   --foreground: oklch(0.97 0 0);
+  --foreground-hover: oklch(0.885 0 0);
   --card: oklch(0.182 0 0);
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.182 0 0);
@@ -215,6 +223,7 @@
   --color-background-hover: var(--background-hover);
   --color-hover: var(--hover);
   --color-foreground: var(--foreground);
+  --color-foreground-hover: var(--foreground-hover);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);

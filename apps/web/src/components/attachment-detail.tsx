@@ -311,17 +311,21 @@ export function AttachmentDetail({ id }: { id: string }) {
                   )}
                 </section>
 
-                {/* The thing panel's last section, in the same place and drawn
-                    the same way, because this is the same question: which
-                    messages is this thing in. A thing found by the pipeline can
-                    be in many, so that heading counts them; a file arrived in
-                    exactly one, so this one states it, and "sent in" is what
-                    happened. Either way the row is the way back to the message,
-                    and it carries what the message is rather than being a
-                    button that only says where it goes. */}
+                {/* The thing panel's last section, in the same place, drawn the
+                    same way and worded the same way, because this is the same
+                    question: which messages is this thing in. It said "sent in"
+                    while the panel next door said "seen in", which made two
+                    phrasings for one relation and put the emphasis on what
+                    happened to the file rather than on where it is. The count
+                    is the literal 1 rather than a pluralised length: a file
+                    belongs to exactly one message (schema.ts), where a thing
+                    the pipeline found can be in any number of them. Either way
+                    the row is the way back to the message, and it carries what
+                    the message is rather than being a button that only says
+                    where it goes. */}
                 {attachment.message && (
                   <section>
-                    <SectionHeading>Sent in 1 message</SectionHeading>
+                    <SectionHeading>Seen in 1 message</SectionHeading>
                     <Link
                       {...messageLink(attachment.messageId)}
                       className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"

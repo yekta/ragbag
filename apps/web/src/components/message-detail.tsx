@@ -139,9 +139,13 @@ export function MessageDetail({ id }: { id: string }) {
 
             It names the surface, the way the settings drawer and the thing
             panel next door do: the icon the sidebar's row uses, then the word
-            that row uses. It is the DrawerTitle itself rather than a span
-            beside a screen-reader-only copy of the same words, so there is
-            exactly one name in the accessibility tree.
+            for the one thing on screen. Singular, because that is what this
+            is: the sidebar's row is a list and says "Messages", the file panel
+            beside this one says "Image" over one image, and a panel holding
+            one message that called itself Messages was naming the list it came
+            out of. It is the DrawerTitle itself rather than a span beside a
+            screen-reader-only copy of the same words, so there is exactly one
+            name in the accessibility tree.
 
             What it does not say is what this particular message is. The
             model's title for it is a reading of the message and belongs with
@@ -155,7 +159,7 @@ export function MessageDetail({ id }: { id: string }) {
             wait, having nothing to act on until then. */}
         <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
           <DrawerTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Icon name="inbox" className="size-4.5" /> Messages
+            <Icon name="inbox" className="size-4.5" /> Message
           </DrawerTitle>
           <span className="ml-auto flex shrink-0 items-center gap-1">
             {message && (

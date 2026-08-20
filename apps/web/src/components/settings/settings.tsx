@@ -2,7 +2,7 @@ import { mutators, queries } from "@ragbag/contracts";
 import { newId, typeChoices, type TypeChoice } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Icon, iconNamed } from "@/components/icon";
 import { TypeEditor } from "@/components/settings/type-editor";
@@ -297,7 +297,7 @@ function StorageSection() {
             : "Your whole archive is on this device, so search works offline."}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" disabled={clearing} onClick={() => void clear()}>
+          <Button variant="outline" size="sm" pending={clearing} onClick={() => void clear()}>
             <Icon name="trash" className="size-3.5" /> Clear cached pictures
           </Button>
           <span className="text-[13px] text-muted-foreground">They come back as you browse.</span>
@@ -359,11 +359,21 @@ function AppearanceSection() {
 
 function AccountSection() {
   const identity = loadIdentity();
+  // Signing out clears the local identity, tells the server, and reloads the
+  // app; on a slow connection that is a second or two of a screen that looks
+  // exactly as it did before the press. The button holds it (ui/button.tsx),
+  // and holds it until the page goes rather than releasing early.
+  const [signingOut, startSignOut] = useTransition();
   return (
     <Section title="Account">
       <div className="flex flex-wrap items-center gap-3">
         <p className="min-w-0 flex-1 truncate text-sm">{identity?.email ?? "Signed in"}</p>
-        <Button variant="outline" size="sm" onClick={() => void signOut()}>
+        <Button
+          variant="outline"
+          size="sm"
+          pending={signingOut}
+          onClick={() => startSignOut(signOut)}
+        >
           <Icon name="logout" className="size-3.5" /> Sign out
         </Button>
       </div>

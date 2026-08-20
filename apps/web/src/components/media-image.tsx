@@ -119,14 +119,36 @@ export function MediaImage({
   placeholder,
   alt,
   className,
+  width,
+  height,
   fit = "cover",
   sizing = "fill",
 }: {
   blobId: string;
-  variant: Extract<BlobVariant, "thumb" | "display">;
+  /**
+   * Which bytes to draw. `thumb` and `display` are the derivatives, and every
+   * tile and grid in the app takes one of them.
+   *
+   * `original` is the file exactly as it was sent, and the one caller is the
+   * full-screen viewer (lib/media.ts says which files may ask for it). It is
+   * outside the service worker's tiers on purpose, so it is fetched rather
+   * than kept: several megabytes each would evict thousands of thumbnails.
+   */
+  variant: BlobVariant;
   placeholder: string | null | undefined;
   alt: string;
   className?: string;
+  /**
+   * The picture's own pixel size, off the synced row, when it is known.
+   *
+   * Attributes rather than CSS, and only useful with `sizing="fit"`: they give
+   * the element an intrinsic size and ratio before a single byte has arrived,
+   * which is what lets the box below be the picture's own box while it is
+   * still coming down the wire. Without them a fitted element is nothing until
+   * it decodes, and there is nowhere to draw a loading state.
+   */
+  width?: number | null;
+  height?: number | null;
   fit?: "cover" | "contain";
   /**
    * `fill`: the element is the box its parent gives it, and the picture is
@@ -184,13 +206,20 @@ export function MediaImage({
     <img
       src={src}
       alt={alt}
+      // Presentational hints, which the `h-auto` below is what makes safe: a
+      // width and a height both spelled out is a fixed box, so clamping the
+      // width against the viewport would keep the height and squash the
+      // picture. With the height back on `auto` the pair is a size and a
+      // ratio, and the two maxes fit it the way `contain` would.
+      width={width ?? undefined}
+      height={height ?? undefined}
       // Native lazy loading, which is the whole reason the URL is stable.
       loading="lazy"
       decoding="async"
       onError={() => setSource((s) => (s === "media" ? "local" : "gone"))}
       // Spelled out rather than interpolated: Tailwind scans source text for
       // whole class names, so `object-${fit}` would generate neither.
-      className={`${sizing === "fill" ? "size-full" : "max-h-full max-w-full"} ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
+      className={`${sizing === "fill" ? "size-full" : "h-auto max-h-full max-w-full"} ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
       // The placeholder is the element's own background rather than a second
       // element, so nothing is added to or removed from the DOM when the
       // picture lands: the image simply paints over it.

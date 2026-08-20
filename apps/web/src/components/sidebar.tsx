@@ -222,7 +222,7 @@ export function Sidebar({
             Geometrically the logo is already flush with the field at that rail;
             the 2px is optical. */}
         <div className="flex items-center gap-2 pb-2 pl-0.5">
-          <Logo className="size-6" />
+          <Logo className="size-5" />
           <span className="text-lg font-bold tracking-tight">Ragbag</span>
           <SidebarTrigger className="ml-auto text-muted-foreground" title="Hide sidebar (⌘\)" />
         </div>
