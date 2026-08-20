@@ -6,7 +6,7 @@
 // state never survives a reload" (plan §10). index.html applies the stored
 // value before first paint; everything here keeps it in sync afterwards.
 
-export type Theme = "light" | "dark" | "system";
+export type TTheme = "light" | "dark" | "system";
 
 export const THEME_KEY = "ragbag:theme";
 
@@ -15,17 +15,17 @@ const THEME_COLOR = { light: "#fafafa", dark: "#0a0a0a" } as const;
 
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
 
-export function loadTheme(): Theme {
+export function loadTheme(): TTheme {
   const stored = localStorage.getItem(THEME_KEY);
   return stored === "light" || stored === "dark" ? stored : "system";
 }
 
-export function resolveTheme(theme: Theme): "light" | "dark" {
+export function resolveTheme(theme: TTheme): "light" | "dark" {
   if (theme !== "system") return theme;
   return prefersDark().matches ? "dark" : "light";
 }
 
-export function applyTheme(theme: Theme): void {
+export function applyTheme(theme: TTheme): void {
   const resolved = resolveTheme(theme);
   document.documentElement.classList.toggle("dark", resolved === "dark");
   document

@@ -1,5 +1,5 @@
 import { mutators, queries } from "@ragbag/contracts";
-import { newId, typeChoices, type TypeChoice } from "@ragbag/shared";
+import { newId, typeChoices, type TTypeChoice } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -21,10 +21,10 @@ import { signOut } from "@/lib/auth-client";
 import { runMutation } from "@/lib/mutate";
 import { formatBytes } from "@/lib/format";
 import { loadIdentity } from "@/lib/identity";
-import { clearMediaCache, storageUsage, type StorageUsage } from "@/lib/media";
+import { clearMediaCache, storageUsage, type TStorageUsage } from "@/lib/media";
 import { closeSettingsLink } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
-import type { Theme } from "@/lib/theme";
+import type { TTheme } from "@/lib/theme";
 
 // The settings drawer (`?settings=true`): what Ragbag looks for, what this
 // device is holding, how it looks, and who is signed in.
@@ -165,7 +165,7 @@ function TypesSection({ onEdit }: { onEdit: (id: string | null) => void }) {
 
   const choices = useMemo(() => typeChoices(rows), [rows]);
 
-  const setOn = async (choice: TypeChoice, wanted: boolean) => {
+  const setOn = async (choice: TTypeChoice, wanted: boolean) => {
     try {
       await runMutation(
         zero.mutate(
@@ -217,7 +217,7 @@ function ChoiceRow({
   onToggle,
   onEdit,
 }: {
-  choice: TypeChoice;
+  choice: TTypeChoice;
   count: { things: number; messages: Set<string> } | undefined;
   onToggle: (wanted: boolean) => void;
   /** Absent for one of ours with no row yet: there is nothing to edit. */
@@ -265,7 +265,7 @@ function ChoiceRow({
 // --- storage ---
 
 function StorageSection() {
-  const [usage, setUsage] = useState<StorageUsage | null>(null);
+  const [usage, setUsage] = useState<TStorageUsage | null>(null);
   const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
@@ -316,7 +316,7 @@ function StorageSection() {
 
 // --- appearance ---
 
-const THEMES: { value: Theme; label: string; icon: "sun" | "moon" | "monitor" }[] = [
+const THEMES: { value: TTheme; label: string; icon: "sun" | "moon" | "monitor" }[] = [
   { value: "light", label: "Light", icon: "sun" },
   { value: "dark", label: "Dark", icon: "moon" },
   { value: "system", label: "System", icon: "monitor" },

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { TimelineSearchIndex, type DocType, type SearchDoc } from "./search-index.js";
+import { TimelineSearchIndex, type TDocType, type TSearchDoc } from "./search-index.js";
 
-function doc(overrides: Partial<SearchDoc> & { targetId: string; type?: DocType }): SearchDoc {
+function doc(overrides: Partial<TSearchDoc> & { targetId: string; type?: TDocType }): TSearchDoc {
   const type = overrides.type ?? "message";
   return {
     id: `${type}:${overrides.targetId}`,
     type,
-    // An entity belongs to no single message (SearchDoc.messageId), so it only
+    // An entity belongs to no single message (TSearchDoc.messageId), so it only
     // gets one here when a test is explicit about it.
     messageId:
       type === "entity" ? overrides.messageId : (overrides.messageId ?? overrides.targetId),

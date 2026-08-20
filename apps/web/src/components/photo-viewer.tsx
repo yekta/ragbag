@@ -1,4 +1,4 @@
-import type { BlobVariant } from "@ragbag/contracts";
+import type { TBlobVariant } from "@ragbag/contracts";
 import { faceForMime } from "@ragbag/shared";
 import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import {
@@ -23,8 +23,8 @@ import {
 import { mediaBox } from "@/lib/blobs";
 import { formatBytes } from "@/lib/format";
 import { mediaUrl, rendersInBrowser } from "@/lib/media";
-import { photoLink, type AppSearch } from "@/lib/routes";
-import type { Attachment } from "@/lib/types";
+import { photoLink, type TAppSearch } from "@/lib/routes";
+import type { TAttachment } from "@/lib/types";
 
 // One picture, as large as the screen will draw it (plan §6.3).
 //
@@ -62,19 +62,19 @@ import type { Attachment } from "@/lib/types";
 // border on it is for. No viewer-only colours are invented here either way.
 
 /** Which bytes a picture is shown from here: its own, unless HEIC. */
-function sourceVariant(photo: Attachment): BlobVariant {
+function sourceVariant(photo: TAttachment): TBlobVariant {
   return rendersInBrowser(photo.mime) ? "original" : "display";
 }
 
-type PhotoViewer = {
+type TPhotoViewer = {
   /** Show this attachment full screen. Ignored for anything but a picture. */
   open: (attachmentId: string) => void;
 };
 
-const ViewerContext = createContext<PhotoViewer | null>(null);
+const ViewerContext = createContext<TPhotoViewer | null>(null);
 
 /** This surface's viewer, or null outside a scope, which is the timeline. */
-export function usePhotoViewer(): PhotoViewer | null {
+export function usePhotoViewer(): TPhotoViewer | null {
   return useContext(ViewerContext);
 }
 
@@ -82,14 +82,14 @@ export function PhotoViewerScope({
   attachments,
   children,
 }: {
-  attachments: readonly Attachment[];
+  attachments: readonly TAttachment[];
   children: ReactNode;
 }) {
   const navigate = useNavigate();
   const router = useRouter();
   // Which photo is open is in the URL (lib/routes.ts), so the back gesture
   // closes the photo and leaves the message open underneath it.
-  const { photo } = useSearch({ strict: false }) as AppSearch;
+  const { photo } = useSearch({ strict: false }) as TAppSearch;
 
   const photos = useMemo(
     () => attachments.filter((a) => faceForMime(a.mime) === "image"),
@@ -185,7 +185,7 @@ export function PhotoViewerScope({
   useEffect(() => {
     if (!current) return;
     warm.current = [photos[index - 1], photos[index + 1]]
-      .filter((near): near is Attachment => near !== undefined)
+      .filter((near): near is TAttachment => near !== undefined)
       .map((near) => {
         const image = new Image();
         image.src = mediaUrl(near.blobId, sourceVariant(near));

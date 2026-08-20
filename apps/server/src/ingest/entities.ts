@@ -1,5 +1,5 @@
 import { log, newId } from "@ragbag/shared";
-import type { EntityTypes, MentionSource } from "@ragbag/shared";
+import type { TEntityTypes, TMentionSource } from "@ragbag/shared";
 import { and, eq, inArray, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
@@ -19,7 +19,7 @@ import {
 // per user and deduplicated by (kind, normalized_value); the mention carries
 // what is true about the occurrence rather than about the thing.
 
-export type ResolvedEntity = {
+export type TResolvedEntity = {
   kind: string;
   /** The display form, as found. */
   value: string;
@@ -34,7 +34,7 @@ export type ResolvedEntity = {
   topics?: string[];
   mention: {
     attachmentId: string | null;
-    source: MentionSource;
+    source: TMentionSource;
     confidence: number | null;
     snippet: string | null;
   };
@@ -50,9 +50,9 @@ export type ResolvedEntity = {
  * no `other` to fall into, a kind nobody declared cannot be written at all.
  */
 export function resolveEntity(
-  types: EntityTypes,
+  types: TEntityTypes,
   input: { kind: string; value: string; data: unknown },
-): Omit<ResolvedEntity, "mention"> | null {
+): Omit<TResolvedEntity, "mention"> | null {
   const value = input.value.trim();
   if (!value) return null;
   const data = types.parseData(input.kind, input.data);
@@ -81,7 +81,7 @@ export function resolveEntity(
 export async function writeEntities(input: {
   userId: string;
   messageId: string;
-  found: readonly ResolvedEntity[];
+  found: readonly TResolvedEntity[];
 }): Promise<{ key: string; entityId: string }[]> {
   const { userId, messageId } = input;
   const written: { key: string; entityId: string }[] = [];

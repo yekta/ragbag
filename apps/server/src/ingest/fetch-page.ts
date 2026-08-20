@@ -75,9 +75,9 @@ export async function assertPublicHost(url: URL): Promise<void> {
   }
 }
 
-export type FetchedPage = { html: string; finalUrl: string };
+export type TFetchedPage = { html: string; finalUrl: string };
 
-export type FetchPageOptions = {
+export type TFetchPageOptions = {
   fetchImpl?: typeof fetch;
   maxBytes?: number;
   timeoutMs?: number;
@@ -86,7 +86,10 @@ export type FetchPageOptions = {
   guard?: boolean;
 };
 
-export async function fetchPage(rawUrl: string, opts: FetchPageOptions = {}): Promise<FetchedPage> {
+export async function fetchPage(
+  rawUrl: string,
+  opts: TFetchPageOptions = {},
+): Promise<TFetchedPage> {
   const {
     fetchImpl = fetch,
     maxBytes = 5 * 1024 * 1024,

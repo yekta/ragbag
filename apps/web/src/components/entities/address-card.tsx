@@ -1,11 +1,11 @@
 import { addressQuery, mapsSearchUrl } from "@ragbag/shared";
-import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, ExternalAction, str, type TEntityCardProps } from "./shell.js";
 
 // v1's AddressBody. Addresses stay as they were written; the actions are what
 // make them useful, and a maps *search* URL needs no API key and tolerates the
 // half-remembered addresses people actually send.
 
-export function AddressCard({ entity, onOpen }: EntityCardProps) {
+export function AddressCard({ entity, onOpen }: TEntityCardProps) {
   const data = entity.data as Record<string, unknown>;
   const address = str(data, "formatted") ?? entity.value;
   const maps = mapsSearchUrl(address);

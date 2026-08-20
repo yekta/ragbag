@@ -9,14 +9,14 @@ import { cn } from "@/lib/utils";
 // sidebar renders on a phone, reads the same names, and this is what keeps the
 // two panels in step when one of them is next retimed.
 
-type DrawerContextProps = {
+type TDrawerContextProps = {
   hasSnapPoints: boolean;
   modal: DrawerPrimitive.Root.Props["modal"];
   showSwipeHandle: boolean;
   swipeDirection: NonNullable<DrawerPrimitive.Root.Props["swipeDirection"]>;
 };
 
-const DrawerContext = React.createContext<DrawerContextProps | null>(null);
+const DrawerContext = React.createContext<TDrawerContextProps | null>(null);
 
 function useDrawer() {
   const context = React.useContext(DrawerContext);

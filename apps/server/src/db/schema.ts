@@ -1,15 +1,16 @@
 import { FIELD_TYPES } from "@ragbag/shared";
+import type { TAiModel, TUsageKind } from "../ingest/usage.js";
 import type {
-  AttachmentStatus,
-  AudioSegment,
-  BlobVariants,
-  FieldType,
-  IngestStage,
-  JobStatus,
-  MentionSource,
-  MessageStatus,
-  TagKind,
-  TagSource,
+  TAttachmentStatus,
+  TAudioSegment,
+  TBlobVariants,
+  TFieldType,
+  TIngestStage,
+  TJobStatus,
+  TMentionSource,
+  TMessageStatus,
+  TTagKind,
+  TTagSource,
 } from "@ragbag/shared";
 import {
   bigint,
@@ -159,7 +160,7 @@ export const messages = pgTable(
     generatedTitle: text("generated_title"),
     generatedSummary: text("generated_summary"),
     lang: text("lang"),
-    status: text("status").$type<MessageStatus>().notNull().default("pending"),
+    status: text("status").$type<TMessageStatus>().notNull().default("pending"),
     error: text("error"),
     processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
   },
@@ -197,10 +198,10 @@ export const attachments = pgTable(
     placeholder: text("placeholder"),
     waveform: jsonb("waveform").$type<number[]>(),
     /** Which derivatives exist; the keys are derived from the source sha. */
-    variants: jsonb("variants").$type<BlobVariants>().notNull().default({}),
+    variants: jsonb("variants").$type<TBlobVariants>().notNull().default({}),
     generatedTitle: text("generated_title"),
     generatedSummary: text("generated_summary"),
-    status: text("status").$type<AttachmentStatus>().notNull().default("pending"),
+    status: text("status").$type<TAttachmentStatus>().notNull().default("pending"),
     error: text("error"),
   },
   (t) => [index("attachments_message_position_idx").on(t.messageId, t.position)],
@@ -217,7 +218,7 @@ export const attachmentContents = pgTable("attachment_contents", {
     .references(() => attachments.id, { onDelete: "cascade" }),
   contentMd: text("content_md").notNull(),
   truncated: boolean("truncated").notNull().default(false),
-  segments: jsonb("segments").$type<AudioSegment[]>(),
+  segments: jsonb("segments").$type<TAudioSegment[]>(),
 });
 
 /**
@@ -334,7 +335,7 @@ export const entityTypeFields = pgTable(
     name: text("name").notNull(),
     /** Title Case: what the card and the Details list show ("Postal Code"). */
     label: text("label").notNull(),
-    type: text("type").$type<FieldType>().notNull(),
+    type: text("type").$type<TFieldType>().notNull(),
     /** An `enum`'s complete vocabulary; null for every other type. */
     values: text("values").array(),
     required: boolean("required").notNull().default(false),
@@ -418,7 +419,7 @@ export const messageEntities = pgTable(
       .references(() => entities.id, { onDelete: "cascade" }),
     attachmentId: uuid("attachment_id").references(() => attachments.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull(),
-    source: text("source").$type<MentionSource>().notNull(),
+    source: text("source").$type<TMentionSource>().notNull(),
     confidence: real("confidence"),
     snippet: text("snippet"),
     dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "date" }),
@@ -441,7 +442,7 @@ export const tags = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    kind: text("kind").$type<TagKind>().notNull(),
+    kind: text("kind").$type<TTagKind>().notNull(),
   },
   (t) => [uniqueIndex("tags_user_kind_name_idx").on(t.userId, t.kind, t.name)],
 );
@@ -460,7 +461,7 @@ export const messageTags = pgTable(
     tagId: uuid("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
-    source: text("source").$type<TagSource>().notNull(),
+    source: text("source").$type<TTagSource>().notNull(),
   },
   (t) => [primaryKey({ columns: [t.messageId, t.tagId] })],
 );
@@ -474,7 +475,7 @@ export const attachmentTags = pgTable(
     tagId: uuid("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
-    source: text("source").$type<TagSource>().notNull(),
+    source: text("source").$type<TTagSource>().notNull(),
   },
   (t) => [primaryKey({ columns: [t.attachmentId, t.tagId] })],
 );
@@ -488,7 +489,7 @@ export const entityTags = pgTable(
     tagId: uuid("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
-    source: text("source").$type<TagSource>().notNull(),
+    source: text("source").$type<TTagSource>().notNull(),
   },
   (t) => [primaryKey({ columns: [t.entityId, t.tagId] })],
 );
@@ -506,9 +507,9 @@ export const ingestJobs = pgTable(
       .notNull()
       .references(() => messages.id, { onDelete: "cascade" }),
     attachmentId: uuid("attachment_id"),
-    stage: text("stage").$type<IngestStage>().notNull(),
+    stage: text("stage").$type<TIngestStage>().notNull(),
     userId: text("user_id").notNull(),
-    status: text("status").$type<JobStatus>().notNull().default("queued"),
+    status: text("status").$type<TJobStatus>().notNull().default("queued"),
     attempts: integer("attempts").notNull().default(0),
     runAfter: timestamp("run_after", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     lastError: text("last_error"),
@@ -524,7 +525,14 @@ export const ingestJobs = pgTable(
   ],
 );
 
-/** Per-call AI spend metering. Recording only; nothing here gates ingestion. */
+/**
+ * Per-call AI spend metering. Recording only; nothing here gates ingestion.
+ *
+ * None of the token columns carries a default, deliberately: a default makes
+ * an omitted count look like a real zero, and drizzle's insert type stops
+ * demanding it. Without one, forgetting a count is a compile error, and the
+ * row either states what the call cost or it does not get written.
+ */
 export const aiUsageEvents = pgTable(
   "ai_usage_events",
   {
@@ -532,10 +540,14 @@ export const aiUsageEvents = pgTable(
     userId: text("user_id").notNull(),
     messageId: uuid("message_id"),
     attachmentId: uuid("attachment_id"),
-    kind: text("kind").$type<"vision" | "transcribe" | "enrich" | "extract">().notNull(),
-    model: text("model").notNull(),
-    inputTokens: integer("input_tokens").notNull().default(0),
-    outputTokens: integer("output_tokens").notNull().default(0),
+    kind: text("kind").$type<TUsageKind>().notNull(),
+    model: text("model").$type<TAiModel>().notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    /** Read out of the prompt cache, billed ~10x cheaper. Part of `inputTokens`. */
+    cachedInputTokens: integer("cached_input_tokens").notNull(),
+    /** Written into the prompt cache, billed at a 25% premium. Also part of it. */
+    cacheWriteTokens: integer("cache_write_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
     costUsd: numeric("cost_usd", { precision: 12, scale: 8, mode: "number" }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },

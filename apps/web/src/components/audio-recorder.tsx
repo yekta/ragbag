@@ -6,8 +6,8 @@ import {
   formatElapsed,
   recordingSupported,
   startRecording,
-  type RecorderHandle,
-  type Recording,
+  type TRecorderHandle,
+  type TRecording,
 } from "@/lib/recorder";
 
 // The composer's mic (plan §8.5): tap to start, a live elapsed timer, stop,
@@ -17,11 +17,11 @@ import {
 // Mic permission denial gets a real state rather than a dead button: the one
 // thing a recorder must never do is look like it is working when it is not.
 
-export function AudioRecorder({ onRecorded }: { onRecorded: (recording: Recording) => void }) {
-  const [handle, setHandle] = useState<RecorderHandle | null>(null);
+export function AudioRecorder({ onRecorded }: { onRecorded: (recording: TRecording) => void }) {
+  const [handle, setHandle] = useState<TRecorderHandle | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [denied, setDenied] = useState(false);
-  const handleRef = useRef<RecorderHandle | null>(null);
+  const handleRef = useRef<TRecorderHandle | null>(null);
   handleRef.current = handle;
 
   // The timer polls the recorder rather than counting its own ticks: a tab

@@ -1,14 +1,14 @@
 import { groupHits, TimelineSearchIndex } from "@ragbag/client-runtime";
-import type { ResultGroup, SearchDoc, SearchHit } from "@ragbag/client-runtime";
-import type { EntityTypes } from "@ragbag/shared";
+import type { TResultGroup, TSearchDoc, TSearchHit } from "@ragbag/client-runtime";
+import type { TEntityTypes } from "@ragbag/shared";
 import { useEffect, useMemo, useRef } from "react";
 import type {
-  Attachment,
-  AttachmentContent,
-  Messages,
-  EntityRow,
-  EntityRows,
-  Message,
+  TAttachment,
+  TAttachmentContent,
+  TMessages,
+  TEntityRow,
+  TEntityRows,
+  TMessage,
 } from "./types.js";
 
 // Feeds the local index (client-runtime) from Zero's live queries. Three doc
@@ -27,7 +27,7 @@ import type {
 // files inside messages as much as what the pipeline found in them, each its
 // own row rather than folded into the message that carried it.
 
-function messageDoc(message: Message): SearchDoc {
+function messageDoc(message: TMessage): TSearchDoc {
   return {
     id: `message:${message.id}`,
     type: "message",
@@ -52,7 +52,7 @@ function messageDoc(message: Message): SearchDoc {
   };
 }
 
-function attachmentDocs(message: Message, bodies: ReadonlyMap<string, string>): SearchDoc[] {
+function attachmentDocs(message: TMessage, bodies: ReadonlyMap<string, string>): TSearchDoc[] {
   return message.attachments.map((attachment) => ({
     id: `attachment:${attachment.id}`,
     type: "attachment" as const,
@@ -76,8 +76,8 @@ function attachmentDocs(message: Message, bodies: ReadonlyMap<string, string>): 
  * The type's own vocabulary rides along, so "brand" finds every brand and a
  * field's label finds what is under it.
  */
-function entityDocs(entities: EntityRows, types: EntityTypes): SearchDoc[] {
-  const docs: SearchDoc[] = [];
+function entityDocs(entities: TEntityRows, types: TEntityTypes): TSearchDoc[] {
+  const docs: TSearchDoc[] = [];
   for (const entity of entities) {
     // An entity with no live mention is not in any view, so it is not a result.
     if (entity.mentions.length === 0) continue;
@@ -105,13 +105,13 @@ function entityDocs(entities: EntityRows, types: EntityTypes): SearchDoc[] {
 }
 
 export function buildSearchDocs(
-  messages: Messages,
-  contents: readonly AttachmentContent[],
-  entities: EntityRows,
-  types: EntityTypes,
-): SearchDoc[] {
+  messages: TMessages,
+  contents: readonly TAttachmentContent[],
+  entities: TEntityRows,
+  types: TEntityTypes,
+): TSearchDoc[] {
   const bodies = new Map(contents.map((c) => [c.attachmentId, c.contentMd]));
-  const docs: SearchDoc[] = [];
+  const docs: TSearchDoc[] = [];
   for (const message of messages) {
     docs.push(messageDoc(message));
     docs.push(...attachmentDocs(message, bodies));
@@ -121,10 +121,10 @@ export function buildSearchDocs(
 }
 
 export function useTimelineSearch(
-  messages: Messages,
-  contents: readonly AttachmentContent[],
-  entities: EntityRows,
-  types: EntityTypes,
+  messages: TMessages,
+  contents: readonly TAttachmentContent[],
+  entities: TEntityRows,
+  types: TEntityTypes,
 ): TimelineSearchIndex {
   const indexRef = useRef<TimelineSearchIndex | null>(null);
   indexRef.current ??= new TimelineSearchIndex();
@@ -137,19 +137,19 @@ export function useTimelineSearch(
 }
 
 export { RESULT_GROUPS } from "@ragbag/client-runtime";
-export type { ResultGroup } from "@ragbag/client-runtime";
+export type { TResultGroup } from "@ragbag/client-runtime";
 
 /** One row of results: a message, or a thing (a file, or something found in one). */
-export type Result = {
-  group: ResultGroup;
+export type TResult = {
+  group: TResultGroup;
   /** Which hit put it here, for its score and the terms it matched. */
-  hit: SearchHit;
+  hit: TSearchHit;
   /** The message this row opens: a Messages row's own, or the one a file came in. */
-  message?: Message;
+  message?: TMessage;
   /** A Things row that is a file, alongside the message above. */
-  attachment?: Attachment;
+  attachment?: TAttachment;
   /** A Things row that is an entity. */
-  entity?: EntityRow;
+  entity?: TEntityRow;
 };
 
 /**
@@ -161,10 +161,10 @@ export type Result = {
  */
 export function useSearchResults(
   index: TimelineSearchIndex,
-  messages: Messages,
-  entities: EntityRows,
+  messages: TMessages,
+  entities: TEntityRows,
   query: string,
-): Result[] {
+): TResult[] {
   // Keyed on the archive rather than on the query: these three answer both
   // "does this still exist" and "what do I render it from", and neither
   // question changes between keystrokes.
@@ -173,7 +173,7 @@ export function useSearchResults(
     const byEntity = new Map(entities.map((e) => [e.id, e]));
     // A file is its own row now, so it is addressed by its own id, and the
     // message it came in rides along: that is what the row opens.
-    const byAttachment = new Map<string, { message: Message; attachment: Attachment }>();
+    const byAttachment = new Map<string, { message: TMessage; attachment: TAttachment }>();
     for (const message of messages) {
       for (const attachment of message.attachments) {
         byAttachment.set(attachment.id, { message, attachment });

@@ -1,4 +1,4 @@
-import type { BlobVariant } from "@ragbag/contracts";
+import type { TBlobVariant } from "@ragbag/contracts";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { thumbHashToDataURL } from "thumbhash";
 import { Icon } from "@/components/icon";
@@ -133,7 +133,7 @@ export function MediaImage({
    * outside the service worker's tiers on purpose, so it is fetched rather
    * than kept: several megabytes each would evict thousands of thumbnails.
    */
-  variant: BlobVariant;
+  variant: TBlobVariant;
   placeholder: string | null | undefined;
   alt: string;
   className?: string;

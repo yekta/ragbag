@@ -1,6 +1,6 @@
 import { queries } from "@ragbag/contracts";
 import { resolveEntityTypes, typeFromRows } from "@ragbag/shared";
-import type { EntityTypeDef, EntityTypes } from "@ragbag/shared";
+import type { TEntityTypeDef, TEntityTypes } from "@ragbag/shared";
 import { useQuery } from "@rocicorp/zero/react";
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { rememberDeclaredSlugs } from "./thing-slugs.js";
@@ -19,13 +19,13 @@ import { rememberDeclaredSlugs } from "./thing-slugs.js";
 
 const NO_TYPES = resolveEntityTypes([]);
 
-const EntityTypesContext = createContext<EntityTypes>(NO_TYPES);
+const EntityTypesContext = createContext<TEntityTypes>(NO_TYPES);
 
 export function EntityTypesProvider({ children }: { children: ReactNode }) {
   const [rows] = useQuery(queries.entityTypes());
 
   const types = useMemo(() => {
-    const declared: EntityTypeDef[] = [];
+    const declared: TEntityTypeDef[] = [];
     for (const row of rows) {
       // Null for a row this build cannot compile (a field type from a newer
       // one). Skipping that type is the graceful answer: everything else in the
@@ -46,6 +46,6 @@ export function EntityTypesProvider({ children }: { children: ReactNode }) {
 }
 
 /** The set of kinds in effect: this user's types, as last synced. */
-export function useEntityTypes(): EntityTypes {
+export function useEntityTypes(): TEntityTypes {
   return useContext(EntityTypesContext);
 }

@@ -1,5 +1,5 @@
 import { BlobQueue } from "@ragbag/client-runtime";
-import type { BlobQueueState, BlobUploadState } from "@ragbag/client-runtime";
+import type { TBlobQueueState, TBlobUploadState } from "@ragbag/client-runtime";
 import {
   createContext,
   useContext,
@@ -34,7 +34,7 @@ export function useBlobQueue(): BlobQueue {
   return queue;
 }
 
-export function useBlobQueueState(): BlobQueueState {
+export function useBlobQueueState(): TBlobQueueState {
   const queue = useBlobQueue();
   return useSyncExternalStore(
     (cb) => queue.subscribe(cb),
@@ -47,7 +47,7 @@ export function useBlobQueueState(): BlobQueueState {
  * which for anything this device captured means "uploaded". Entry identity is
  * stable between queue notifications, so this is safe for useSyncExternalStore.
  */
-export function useBlobUploadState(blobId: string | null | undefined): BlobUploadState | null {
+export function useBlobUploadState(blobId: string | null | undefined): TBlobUploadState | null {
   const queue = useBlobQueue();
   return useSyncExternalStore(
     (cb) => queue.subscribe(cb),
@@ -121,7 +121,7 @@ function resolveUrl(queue: BlobQueue, blobId: string): Promise<string | null> {
   return promise;
 }
 
-export type BlobUrlState = {
+export type TBlobUrlState = {
   /** Object URL for the bytes, or null while it resolves and if it cannot. */
   url: string | null;
   /**
@@ -133,18 +133,18 @@ export type BlobUrlState = {
   settled: boolean;
 };
 
-const UNRESOLVED: BlobUrlState = { url: null, settled: false };
+const UNRESOLVED: TBlobUrlState = { url: null, settled: false };
 
 /**
  * Object URL for a blob's bytes: instantly from the local store when this
  * device captured (or previously viewed) it, else lazily downloaded and
  * cached. Null while loading or when unavailable offline.
  */
-export function useBlobUrlState(blobId: string | null | undefined): BlobUrlState {
+export function useBlobUrlState(blobId: string | null | undefined): TBlobUrlState {
   const queue = useBlobQueue();
   // Seeded synchronously: an already-resolved blob never goes through a
   // placeholder state again for the rest of the session.
-  const [state, setState] = useState<BlobUrlState>(() => resolved(blobId));
+  const [state, setState] = useState<TBlobUrlState>(() => resolved(blobId));
 
   useEffect(() => {
     // Same object when nothing changed, so a re-render is not a state update.
@@ -163,7 +163,7 @@ export function useBlobUrlState(blobId: string | null | undefined): BlobUrlState
   return state;
 }
 
-function resolved(blobId: string | null | undefined): BlobUrlState {
+function resolved(blobId: string | null | undefined): TBlobUrlState {
   const url = (blobId && resolvedUrls.get(blobId)) || null;
   return url ? { url, settled: true } : UNRESOLVED;
 }

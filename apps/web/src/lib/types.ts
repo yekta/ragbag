@@ -6,41 +6,41 @@ import type { QueryResultType } from "@rocicorp/zero";
 // definitions so a contracts change breaks the build here instead of at
 // runtime.
 
-export type Messages = QueryResultType<typeof queries.messages>;
-export type Message = Messages[number];
-export type Attachment = Message["attachments"][number];
+export type TMessages = QueryResultType<typeof queries.messages>;
+export type TMessage = TMessages[number];
+export type TAttachment = TMessage["attachments"][number];
 /** One occurrence of an entity inside a message, with the entity attached. */
-export type Mention = Message["mentions"][number];
-export type MessageTagLink = Message["tags"][number];
+export type TMention = TMessage["mentions"][number];
+export type TMessageTagLink = TMessage["tags"][number];
 
-export type MessageDetail = QueryResultType<typeof queries.message>;
+export type TMessageDetail = QueryResultType<typeof queries.message>;
 /** The detail view's attachments carry their content_md; the chat's do not. */
-export type DetailAttachment = NonNullable<MessageDetail>["attachments"][number];
+export type TDetailAttachment = NonNullable<TMessageDetail>["attachments"][number];
 
 /** One file on its own page: its content, its message, its mentions, its tags. */
-export type AttachmentDetail = QueryResultType<typeof queries.attachment>;
+export type TAttachmentDetail = QueryResultType<typeof queries.attachment>;
 
 /**
  * The entity columns, without relations: what a card needs and what a mention
- * carries. `EntityRow` (which also has its mentions and tags) is assignable to
+ * carries. `TEntityRow` (which also has its mentions and tags) is assignable to
  * it, so one card component serves the chat strip, the things list and the
  * entity page.
  */
-export type EntityFields = NonNullable<Mention["entity"]>;
+export type TEntityFields = NonNullable<TMention["entity"]>;
 
-export type EntityRows = QueryResultType<typeof queries.entities>;
-export type EntityRow = EntityRows[number];
-export type EntityDetail = QueryResultType<typeof queries.entity>;
+export type TEntityRows = QueryResultType<typeof queries.entities>;
+export type TEntityRow = TEntityRows[number];
+export type TEntityDetail = QueryResultType<typeof queries.entity>;
 
-export type AttachmentContent = QueryResultType<typeof queries.contents>[number];
-export type TagRow = QueryResultType<typeof queries.tags>[number];
+export type TAttachmentContent = QueryResultType<typeof queries.contents>[number];
+export type TTagRow = QueryResultType<typeof queries.tags>[number];
 
 /**
  * One of the user's entity types, with its fields: what settings edits.
  *
- * Not the same thing as `EntityTypeRow` in @ragbag/shared, which is the
+ * Not the same thing as `TEntityTypeRow` in @ragbag/shared, which is the
  * structural shape the compiler reads. This is the synced row, ids and all,
  * because the mutators address a type by its id.
  */
-export type TypeRow = QueryResultType<typeof queries.entityTypes>[number];
-export type TypeFieldRow = TypeRow["fields"][number];
+export type TTypeRow = QueryResultType<typeof queries.entityTypes>[number];
+export type TTypeFieldRow = TTypeRow["fields"][number];

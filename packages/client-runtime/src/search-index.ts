@@ -18,12 +18,12 @@ import MiniSearch from "minisearch";
 
 /** What a hit is about. Three doc types share one index (plan §7). */
 export const DOC_TYPES = ["message", "attachment", "entity"] as const;
-export type DocType = (typeof DOC_TYPES)[number];
+export type TDocType = (typeof DOC_TYPES)[number];
 
-export type SearchDoc = {
+export type TSearchDoc = {
   /** `${type}:${id}`, because an entity and a message can share neither. */
   id: string;
-  type: DocType;
+  type: TDocType;
   /**
    * The message this doc belongs to, so message and attachment hits can collapse
    * into one row.
@@ -48,10 +48,10 @@ export type SearchDoc = {
   body: string;
 };
 
-export type SearchHit = {
+export type TSearchHit = {
   id: string;
-  type: DocType;
-  /** Absent on an entity hit; see `SearchDoc.messageId`. */
+  type: TDocType;
+  /** Absent on an entity hit; see `TSearchDoc.messageId`. */
   messageId?: string;
   targetId: string;
   score: number;
@@ -69,7 +69,7 @@ function clamp(value: string): string {
 }
 
 export class TimelineSearchIndex {
-  #mini = new MiniSearch<SearchDoc>({
+  #mini = new MiniSearch<TSearchDoc>({
     fields: [...INDEX_FIELDS],
     // `type` and `messageId` come back on the hit, so the overlay can group
     // and collapse results without a second lookup per row.
@@ -98,10 +98,10 @@ export class TimelineSearchIndex {
    * and the second is this same call with the document bodies filled in. Only
    * the docs that actually changed are touched.
    */
-  sync(docs: readonly SearchDoc[]): void {
+  sync(docs: readonly TSearchDoc[]): void {
     const seen = new Set<string>();
     for (const raw of docs) {
-      const doc: SearchDoc = {
+      const doc: TSearchDoc = {
         ...raw,
         text: clamp(raw.text),
         entities: clamp(raw.entities),
@@ -123,7 +123,7 @@ export class TimelineSearchIndex {
     }
   }
 
-  search(query: string, limit = 80): SearchHit[] {
+  search(query: string, limit = 80): TSearchHit[] {
     const q = query.trim();
     if (!q) return [];
     return this.#mini
@@ -131,7 +131,7 @@ export class TimelineSearchIndex {
       .slice(0, limit)
       .map((r) => ({
         id: String(r.id),
-        type: r.type as DocType,
+        type: r.type as TDocType,
         // Stored, so absent rather than the string "undefined" on entity docs.
         messageId: typeof r.messageId === "string" ? r.messageId : undefined,
         targetId: String(r.targetId),

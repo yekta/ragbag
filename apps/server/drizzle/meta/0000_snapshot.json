@@ -1,5 +1,5 @@
 {
-  "id": "0fb3d6c8-9b5a-4317-8c0a-e07ef3eee6b4",
+  "id": "376c62f6-58f6-42d2-85ce-2e795469ea1d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -171,15 +171,25 @@
           "name": "input_tokens",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 0
+          "notNull": true
+        },
+        "cached_input_tokens": {
+          "name": "cached_input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cache_write_tokens": {
+          "name": "cache_write_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
         },
         "output_tokens": {
           "name": "output_tokens",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 0
+          "notNull": true
         },
         "cost_usd": {
           "name": "cost_usd",

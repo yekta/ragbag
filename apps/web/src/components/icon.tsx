@@ -1,4 +1,4 @@
-import type { AttachmentFace } from "@ragbag/shared";
+import type { TAttachmentFace } from "@ragbag/shared";
 import {
   ArrowUpIcon,
   AudioLinesIcon,
@@ -103,13 +103,13 @@ const ICONS = {
   x: XIcon,
 } as const;
 
-export type IconName = keyof typeof ICONS;
+export type TIconName = keyof typeof ICONS;
 
 /**
  * What a type may pick from in settings: icons that stand for a thing, not for
  * a control. A spinner or a close cross is chrome, and no kind of thing is one.
  */
-export const TYPE_ICONS: readonly IconName[] = [
+export const TYPE_ICONS: readonly TIconName[] = [
   "sparkles",
   "link",
   "address",
@@ -133,7 +133,7 @@ export function Icon({
   className = "size-4",
   filled = false,
 }: {
-  name: IconName;
+  name: TIconName;
   className?: string;
   filled?: boolean;
 }) {
@@ -154,7 +154,7 @@ export const FACE_ICON = {
   pdf: "pdf",
   audio: "audio",
   file: "file",
-} as const satisfies Record<AttachmentFace, IconName>;
+} as const satisfies Record<TAttachmentFace, TIconName>;
 
 /**
  * What a file's own page calls it.
@@ -170,7 +170,7 @@ export const FACE_LABEL = {
   pdf: "PDF",
   audio: "Audio",
   file: "File",
-} as const satisfies Record<AttachmentFace, string>;
+} as const satisfies Record<TAttachmentFace, string>;
 
 /**
  * An icon named by a type rather than by this build.
@@ -179,6 +179,6 @@ export const FACE_LABEL = {
  * build does not have: a typo, or one a newer build ships. Falling back to the
  * generic sparkle is not an error worth crashing a card over (plan §3.3).
  */
-export function iconNamed(name: string | undefined): IconName {
-  return name && name in ICONS ? (name as IconName) : "sparkles";
+export function iconNamed(name: string | undefined): TIconName {
+  return name && name in ICONS ? (name as TIconName) : "sparkles";
 }

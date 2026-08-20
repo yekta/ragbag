@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { runMutation } from "@/lib/mutate";
-import type { TypeRow } from "@/lib/types";
+import type { TTypeRow } from "@/lib/types";
 
 // Deleting a type is two different intentions, and only one of them loses
 // anything (plan §9.2). Turning it off is a third, and it is the switch on the
@@ -28,7 +28,7 @@ export function DeleteTypeDialog({
   onClose,
   onDeleted,
 }: {
-  type: TypeRow;
+  type: TTypeRow;
   onClose: () => void;
   onDeleted: () => void;
 }) {

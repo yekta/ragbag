@@ -3,7 +3,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { env } from "../env.js";
 import { openai } from "./openai.js";
-import { recordUsage } from "./usage.js";
+import { recordUsage, tokenUsage } from "./usage.js";
 
 // Phase A for PDFs (plan §5.2), second half: the scanned ones.
 //
@@ -46,7 +46,7 @@ const PdfTranscription = z.object({
   content_md: z.string(),
 });
 
-export type PdfOcrResult = z.infer<typeof PdfTranscription> & {
+export type TPdfOcrResult = z.infer<typeof PdfTranscription> & {
   /** True when the page cap bit and only the leading pages were considered. */
   truncated: boolean;
 };
@@ -74,7 +74,7 @@ export async function transcribePdf(input: {
   userId: string;
   messageId: string;
   attachmentId: string;
-}): Promise<PdfOcrResult | null> {
+}): Promise<TPdfOcrResult | null> {
   if (!openai) return null;
   if (input.numPages > env.AI_PDF_MAX_PAGES) {
     throw new PdfTooLongError(
@@ -124,8 +124,8 @@ export async function transcribePdf(input: {
     attachmentId: input.attachmentId,
     kind: "extract",
     model: env.AI_ENRICH_MODEL,
-    inputTokens: res.usage?.input_tokens ?? 0,
-    outputTokens: res.usage?.output_tokens ?? 0,
+    seconds: 0,
+    ...tokenUsage({ usage: res.usage, stage: "extract" }),
   });
 
   return res.output_parsed ? { ...res.output_parsed, truncated: false } : null;

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { env } from "../env.js";
 import { PermanentError } from "./errors.js";
 import { openai } from "./openai.js";
-import { recordUsage } from "./usage.js";
+import { recordUsage, tokenUsage } from "./usage.js";
 
 // Phase A for images (plan §5.2): one vision call returns a description plus
 // any legible text (OCR) as structured output, which the pipeline folds into
@@ -19,7 +19,7 @@ const ImageDescription = z.object({
   ocr_text: z.string(),
 });
 
-export type ImageExtraction = z.infer<typeof ImageDescription>;
+export type TImageExtraction = z.infer<typeof ImageDescription>;
 
 const MAX_VISION_BYTES = 12 * 1024 * 1024;
 
@@ -29,7 +29,7 @@ export async function describeImage(input: {
   userId: string;
   messageId: string;
   attachmentId: string;
-}): Promise<ImageExtraction | null> {
+}): Promise<TImageExtraction | null> {
   if (!openai || input.bytes.byteLength > MAX_VISION_BYTES) return null;
 
   const dataUrl = `data:${input.mime};base64,${Buffer.from(input.bytes).toString("base64")}`;
@@ -73,8 +73,8 @@ export async function describeImage(input: {
     attachmentId: input.attachmentId,
     kind: "vision",
     model: env.AI_ENRICH_MODEL,
-    inputTokens: res.usage?.input_tokens ?? 0,
-    outputTokens: res.usage?.output_tokens ?? 0,
+    seconds: 0,
+    ...tokenUsage({ usage: res.usage, stage: "vision" }),
   });
   return res.output_parsed;
 }

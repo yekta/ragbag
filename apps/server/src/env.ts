@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+import { AI_MODEL_AUDIO_TRANSCRIPTION_ENUM, AI_MODEL_LLM_ENUM } from "./ingest/models.js";
 
 // Dev convenience: pick up the repo-root .env (compose uses the same file).
 // Already-set variables win; production containers just set real env vars.
@@ -62,15 +63,17 @@ const shape = {
   // Optional in dev/test so the stack boots without credentials.
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),
-  // Vision, the scanned-PDF pass and synthesis all share this one.
-  AI_ENRICH_MODEL: z.string().default("gpt-5.6-luna"),
-  // Transcription. The default is the current model and the cheapest of them
-  // per minute, but it returns the words with no timings, so a transcript is
-  // a paragraph rather than a list of timecodes to seek by. The two that do
-  // carry timings are `gpt-4o-transcribe-diarize` (also labels the speakers,
-  // about four times the price) and `whisper-1` (older, no speakers). The
-  // request shape follows the model; see ingest/extract-audio.ts.
-  AI_TRANSCRIBE_MODEL: z.string().default("gpt-transcribe"),
+  // Vision, the scanned-PDF pass and synthesis all share this one. Validated
+  // against the allow-list in ingest/models.ts rather than taken as a string:
+  // a model with no price entry meters every call at $0.00, and a misspelled
+  // one 404s on every message, both of them quietly. Refusing to boot is the
+  // only version of this that anyone notices. luna is the cheap high-volume
+  // tier; terra and sol are the step-ups, at 10x and 25x the output rate.
+  AI_ENRICH_MODEL: AI_MODEL_LLM_ENUM.default("gpt-5.6-luna"),
+  // Transcription, billed by the minute rather than by tokens. The request
+  // shape follows the model, so adding one here means declaring the response
+  // format it speaks too; see ingest/models.ts.
+  AI_TRANSCRIBE_MODEL: AI_MODEL_AUDIO_TRANSCRIPTION_ENUM.default("gpt-transcribe"),
   // How a PDF handed to the model is rendered. The real cost lever: `auto`
   // means high-quality rendering and more input tokens per page (plan §5.2).
   AI_PDF_DETAIL: z.enum(["auto", "low", "high"]).default("low"),
@@ -108,9 +111,9 @@ export const EnvSchema = z.object(shape).superRefine((cfg, ctx) => {
   }
 });
 
-export type Env = z.infer<typeof EnvSchema>;
+export type TEnv = z.infer<typeof EnvSchema>;
 
-export const env: Env = createEnv({
+export const env: TEnv = createEnv({
   server: shape,
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

@@ -21,8 +21,10 @@ CREATE TABLE "ai_usage_events" (
 	"attachment_id" uuid,
 	"kind" text NOT NULL,
 	"model" text NOT NULL,
-	"input_tokens" integer DEFAULT 0 NOT NULL,
-	"output_tokens" integer DEFAULT 0 NOT NULL,
+	"input_tokens" integer NOT NULL,
+	"cached_input_tokens" integer NOT NULL,
+	"cache_write_tokens" integer NOT NULL,
+	"output_tokens" integer NOT NULL,
 	"cost_usd" numeric(12, 8) NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );

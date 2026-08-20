@@ -1,7 +1,13 @@
 import { toFile } from "openai";
-import type { AudioSegment } from "@ragbag/shared";
+import type { TAudioSegment } from "@ragbag/shared";
 import { env } from "../env.js";
 import { prepareAudio } from "./audio-input.js";
+import { PermanentError } from "./errors.js";
+import {
+  AI_MODEL_AUDIO_TRANSCRIPTION_RESPONSE_FORMAT,
+  chunkingStrategyFor,
+  type TTranscriptionResponseFormat,
+} from "./models.js";
 import { openai } from "./openai.js";
 import { recordUsage } from "./usage.js";
 
@@ -13,32 +19,14 @@ import { recordUsage } from "./usage.js";
 // `.m4a` someone drags in: the composer's mic produces an ordinary audio
 // attachment, identical downstream (plan §8.5).
 
-export type Transcription = {
+export type TTranscription = {
   /** `[mm:ss] text`, one line per segment (plan §5.3). */
   contentMd: string;
   /** The same lines as data, so the player can seek to a search hit. */
-  segments: AudioSegment[];
+  segments: TAudioSegment[];
   /** 1-3 sentences, or the opening of the transcript when it is short. */
   summary: string;
 };
-
-/**
- * The response the configured model can actually return.
- *
- * There is no format all of them take, and asking for the wrong one is a hard
- * 400 that loses the whole call ("response_format 'verbose_json' is not
- * compatible with model 'gpt-transcribe'"), which is how every recording came
- * back as `transcription failed` instead of words. Timings only exist in two
- * of these: whisper's `verbose_json` and the diarizing model's
- * `diarized_json`, which also names the speakers. Everything else returns the
- * text alone, and the transcript degrades to a paragraph with no timecodes to
- * seek by.
- */
-export function responseFormatFor(model: string): "verbose_json" | "diarized_json" | "json" {
-  if (model.includes("diarize")) return "diarized_json";
-  if (model.startsWith("whisper")) return "verbose_json";
-  return "json";
-}
 
 export async function transcribeAudio(input: {
   bytes: Uint8Array;
@@ -47,33 +35,35 @@ export async function transcribeAudio(input: {
   userId: string;
   messageId: string;
   attachmentId: string;
-}): Promise<Transcription | null> {
+}): Promise<TTranscription | null> {
   if (!openai) return null;
 
   // Named and, where it has to be, re-encoded as something the endpoint
   // accepts: it reads the extension, not the bytes (see audio-input.ts).
   const audio = await prepareAudio(input);
-  const format = responseFormatFor(env.AI_TRANSCRIBE_MODEL);
+  // Widened on purpose: the table only holds `json` today, and narrowing to
+  // that literal would make the diarizing branch below a type error rather
+  // than the dormant path it is.
+  const format: TTranscriptionResponseFormat =
+    AI_MODEL_AUDIO_TRANSCRIPTION_RESPONSE_FORMAT[env.AI_TRANSCRIBE_MODEL];
   const res = await openai.audio.transcriptions.create({
     model: env.AI_TRANSCRIBE_MODEL,
     file: await toFile(Buffer.from(audio.bytes), audio.filename, { type: audio.mime }),
     response_format: format,
-    // The diarizing model refuses the call outright without this once a
-    // recording runs past 30 seconds ("chunking_strategy is required for
-    // diarization models"), which is most of them. `auto` is its own
-    // voice-activity split.
-    ...(format === "diarized_json" ? { chunking_strategy: "auto" as const } : {}),
+    ...chunkingStrategyFor(format),
   });
 
   // One read for all three shapes: the two that carry timings agree on
   // start/end/text and differ only in `speaker`, and plain `json` is the text
-  // on its own. Usage comes back as tokens from the models billed that way
-  // and as seconds from the rest.
+  // on its own. `usage` is the SDK's own discriminated union: models billed
+  // by the minute report `duration`, models billed by tokens report `tokens`.
   const raw = res as unknown as {
     text?: string;
     duration?: number;
     segments?: { start: number; end: number; text: string; speaker?: string }[];
-    usage?: { input_tokens?: number; output_tokens?: number; seconds?: number };
+    usage?:
+      | { type: "duration"; seconds: number }
+      | { type: "tokens"; input_tokens: number; output_tokens: number };
   };
   const segments = namedSpeakers(
     (raw.segments ?? []).map((s) => ({
@@ -86,19 +76,29 @@ export async function transcribeAudio(input: {
   const text = (raw.text ?? "").trim();
   if (!text && segments.length === 0) return null;
 
+  // Every transcription model in the enum is priced per minute, so the
+  // duration is the only thing that meters this call. Without it the row
+  // would say $0.00 about audio that was really paid for, so say so instead.
+  if (raw.usage?.type !== "duration") {
+    throw new PermanentError(
+      `OpenAI returned no audio duration for the transcribe call (${raw.usage?.type ?? "no usage"}), so it cannot be metered`,
+    );
+  }
   await recordUsage({
     userId: input.userId,
     messageId: input.messageId,
     attachmentId: input.attachmentId,
     kind: "transcribe",
     model: env.AI_TRANSCRIBE_MODEL,
-    inputTokens: raw.usage?.input_tokens ?? 0,
-    outputTokens: raw.usage?.output_tokens ?? 0,
-    seconds: raw.usage?.seconds ?? 0,
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    seconds: raw.usage.seconds,
   });
 
   return {
-    contentMd: transcriptMarkdown(segments, text),
+    contentMd: transcriptMarkdown({ segments, fallback: text }),
     segments,
     summary: text.slice(0, 400),
   };
@@ -109,7 +109,7 @@ export async function transcribeAudio(input: {
  * A diarized note of one person talking comes back "A" on every segment,
  * which is a column of noise down the transcript and down `content_md`.
  */
-export function namedSpeakers(segments: AudioSegment[]): AudioSegment[] {
+export function namedSpeakers(segments: TAudioSegment[]): TAudioSegment[] {
   const distinct = new Set(segments.map((s) => s.speaker).filter(Boolean));
   if (distinct.size > 1) return segments;
   return segments.map((s) => ({ start: s.start, end: s.end, text: s.text }));
@@ -121,9 +121,12 @@ export function namedSpeakers(segments: AudioSegment[]): AudioSegment[] {
  * parsing contract. A transcript with no timings degrades to the plain text,
  * because the format is a convention, not a schema.
  */
-export function transcriptMarkdown(segments: readonly AudioSegment[], fallback: string): string {
-  if (segments.length === 0) return fallback;
-  return segments
+export function transcriptMarkdown(input: {
+  segments: readonly TAudioSegment[];
+  fallback: string;
+}): string {
+  if (input.segments.length === 0) return input.fallback;
+  return input.segments
     .map((s) => `[${stamp(s.start)}]${s.speaker ? ` ${s.speaker}:` : ""} ${s.text}`)
     .join("\n");
 }

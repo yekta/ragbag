@@ -8,15 +8,15 @@ import { clearArchiveHint } from "@/lib/archive-hint";
 // back in to resume sync. Explicit sign-out clears the identity AND the local
 // data (shared-computer safety).
 
-export type Identity = { userID: string; email: string };
+export type TIdentity = { userID: string; email: string };
 
 const KEY = "ragbag:last-user";
 
-export function loadIdentity(): Identity | null {
+export function loadIdentity(): TIdentity | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Identity> & { name?: string };
+    const parsed = JSON.parse(raw) as Partial<TIdentity> & { name?: string };
     if (typeof parsed.userID !== "string") return null;
     // `name` is what this used to hold. A device that last signed in before
     // the switch keeps showing that until its next session lands.
@@ -26,7 +26,7 @@ export function loadIdentity(): Identity | null {
   }
 }
 
-export function saveIdentity(identity: Identity): void {
+export function saveIdentity(identity: TIdentity): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(identity));
   } catch {

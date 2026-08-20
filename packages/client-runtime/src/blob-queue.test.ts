@@ -6,12 +6,12 @@ import { BlobQueue } from "./blob-queue.js";
 // The upload transport is the fetch fallback (no XMLHttpRequest in Node);
 // state-machine behavior is identical either way.
 
-type Handlers = {
+type THandlers = {
   presign?: (body: Record<string, unknown>) => Response | Promise<Response>;
   put?: () => Response | Promise<Response>;
 };
 
-function makeQueue(handlers: Handlers) {
+function makeQueue(handlers: THandlers) {
   const seen = { presigns: 0, puts: 0 };
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -63,7 +63,7 @@ describe("BlobQueue", () => {
   });
 
   it("classifies a blocked PUT as a bucket CORS problem and schedules a retry", async () => {
-    const handlers: Handlers = { presign: presignOk() }; // put: absent → network error
+    const handlers: THandlers = { presign: presignOk() }; // put: absent → network error
     const { queue } = makeQueue(handlers);
 
     const captured = await queue.capture(file("cors-me"));
@@ -84,7 +84,7 @@ describe("BlobQueue", () => {
   });
 
   it("parks on 401 and resumes on notifyAuthChanged", async () => {
-    const handlers: Handlers = {
+    const handlers: THandlers = {
       presign: () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }),
       put: () => new Response(null, { status: 200 }),
     };

@@ -1,4 +1,4 @@
-import type { BlobVariant } from "@ragbag/contracts";
+import type { TBlobVariant } from "@ragbag/contracts";
 import { API_BASE } from "@/lib/api";
 
 // Media delivery, client side (plan §6.3-§6.5).
@@ -30,7 +30,7 @@ import { API_BASE } from "@/lib/api";
  * as it does for every other API call. `API_BASE` is empty in dev, where the
  * Vite proxy already makes this origin-relative.
  */
-export function mediaUrl(blobId: string, variant: BlobVariant): string {
+export function mediaUrl(blobId: string, variant: TBlobVariant): string {
   return `${API_BASE}/api/media/${blobId}/${variant}`;
 }
 
@@ -106,10 +106,10 @@ export function requestPersistence(): void {
   void navigator.storage?.persist?.().catch(() => {});
 }
 
-export type StorageUsage = { usage: number; quota: number; persisted: boolean };
+export type TStorageUsage = { usage: number; quota: number; persisted: boolean };
 
 /** Real numbers, so the caps in the worker are ceilings, not assumptions. */
-export async function storageUsage(): Promise<StorageUsage | null> {
+export async function storageUsage(): Promise<TStorageUsage | null> {
   if (!navigator.storage?.estimate) return null;
   const { usage = 0, quota = 0 } = await navigator.storage.estimate();
   const persisted = (await navigator.storage.persisted?.()) ?? false;
@@ -134,7 +134,7 @@ export async function clearMediaCache(): Promise<void> {
 // server's overwrite nothing (Cache Storage is keyed by URL, and a later miss
 // simply fetches the real one).
 
-const SIZES: Partial<Record<BlobVariant, number>> = { thumb: 400, display: 1600 };
+const SIZES: Partial<Record<TBlobVariant, number>> = { thumb: 400, display: 1600 };
 
 /**
  * Write this device's own copy of a picture into the media caches. Best

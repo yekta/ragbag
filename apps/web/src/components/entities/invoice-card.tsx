@@ -1,6 +1,6 @@
-import { CopyButton, EntityShell, num, str, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, num, str, type TEntityCardProps } from "./shell.js";
 
-export function InvoiceCard({ entity, onOpen }: EntityCardProps) {
+export function InvoiceCard({ entity, onOpen }: TEntityCardProps) {
   const data = entity.data as Record<string, unknown>;
   const vendor = str(data, "vendor") ?? entity.generatedTitle ?? entity.value;
   const amount = num(data, "amount");

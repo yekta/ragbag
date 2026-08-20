@@ -1,4 +1,4 @@
-import type { MetaResponse } from "@ragbag/contracts";
+import type { TMetaResponse } from "@ragbag/contracts";
 import { useEffect, useState, useTransition } from "react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { dropLocalData } from "@/lib/identity";
  * `null` means the shell gave up waiting: the server is unreachable, which is
  * a state to explain rather than a wait to hide.
  */
-export function SignIn({ meta }: { meta: MetaResponse | null }) {
+export function SignIn({ meta }: { meta: TMetaResponse | null }) {
   // Seeded, not empty: arriving here straight off a failed Google round trip is
   // indistinguishable from a first visit unless the error survives the redirect.
   const [error, setError] = useState<string | undefined>(OAUTH_REDIRECT_ERROR);

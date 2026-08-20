@@ -1,4 +1,4 @@
-import type { AuthData } from "@ragbag/contracts";
+import type { TAuthData } from "@ragbag/contracts";
 import { auth } from "./auth.js";
 
 /**
@@ -9,7 +9,7 @@ import { auth } from "./auth.js";
  * session cookie as `Authorization: Bearer <cookie>` (the Zero client's
  * `auth` option), which we translate back into a Cookie header here.
  */
-export async function getAuthData(req: Request): Promise<AuthData | undefined> {
+export async function getAuthData(req: Request): Promise<TAuthData | undefined> {
   const headers = new Headers(req.headers);
   const bearer = headers.get("authorization");
   if (bearer?.startsWith("Bearer ") && !headers.get("cookie")) {

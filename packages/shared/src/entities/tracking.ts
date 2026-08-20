@@ -1,11 +1,11 @@
-import type { EntityBehaviour, EntityCandidate } from "./types.js";
+import type { TEntityBehaviour, TEntityCandidate } from "./types.js";
 
 // Parcel tracking numbers, the clearest case for hybrid extraction (plan
 // §5.4): the strong carrier formats are unmistakable and free to find, while
 // a bare run of digits is only a tracking number if something nearby says so.
 // Model-only extraction confidently labels random alphanumerics as parcels.
 
-type Pattern = { carrier: string; re: RegExp };
+type TPattern = { carrier: string; re: RegExp };
 
 /**
  * Formats no other kind of number shares, so a match is a match on sight.
@@ -20,7 +20,7 @@ type Pattern = { carrier: string; re: RegExp };
  * carrier delivers that street. So the shape is what makes it a tracking
  * number, and the words around it are the only thing that says whose.
  */
-const STRONG: Pattern[] = [
+const STRONG: TPattern[] = [
   { carrier: "ups", re: /\b1Z[0-9A-Z]{16}\b/gi },
   { carrier: "", re: /\b9[2-5]\d{20}\b/g },
   { carrier: "", re: /\bJJD\d{15,20}\b/gi },
@@ -112,9 +112,9 @@ export function trackingUrl(carrier: string, number: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(`${carrier} ${number} tracking`.trim())}`;
 }
 
-export const trackingBehaviour: EntityBehaviour = {
+export const trackingBehaviour: TEntityBehaviour = {
   match(text) {
-    const found: EntityCandidate[] = [];
+    const found: TEntityCandidate[] = [];
     const seen = new Set<string>();
     const add = (value: string, carrier: string, index: number) => {
       const key = value.toUpperCase();

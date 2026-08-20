@@ -1,4 +1,4 @@
-import { CopyButton, EntityShell, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, type TEntityCardProps } from "./shell.js";
 import { useEntityTypes } from "@/lib/entity-types";
 
 // The card for a kind the deployment declared in Postgres. One component for
@@ -13,7 +13,7 @@ import { useEntityTypes } from "@/lib/entity-types";
 /** How many fields fit on a card before the entity's own page is the place. */
 const MAX_ROWS = 4;
 
-export function DeclaredEntityCard({ entity, onOpen }: EntityCardProps) {
+export function DeclaredEntityCard({ entity, onOpen }: TEntityCardProps) {
   const types = useEntityTypes();
   const data = entity.data as Record<string, unknown>;
   const entries = types.fieldEntries(entity.kind, data);

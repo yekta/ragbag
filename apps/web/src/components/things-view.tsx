@@ -15,7 +15,7 @@ import {
   useFilter,
 } from "@/lib/routes";
 import { dayLabel, formatBytes } from "@/lib/format";
-import type { Attachment, Messages, EntityRows, Message } from "@/lib/types";
+import type { TAttachment, TMessages, TEntityRows, TMessage } from "@/lib/types";
 
 // The other half of the sidebar (plan §8.2). Chat-shaped rows filter the chat;
 // thing-shaped rows replace it with a grid (images) or a list (everything
@@ -38,8 +38,8 @@ export function ThingsView({
   entities,
   listRef,
 }: {
-  messages: Messages;
-  entities: EntityRows;
+  messages: TMessages;
+  entities: TEntityRows;
   /** Owned by the shell, which watches it to know when the page has settled. */
   listRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -60,12 +60,12 @@ export function ThingsView({
   );
 }
 
-type Found = { attachment: Attachment; message: Message };
+type TFound = { attachment: TAttachment; message: TMessage };
 
 /** Newest first, and "newest" is the message's time, not the file's position. */
-function useAttachments(messages: Messages, face: string): Found[] {
+function useAttachments(messages: TMessages, face: string): TFound[] {
   return useMemo(() => {
-    const found: Found[] = [];
+    const found: TFound[] = [];
     for (const message of messages) {
       for (const attachment of message.attachments) {
         // `images` is the picture face; `files` is everything that is not one,
@@ -81,7 +81,7 @@ function useAttachments(messages: Messages, face: string): Found[] {
   }, [messages, face]);
 }
 
-function AttachmentThings({ messages, face }: { messages: Messages; face: string }) {
+function AttachmentThings({ messages, face }: { messages: TMessages; face: string }) {
   const found = useAttachments(messages, face);
 
   if (found.length === 0) return <EmptyScreen />;
@@ -142,7 +142,7 @@ function AttachmentThings({ messages, face }: { messages: Messages; face: string
   );
 }
 
-function EntityThings({ entities, kind }: { entities: EntityRows; kind: string }) {
+function EntityThings({ entities, kind }: { entities: TEntityRows; kind: string }) {
   const navigate = useNavigate();
 
   // Mentions to deleted messages are already excluded by the query, so an

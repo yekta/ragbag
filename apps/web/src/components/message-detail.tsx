@@ -30,7 +30,7 @@ import { dayLabel, formatBytes, timeLabel } from "@/lib/format";
 import { attachmentLink, closePanelLink, entityLink } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 import { useMeta } from "@/lib/use-meta";
-import type { DetailAttachment, MessageDetail as MessageDetailRow } from "@/lib/types";
+import type { TDetailAttachment, TMessageDetail as MessageDetailRow } from "@/lib/types";
 
 // The message panel (`?message=<id>`): everything about one message. Rendered
 // above the timeline so scroll position survives.
@@ -148,7 +148,7 @@ export function MessageDetail({ id }: { id: string }) {
             for the one thing on screen. Singular, because that is what this
             is: the sidebar's row is a list and says "Messages", the file panel
             beside this one says "Image" over one image, and a panel holding
-            one message that called itself Messages was naming the list it came
+            one message that called itself TMessages was naming the list it came
             out of. It is the DrawerTitle itself rather than a span beside a
             screen-reader-only copy of the same words, so there is exactly one
             name in the accessibility tree.
@@ -311,7 +311,7 @@ export function MessageDetail({ id }: { id: string }) {
                         })
                       }
                     >
-                      <Icon name="inbox" className="size-3.5" /> Show in Messages
+                      <Icon name="inbox" className="size-3.5" /> Show in TMessages
                     </Button>
                   </div>
                 </div>
@@ -488,7 +488,7 @@ function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
 
   return (
     <section>
-      <SectionHeading>Things Found</SectionHeading>
+      <SectionHeading>Things TFound</SectionHeading>
       <div className="flex flex-col gap-1.5">
         {entities.map((entity) => (
           <EntityCard
@@ -526,7 +526,7 @@ function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
  * component: one call site, and a component with one user is a name to go and
  * look up rather than a rule anyone can follow.
  */
-function AttachmentFindings({ attachment }: { attachment: DetailAttachment }) {
+function AttachmentFindings({ attachment }: { attachment: TDetailAttachment }) {
   const zero = useZero();
   const failed = attachment.status === "failed";
 

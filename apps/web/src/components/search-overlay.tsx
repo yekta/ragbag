@@ -16,9 +16,9 @@ import {
 import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, formatBytes } from "@/lib/format";
 import { attachmentLink, entityLink, messageLink } from "@/lib/routes";
-import { RESULT_GROUPS, useSearchResults, type Result, type ResultGroup } from "@/lib/search";
+import { RESULT_GROUPS, useSearchResults, type TResult, type TResultGroup } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
-import type { Messages, EntityRows } from "@/lib/types";
+import type { TMessages, TEntityRows } from "@/lib/types";
 
 // The single search box: a ⌘K overlay over the local index. Instant,
 // search-as-you-type, fully offline.
@@ -35,13 +35,13 @@ import type { Messages, EntityRows } from "@/lib/types";
 // cmdk owns keyboard navigation, selection and focus; `shouldFilter={false}`
 // because the ranking is ours (minisearch), not cmdk's substring match.
 
-const GROUP_LABEL: Record<ResultGroup, string> = {
+const GROUP_LABEL: Record<TResultGroup, string> = {
   messages: "Messages",
   things: "Things",
 };
 
 /** One line describing what matched, and what it belongs to. */
-function useDescribe(result: Result): {
+function useDescribe(result: TResult): {
   icon: React.ComponentProps<typeof Icon>["name"];
   /** A picture describes itself, so its row takes the icon's place with it. */
   thumb?: { blobId: string; placeholder: string | null };
@@ -109,7 +109,7 @@ function useDescribe(result: Result): {
   };
 }
 
-function ResultRow({ result, onPick }: { result: Result; onPick: () => void }) {
+function ResultRow({ result, onPick }: { result: TResult; onPick: () => void }) {
   const { icon, thumb, title, context, when } = useDescribe(result);
   return (
     <CommandItem value={result.hit.id} onSelect={onPick} className="gap-3 rounded-lg px-3 py-2.5">
@@ -150,8 +150,8 @@ export function SearchOverlay({
   entities,
 }: {
   index: TimelineSearchIndex;
-  messages: Messages;
-  entities: EntityRows;
+  messages: TMessages;
+  entities: TEntityRows;
 }) {
   const { searchOpen, setSearchOpen } = useViewStore();
   const navigate = useNavigate();
@@ -183,7 +183,7 @@ export function SearchOverlay({
     if (searchOpen) setQuery("");
   }, [searchOpen]);
 
-  const pick = (result: Result) => {
+  const pick = (result: TResult) => {
     setSearchOpen(false);
     // Every row opens the thing it drew. A Things row is a thing whether it is
     // an entity or a file, and both have a page of their own; a Messages row

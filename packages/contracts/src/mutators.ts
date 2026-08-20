@@ -12,7 +12,7 @@ import {
   slugFromLabel,
   typeRowFor,
 } from "@ragbag/shared";
-import type { EntityTypeFieldRow, EntityTypeRow } from "@ragbag/shared";
+import type { TEntityTypeFieldRow, TEntityTypeRow } from "@ragbag/shared";
 import { z } from "zod";
 import { mustBeLoggedIn } from "./context.js";
 import { zql } from "./schema.js";
@@ -200,8 +200,8 @@ async function insertType(
   tx: Transaction,
   userID: string,
   id: string,
-  row: EntityTypeRow & { origin: "catalog" | "user" },
-  fields: readonly EntityTypeFieldRow[],
+  row: TEntityTypeRow & { origin: "catalog" | "user" },
+  fields: readonly TEntityTypeFieldRow[],
 ): Promise<void> {
   await tx.mutate.entityTypes.insert({
     id,
@@ -226,7 +226,7 @@ async function insertType(
 async function insertFields(
   tx: Transaction,
   typeId: string,
-  fields: readonly EntityTypeFieldRow[],
+  fields: readonly TEntityTypeFieldRow[],
 ): Promise<void> {
   for (const [position, spec] of fields.entries()) {
     await tx.mutate.entityTypeFields.insert({
@@ -247,7 +247,7 @@ async function insertFields(
 /** What the settings form sends, as the rows the two tables hold. */
 function fieldRowsFromArgs(
   fields: z.infer<typeof setEntityTypeFieldsArgs>["fields"],
-): EntityTypeFieldRow[] {
+): TEntityTypeFieldRow[] {
   return fields.map((spec, position) => ({
     name: spec.name,
     label: spec.label,

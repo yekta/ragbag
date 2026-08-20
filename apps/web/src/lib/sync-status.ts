@@ -17,12 +17,12 @@ import { STATUS_HOLD_MS } from "@/lib/settle";
 // from claiming "Connecting…" on every single load.
 
 /** Zero reports precisely who refused us and with what; pass it on verbatim. */
-type AuthRejection = Extract<
+type TAuthRejection = Extract<
   ReturnType<typeof useConnectionState>,
   { name: "needs-auth" }
 >["reason"];
 
-export type SyncStatus =
+export type TSyncStatus =
   | { name: "synced" }
   | { name: "syncing" }
   | { name: "offline" }
@@ -31,14 +31,14 @@ export type SyncStatus =
   /** The API says this session is gone. Signing in is the fix. */
   | { name: "expired" };
 
-function describeRejection(reason: AuthRejection): string {
+function describeRejection(reason: TAuthRejection): string {
   return reason.type === "zero-cache"
     ? `the sync service reported: ${reason.reason}`
     : `its ${reason.type} endpoint answered ${reason.status}`;
 }
 
 /** Nothing more is coming until something changes, so waiting on sync is pointless. */
-export function isSyncPaused(status: SyncStatus | null): boolean {
+export function isSyncPaused(status: TSyncStatus | null): boolean {
   return status?.name === "offline" || status?.name === "refused" || status?.name === "expired";
 }
 
@@ -57,11 +57,11 @@ function useOnline(): boolean {
   return online;
 }
 
-export function useSyncStatus(sessionExpired: boolean): SyncStatus | null {
+export function useSyncStatus(sessionExpired: boolean): TSyncStatus | null {
   const conn = useConnectionState();
   const online = useOnline();
 
-  let current: SyncStatus;
+  let current: TSyncStatus;
   if (sessionExpired) current = { name: "expired" };
   else if (conn.name === "needs-auth")
     current = { name: "refused", detail: describeRejection(conn.reason) };
@@ -77,8 +77,8 @@ export function useSyncStatus(sessionExpired: boolean): SyncStatus | null {
  * Reports `synced` immediately and everything else only once it has held for
  * `STATUS_HOLD_MS`. Before the first verdict, reports nothing at all.
  */
-function useSettledStatus(current: SyncStatus): SyncStatus | null {
-  const [reported, setReported] = useState<SyncStatus | null>(
+function useSettledStatus(current: TSyncStatus): TSyncStatus | null {
+  const [reported, setReported] = useState<TSyncStatus | null>(
     current.name === "synced" ? current : null,
   );
   // Compared by value, not identity: `refused` carries a string, and every

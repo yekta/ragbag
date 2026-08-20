@@ -5,7 +5,7 @@ import { EmailCard } from "./email-card.js";
 import { InvoiceCard } from "./invoice-card.js";
 import { LinkCard } from "./link-card.js";
 import { PhoneCard } from "./phone-card.js";
-import { CopyButton, EntityShell, MentionsContext, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, MentionsContext, type TEntityCardProps } from "./shell.js";
 import { TrackingCard } from "./tracking-card.js";
 import { useEntityTypes } from "@/lib/entity-types";
 
@@ -16,7 +16,7 @@ import { useEntityTypes } from "@/lib/entity-types";
 // type however they renamed it. Every other kind shares `DeclaredEntityCard`,
 // which draws that type's fields.
 
-const CARDS: Record<string, ComponentType<EntityCardProps>> = {
+const CARDS: Record<string, ComponentType<TEntityCardProps>> = {
   link: LinkCard,
   address: AddressCard,
   tracking: TrackingCard,
@@ -33,7 +33,7 @@ const CARDS: Record<string, ComponentType<EntityCardProps>> = {
  * type tables yet, still has the thing itself, and a chip with its value and a
  * copy button is more use than a blank.
  */
-export function GenericEntityCard({ entity, onOpen }: EntityCardProps) {
+export function GenericEntityCard({ entity, onOpen }: TEntityCardProps) {
   const types = useEntityTypes();
   return (
     <EntityShell
@@ -50,7 +50,7 @@ export function GenericEntityCard({ entity, onOpen }: EntityCardProps) {
   );
 }
 
-export function EntityCard({ mentions = 0, ...props }: EntityCardProps) {
+export function EntityCard({ mentions = 0, ...props }: TEntityCardProps) {
   const declared = useEntityTypes().get(props.entity.kind);
   const Card = CARDS[props.entity.kind] ?? (declared ? DeclaredEntityCard : GenericEntityCard);
   return (

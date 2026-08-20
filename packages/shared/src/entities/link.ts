@@ -1,5 +1,5 @@
 import { normalizeUrl } from "../url.js";
-import type { EntityBehaviour, EntityCandidate } from "./types.js";
+import type { TEntityBehaviour, TEntityCandidate } from "./types.js";
 
 // A bare URL is no longer a kind of message: it is text that produces a link
 // entity, and the entity is what draws the preview card. Because links are
@@ -39,9 +39,9 @@ function trimTrailing(raw: string): string {
   return url;
 }
 
-export const linkBehaviour: EntityBehaviour = {
+export const linkBehaviour: TEntityBehaviour = {
   match(text) {
-    const found: EntityCandidate[] = [];
+    const found: TEntityCandidate[] = [];
     for (const m of text.matchAll(URL_RE)) {
       const value = trimTrailing(m[0]);
       if (normalizeUrl(value)) found.push({ value, data: { url: value }, index: m.index });

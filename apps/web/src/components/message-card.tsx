@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { timeLabel } from "@/lib/format";
 import { entityLink, messageLink } from "@/lib/routes";
-import type { EntityFields, Message } from "@/lib/types";
+import type { TEntityFields, TMessage } from "@/lib/types";
 
 // One timeline entry: the user's text, the attachments they sent with it, and
 // whatever the pipeline found in the whole thing.
@@ -77,7 +77,7 @@ export function Linkified({ text }: { text: string }) {
  * counter on the message, because those are synced and the count is therefore
  * live on every device without a second column to keep in step.
  */
-export function StatusChip({ message }: { message: Message }) {
+export function StatusChip({ message }: { message: TMessage }) {
   const zero = useZero();
   const { status } = message;
   if (status === "done") return null;
@@ -129,7 +129,7 @@ export function StatusChip({ message }: { message: Message }) {
 // Only the user's own tags appear in the timeline. AI tags are generous by
 // design (a dozen per message would drown the cards), so they stay behind the
 // detail view while still powering search and filtering.
-export function TagChips({ message, limit = 8 }: { message: Message; limit?: number }) {
+export function TagChips({ message, limit = 8 }: { message: TMessage; limit?: number }) {
   const userTags = message.tags.filter((t) => t.tag && t.source === "user");
   if (userTags.length === 0) return null;
   const shown = userTags.slice(0, limit);
@@ -160,8 +160,8 @@ export function TagChips({ message, limit = 8 }: { message: Message; limit?: num
  * disagree about how many things are in a message.
  */
 export function messageEntities(
-  mentions: readonly { readonly entity?: EntityFields | null }[],
-): EntityFields[] {
+  mentions: readonly { readonly entity?: TEntityFields | null }[],
+): TEntityFields[] {
   const seen = new Set<string>();
   return mentions.flatMap((mention) => {
     const entity = mention.entity;
@@ -181,7 +181,7 @@ export function messageEntities(
  * findings, no seam, and the card is a plain rounded rectangle again. That
  * property falls out of the design rather than being special-cased.
  */
-function EntityStrip({ message }: { message: Message }) {
+function EntityStrip({ message }: { message: TMessage }) {
   const navigate = useNavigate();
   const entities = messageEntities(message.mentions);
   if (entities.length === 0) return null;
@@ -206,7 +206,7 @@ function EntityStrip({ message }: { message: Message }) {
             one place on the card that can say so once for all of them. */}
         <GroupLabel className="mb-2.5 flex items-center gap-1 font-medium">
           <Icon name="sparkles" className="size-3.5 shrink-0" />
-          Things Found
+          Things TFound
         </GroupLabel>
         <div className="flex flex-col gap-1.5">
           {entities.map((entity) => (
@@ -259,7 +259,7 @@ function EntityStrip({ message }: { message: Message }) {
  * layout. These are the numbers that looked right, which is the only test a
  * leading edge has.
  */
-function DetailsLink({ message }: { message: Message }) {
+function DetailsLink({ message }: { message: TMessage }) {
   return (
     // A Link, not a click handler: the panel is a URL (lib/routes.ts), so this
     // is something to open in a new tab or copy the address of, and
@@ -308,7 +308,7 @@ function DetailsLink({ message }: { message: Message }) {
  * icon. That is the rule that keeps this cluster at 32px rather than the 24px
  * an 11px timestamp would otherwise ask for.
  */
-function MessageActions({ message }: { message: Message }) {
+function MessageActions({ message }: { message: TMessage }) {
   const zero = useZero();
   // The menu unmounts its items the moment one is clicked, so the confirmation
   // cannot hang off a trigger inside it: this holds the state and the dialog
@@ -393,7 +393,7 @@ export function MessageCard({
   message,
   highlight = false,
 }: {
-  message: Message;
+  message: TMessage;
   /** Arrived here from "Show in Messages": point at this one. */
   highlight?: boolean;
 }) {

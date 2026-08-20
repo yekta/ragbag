@@ -1,5 +1,5 @@
 import { log } from "@ragbag/shared";
-import type { BlobVariants } from "@ragbag/shared";
+import type { TBlobVariants } from "@ragbag/shared";
 import decodeHeic from "heic-decode";
 import sharp from "sharp";
 import { rgbaToThumbHash } from "thumbhash";
@@ -40,7 +40,7 @@ import { storage, variantKey } from "../blobs/storage.js";
  * project's `verbatimModuleSyntax` cannot reach into for `sharp.Sharp`.
  * The pipeline itself is what the function returns, so name it that way.
  */
-type SharpImage = ReturnType<typeof sharp>;
+type TSharpImage = ReturnType<typeof sharp>;
 
 /** The long edge of the web-safe transcode. */
 const DISPLAY_MAX = 1600;
@@ -57,7 +57,7 @@ const HASH_MAX = 100;
  * dimensions travel with it because the HEVC path learns them from its own
  * decoder rather than from sharp.
  */
-export type ImageSource = { open: () => SharpImage; width: number; height: number };
+export type TImageSource = { open: () => TSharpImage; width: number; height: number };
 
 /** EXIF orientations 5-8 are the quarter turns, which swap width and height. */
 function rotatesAxes(orientation: number | undefined): boolean {
@@ -73,7 +73,7 @@ function rotatesAxes(orientation: number | undefined): boolean {
  * HEIC case and nothing else. AVIF in the same container family reports `av1`
  * and stays on the sharp path, where it already worked.
  */
-export async function openImage(bytes: Uint8Array): Promise<ImageSource> {
+export async function openImage(bytes: Uint8Array): Promise<TImageSource> {
   // `failOn: "none"` because a partially-corrupt photo that still decodes is
   // worth a thumbnail; only an undecodable one should reach the failure path.
   const buffer = Buffer.from(bytes);
@@ -103,10 +103,10 @@ export async function openImage(bytes: Uint8Array): Promise<ImageSource> {
   };
 }
 
-export type ImageDerivatives = {
+export type TImageDerivatives = {
   width: number;
   height: number;
-  variants: BlobVariants;
+  variants: TBlobVariants;
   /** thumbhash, base64. Lives on the synced row, not in any cache (§6.5). */
   placeholder: string | null;
 };
@@ -120,7 +120,7 @@ export async function buildImageDerivatives(input: {
   bytes: Uint8Array;
   userId: string;
   sha256: string;
-}): Promise<ImageDerivatives> {
+}): Promise<TImageDerivatives> {
   if (!storage) throw new Error("server has no blob storage configured");
 
   const source = await openImage(input.bytes);
@@ -158,7 +158,7 @@ export async function buildImageDerivatives(input: {
  * geometry with a blurred image and quietly refetches 30 KB. There is no
  * broken state, no grey box and no reflow.
  */
-async function placeholderFor(image: SharpImage): Promise<string | null> {
+async function placeholderFor(image: TSharpImage): Promise<string | null> {
   try {
     const { data, info } = await image
       .resize({ width: HASH_MAX, height: HASH_MAX, fit: "inside" })
@@ -183,7 +183,7 @@ export async function storePageThumb(input: {
   png: Uint8Array;
   userId: string;
   sha256: string;
-}): Promise<{ variants: BlobVariants; placeholder: string | null }> {
+}): Promise<{ variants: TBlobVariants; placeholder: string | null }> {
   if (!storage) throw new Error("server has no blob storage configured");
   const page = sharp(Buffer.from(input.png), { failOn: "none" });
   const thumb = await page

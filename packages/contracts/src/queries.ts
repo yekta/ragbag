@@ -134,7 +134,7 @@ export const queries = defineQueries({
    * Disabled types ride along rather than being filtered out here. Disabling a
    * type means "stop extracting", not "forget what it is": everything it found
    * stays, and it keeps its labels, its card and its page. The rail and the
-   * prompt are what drop it (`EntityTypes.rail` / `.kinds` in @ragbag/shared),
+   * prompt are what drop it (`TEntityTypes.rail` / `.kinds` in @ragbag/shared),
    * and settings needs the row to offer turning it back on.
    *
    * Alphabetical by label, so the rail's order is stable, and fields by

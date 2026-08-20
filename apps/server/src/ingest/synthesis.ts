@@ -1,5 +1,5 @@
 import { log, promptSchema, snippetAround } from "@ragbag/shared";
-import type { EntityTypes } from "@ragbag/shared";
+import type { TEntityTypes } from "@ragbag/shared";
 import { asc, eq } from "drizzle-orm";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
@@ -13,12 +13,12 @@ import {
   existingTopicNames,
   resolveEntity,
   writeEntities,
-  type ResolvedEntity,
+  type TResolvedEntity,
 } from "./entities.js";
 import { extractFromHtml } from "./extract-link.js";
 import { NotHtmlError, fetchPage } from "./fetch-page.js";
 import { describeAiError, openai } from "./openai.js";
-import { recordUsage } from "./usage.js";
+import { recordUsage, tokenUsage } from "./usage.js";
 
 // Phase B (plan §5.4): read the whole message and pull the things out of it.
 //
@@ -93,7 +93,7 @@ export const MESSAGE_TYPE_TAGS = [
  * enum falls back to one kind nothing can be written under rather than to an
  * empty vocabulary, which no structured-output API accepts.
  */
-export function buildSynthesisSchema(types: EntityTypes) {
+export function buildSynthesisSchema(types: TEntityTypes) {
   const kinds = (types.kinds.length > 0 ? types.kinds : ["none"]) as [string, ...string[]];
   return z.object({
     /** Short, for search results, permalinks and grids. */
@@ -127,10 +127,10 @@ export function buildSynthesisSchema(types: EntityTypes) {
   });
 }
 
-export type SynthesisResult = z.infer<ReturnType<typeof buildSynthesisSchema>>;
+export type TSynthesisResult = z.infer<ReturnType<typeof buildSynthesisSchema>>;
 
 /** One thing the model reads: the message's own words, or one attachment. */
-export type SynthesisSource = {
+export type TSynthesisSource = {
   /** null for the message text itself. */
   attachmentId: string | null;
   /** 0 for the message text, 1-based for attachments. */
@@ -145,10 +145,10 @@ const MAX_TOTAL_CHARS = 40_000;
 const MAX_CANDIDATES = 60;
 
 export function buildSynthesisPrompt(input: {
-  sources: readonly SynthesisSource[];
+  sources: readonly TSynthesisSource[];
   candidates: readonly { kind: string; value: string }[];
   existingTopics: readonly string[];
-  types: EntityTypes;
+  types: TEntityTypes;
 }): string {
   const lines: string[] = [
     "You are the synthesis stage of ragbag, a personal archive. One message was sent: " +
@@ -249,7 +249,7 @@ export async function synthesizeMessage(job: {
     .where(eq(attachments.messageId, job.messageId))
     .orderBy(asc(attachments.position));
 
-  const sources: SynthesisSource[] = [];
+  const sources: TSynthesisSource[] = [];
   if (message.text?.trim()) {
     sources.push({
       attachmentId: null,
@@ -270,7 +270,7 @@ export async function synthesizeMessage(job: {
 
   // 1. The deterministic pre-pass, per source, so a mention knows which file
   // it came from and can carry a snippet of the sentence it appeared in.
-  const found = new Map<string, ResolvedEntity>();
+  const found = new Map<string, TResolvedEntity>();
   for (const source of sources) {
     for (const candidate of types.match(source.text)) {
       const resolved = resolveEntity(types, candidate);
@@ -315,7 +315,7 @@ export async function synthesizeMessage(job: {
     types,
   });
 
-  let result: SynthesisResult | null = null;
+  let result: TSynthesisResult | null = null;
   try {
     const res = await openai.responses.parse({
       model: env.AI_ENRICH_MODEL,
@@ -327,8 +327,8 @@ export async function synthesizeMessage(job: {
       messageId: job.messageId,
       kind: "enrich",
       model: env.AI_ENRICH_MODEL,
-      inputTokens: res.usage?.input_tokens ?? 0,
-      outputTokens: res.usage?.output_tokens ?? 0,
+      seconds: 0,
+      ...tokenUsage({ usage: res.usage, stage: "enrich" }),
     });
     result = res.output_parsed;
   } catch (err) {
@@ -432,7 +432,7 @@ function clamp01(value: number): number | null {
  * entity rather than by the message.
  */
 async function enrichLinks(
-  found: Map<string, ResolvedEntity>,
+  found: Map<string, TResolvedEntity>,
   notes: string[],
 ): Promise<Map<string, string>> {
   // Article HTML, held by entity key until the id it belongs to is known.

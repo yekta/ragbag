@@ -26,7 +26,7 @@ import { env, localBlobDir, r2Configured } from "../env.js";
 // The server itself reads/writes objects too: ingestion (M4) pulls blob bytes
 // for PDF/image extraction and stores HTML snapshots of link articles.
 
-export type BlobStorage = {
+export type TBlobStorage = {
   presignUpload(key: string, mime: string): Promise<string>;
   presignDownload(key: string, mime: string): Promise<string>;
   exists(key: string): Promise<boolean>;
@@ -50,7 +50,7 @@ const s3Client: S3Client | null = r2Configured
     })
   : null;
 
-function s3Storage(s3: S3Client): BlobStorage {
+function s3Storage(s3: S3Client): TBlobStorage {
   const Bucket = env.R2_BUCKET;
   return {
     presignUpload: (key, mime) =>
@@ -146,7 +146,7 @@ function localPath(dir: string, key: string): string {
   return join(dir, ...key.split("/"), LEAF);
 }
 
-function localStorage(dir: string): BlobStorage {
+function localStorage(dir: string): TBlobStorage {
   return {
     presignUpload: (key, mime) =>
       Promise.resolve(localUrl("PUT", key, mime, UPLOAD_URL_TTL_SECONDS)),
@@ -175,7 +175,7 @@ function localStorage(dir: string): BlobStorage {
   };
 }
 
-export const storage: BlobStorage | null = s3Client
+export const storage: TBlobStorage | null = s3Client
   ? s3Storage(s3Client)
   : localBlobDir
     ? localStorage(localBlobDir)
@@ -199,16 +199,16 @@ export function requiredCorsRule(): CORSRule {
   };
 }
 
-export type BucketCorsStatus =
+export type TBucketCorsStatus =
   /** Local driver (same-site, covered by the API's own CORS middleware). */
   | { state: "not-applicable" }
   | { state: "ok"; detail: string }
   /** Couldn't verify or apply: a human must set the policy on the bucket. */
   | { state: "manual-needed"; detail: string };
 
-let corsStatus: BucketCorsStatus = { state: "not-applicable" };
+let corsStatus: TBucketCorsStatus = { state: "not-applicable" };
 
-export function bucketCorsStatus(): BucketCorsStatus {
+export function bucketCorsStatus(): TBucketCorsStatus {
   return corsStatus;
 }
 
@@ -230,7 +230,7 @@ function ruleCovers(rule: CORSRule, origin: string): boolean {
  * replaces them. Never throws: a failure lands in bucketCorsStatus() (and
  * the boot log) with instructions instead.
  */
-export async function ensureBucketCors(): Promise<BucketCorsStatus> {
+export async function ensureBucketCors(): Promise<TBucketCorsStatus> {
   if (!s3Client) {
     corsStatus = { state: "not-applicable" };
     return corsStatus;

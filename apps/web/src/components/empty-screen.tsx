@@ -1,14 +1,14 @@
 import { queries } from "@ragbag/contracts";
-import type { EntityTypes } from "@ragbag/shared";
+import type { TEntityTypes } from "@ragbag/shared";
 import { useQuery } from "@rocicorp/zero/react";
-import { FACE_ICON, Icon, iconNamed, type IconName } from "@/components/icon";
+import { FACE_ICON, Icon, iconNamed, type TIconName } from "@/components/icon";
 import { useEntityTypes } from "@/lib/entity-types";
 import {
   attachmentFaceOf,
   entityKindOf,
   isChatView,
   useFilter,
-  type ViewFilter,
+  type TViewFilter,
 } from "@/lib/routes";
 
 // What a page says when there is nothing on it yet.
@@ -25,7 +25,7 @@ import {
 // different things, and only the first one is worth a "send something below".
 
 /** The icon and the plural noun the URL is asking for. */
-function viewFace(view: ViewFilter, types: EntityTypes): { icon: IconName; noun: string } {
+function viewFace(view: TViewFilter, types: TEntityTypes): { icon: TIconName; noun: string } {
   // The slug is already the plural noun, which is what the vocabulary being the
   // URL buys: `/images` is images.
   const face = attachmentFaceOf(view);

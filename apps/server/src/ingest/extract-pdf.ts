@@ -14,7 +14,7 @@ const MAX_CHARS = 300_000;
 /** Below this much text a PDF is treated as having no usable text layer. */
 export const TEXT_LAYER_MIN_CHARS = 40;
 
-export type PdfExtraction = {
+export type TPdfExtraction = {
   /** `## Page N` markers preserved, per plan §5.3. */
   markdown: string;
   /** The raw text, for deciding whether the text layer is worth anything. */
@@ -38,7 +38,7 @@ export function toPlainBytes(bytes: Uint8Array): Uint8Array {
   return copy;
 }
 
-export async function extractPdfText(bytes: Uint8Array): Promise<PdfExtraction> {
+export async function extractPdfText(bytes: Uint8Array): Promise<TPdfExtraction> {
   const task = getDocument({
     data: toPlainBytes(bytes),
     disableFontFace: true,

@@ -1,5 +1,5 @@
 import { BLOB_VARIANTS } from "@ragbag/contracts";
-import type { BlobVariant } from "@ragbag/contracts";
+import type { TBlobVariant } from "@ragbag/contracts";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { blobKey, storage, variantKey } from "../blobs/storage.js";
@@ -27,7 +27,7 @@ import { getAuthData } from "../session.js";
 // registered, which intercepts the same path and serves from Cache Storage.
 // Same markup either way.
 
-function isVariant(value: string): value is BlobVariant {
+function isVariant(value: string): value is TBlobVariant {
   return (BLOB_VARIANTS as readonly string[]).includes(value);
 }
 

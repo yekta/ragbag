@@ -165,9 +165,18 @@ ordinary Ogg stream inside) is rejected by name alone. `AI_TRANSCRIBE_MODEL` the
 picks the request shape as well as the model, and audio it cannot read (AMR, AIFF, bare
 AAC, WMA, or anything over its 24 MB ceiling) is converted to 16 kHz mono Opus first with
 the **ffmpeg-static** binary the server ships with, which needs nothing from the base image
-either. The default `gpt-transcribe` returns the words alone; `gpt-4o-transcribe-diarize`
-timestamps every phrase and labels the speakers, which is what makes a transcript seekable
-from a search hit, at about four times the price per minute.
+either. `gpt-transcribe` returns the words alone, billed at $0.0045 a minute of audio
+rather than by tokens.
+
+Which models may be configured at all is an allow-list, `ingest/models.ts`, and it is the
+same list the prices are keyed by. `AI_ENRICH_MODEL` and `AI_TRANSCRIBE_MODEL` are
+validated against it at boot, so a typo refuses to start rather than 404 on every message;
+`as const satisfies` makes a model added without a price a compile error. That matters
+because the spend ledger (`ai_usage_events`) is the only record of what enrichment costs:
+a model it cannot price would meter every call at $0.00 and look like a free deploy. For
+the same reason none of its token columns has a default, prompt-cache reads and writes are
+priced at their own rates rather than at the fresh-input rate, and a response that arrives
+without usage fails its stage instead of writing a free-looking row.
 
 Checks: `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build`.
 

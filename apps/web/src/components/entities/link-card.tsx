@@ -1,9 +1,9 @@
-import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, ExternalAction, str, type TEntityCardProps } from "./shell.js";
 
 // v1's LinkBody, now a card for a canonical entity: the same URL sent in
 // five messages is one of these, enriched and snapshotted once (plan §6.6).
 
-export function LinkCard({ entity, onOpen }: EntityCardProps) {
+export function LinkCard({ entity, onOpen }: TEntityCardProps) {
   const data = entity.data as Record<string, unknown>;
   const url = str(data, "url") ?? entity.value;
   const host = hostOf(url);

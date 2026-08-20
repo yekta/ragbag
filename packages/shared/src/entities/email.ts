@@ -1,11 +1,11 @@
-import type { EntityBehaviour, EntityCandidate } from "./types.js";
+import type { TEntityBehaviour, TEntityCandidate } from "./types.js";
 
 const EMAIL_RE =
   /\b[A-Za-z0-9._%+'-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z]{2,})+/g;
 
-export const emailBehaviour: EntityBehaviour = {
+export const emailBehaviour: TEntityBehaviour = {
   match(text) {
-    const found: EntityCandidate[] = [];
+    const found: TEntityCandidate[] = [];
     for (const m of text.matchAll(EMAIL_RE)) {
       found.push({ value: m[0], data: { address: m[0] }, index: m.index });
     }

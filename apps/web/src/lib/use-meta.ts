@@ -1,4 +1,4 @@
-import { metaResponse, type MetaResponse } from "@ragbag/contracts";
+import { metaResponse, type TMetaResponse } from "@ragbag/contracts";
 import { useSyncExternalStore } from "react";
 import { apiUrl } from "@/lib/api";
 
@@ -17,7 +17,7 @@ import { apiUrl } from "@/lib/api";
  * waiting forever, since nothing ever asked again.
  */
 
-let meta: MetaResponse | undefined;
+let meta: TMetaResponse | undefined;
 let attempt = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<() => void>();
@@ -51,7 +51,7 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function useMeta(): MetaResponse | undefined {
+export function useMeta(): TMetaResponse | undefined {
   return useSyncExternalStore(
     subscribe,
     () => meta,

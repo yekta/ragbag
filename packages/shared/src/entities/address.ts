@@ -1,4 +1,4 @@
-import type { EntityBehaviour } from "./types.js";
+import type { TEntityBehaviour } from "./types.js";
 
 // Addresses are kept as they were written (plan §2.2: the model found them,
 // it does not get to rewrite them). We never geocode: a maps *search* URL is
@@ -22,7 +22,7 @@ export function mapsSearchUrl(address: string): string | null {
   return MAPS_SEARCH + encodeURIComponent(query);
 }
 
-export const addressBehaviour: EntityBehaviour = {
+export const addressBehaviour: TEntityBehaviour = {
   normalize(value, data) {
     const source = typeof data.formatted === "string" && data.formatted ? data.formatted : value;
     // Best effort, and deliberately shy: case, spacing and sentence

@@ -1,5 +1,5 @@
 import { faceForMime, fenceLanguage, isTextualMime, log } from "@ragbag/shared";
-import type { AudioSegment } from "@ragbag/shared";
+import type { TAudioSegment } from "@ragbag/shared";
 import { and, eq, sql as dsql } from "drizzle-orm";
 import { blobKey, storage } from "../blobs/storage.js";
 import { db } from "../db/client.js";
@@ -33,16 +33,16 @@ export { PermanentError, WaitingError } from "./errors.js";
  */
 export const CONTENT_LIMIT = 256 * 1024;
 
-type AttachmentPatch = Partial<typeof attachments.$inferInsert>;
+type TAttachmentPatch = Partial<typeof attachments.$inferInsert>;
 
-async function patchAttachment(id: string, patch: AttachmentPatch): Promise<void> {
+async function patchAttachment(id: string, patch: TAttachmentPatch): Promise<void> {
   await db.update(attachments).set(patch).where(eq(attachments.id, id));
 }
 
 async function writeContent(
   attachmentId: string,
   contentMd: string,
-  opts: { segments?: AudioSegment[]; truncated?: boolean } = {},
+  opts: { segments?: TAudioSegment[]; truncated?: boolean } = {},
 ): Promise<void> {
   // Two ways to be incomplete, and the column means either: the sync cap bit
   // here, or the extractor itself only read part of the document. Both are
@@ -60,7 +60,7 @@ async function writeContent(
     });
 }
 
-export type LoadedBlob = { bytes: Uint8Array; mime: string; sha256: string };
+export type TLoadedBlob = { bytes: Uint8Array; mime: string; sha256: string };
 
 /**
  * The bytes behind an attachment.
@@ -69,7 +69,7 @@ export type LoadedBlob = { bytes: Uint8Array; mime: string; sha256: string };
  * upload queue a message syncs before its blob row exists. Both gaps are
  * WaitingError, which reschedules the job without burning an attempt.
  */
-export async function loadBlobBytes(row: typeof attachments.$inferSelect): Promise<LoadedBlob> {
+export async function loadBlobBytes(row: typeof attachments.$inferSelect): Promise<TLoadedBlob> {
   const blobRow = await db.query.blobs.findFirst({ where: eq(blobs.id, row.blobId) });
   if (!blobRow) throw new WaitingError("waiting for the file upload to start");
   if (!storage) throw new PermanentError("server has no blob storage configured");
@@ -98,7 +98,7 @@ export async function processAttachment(job: {
   await patchAttachment(row.id, { status: "processing" });
   await refreshMessageStatus(row.messageId);
 
-  const patch: AttachmentPatch = { generatedTitle: row.filename };
+  const patch: TAttachmentPatch = { generatedTitle: row.filename };
   // AI stages fail SOFT: extraction is never held hostage by OpenAI. Each
   // skipped or failed stage explains itself here and the note lands in the
   // row's `error` column with the status left usable, because a silent skip
@@ -106,7 +106,7 @@ export async function processAttachment(job: {
   const notes: string[] = [];
   let contentMd = "";
   let truncated = false;
-  let segments: AudioSegment[] | undefined;
+  let segments: TAudioSegment[] | undefined;
 
   switch (faceForMime(row.mime)) {
     case "image": {

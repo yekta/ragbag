@@ -6,12 +6,12 @@
 // The registered context is non-optional: the endpoints 401 before ever
 // invoking a query/mutator without a session, and clients only construct Zero
 // after sign-in.
-export type AuthData = {
+export type TAuthData = {
   userID: string;
 };
 
 /** Defensive runtime check for mutators (types say ctx exists; verify anyway). */
-export function mustBeLoggedIn(ctx: AuthData | undefined): AuthData {
+export function mustBeLoggedIn(ctx: TAuthData | undefined): TAuthData {
   if (!ctx?.userID) {
     throw new Error("Not authenticated");
   }
@@ -20,6 +20,6 @@ export function mustBeLoggedIn(ctx: AuthData | undefined): AuthData {
 
 declare module "@rocicorp/zero" {
   interface DefaultTypes {
-    context: AuthData;
+    context: TAuthData;
   }
 }

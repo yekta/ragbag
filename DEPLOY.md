@@ -292,12 +292,17 @@ application/json' -d '{"provider":"google","callbackURL":"https://app.ragbag.app
 - Ingestion runs inside the API process (`INGEST_WORKER=true`). To isolate AI throughput from API
   latency later, deploy a second instance of the same image with `INGEST_WORKER=true` and set it to
   `false` on the API instances.
-- AI spend is metered per user (the `ai_usage` table prices every call) but never capped.
+- AI spend is metered per user (the `ai_usage_events` table prices every call) but never capped.
   Enrichment always runs when a key is configured. `GET /api/debug/ingest` reports the caller's
-  last-24h spend.
+  last-24h spend. Prompt-cache reads and writes are priced at their own rates, so the figure is
+  not a token count multiplied by one number.
+- `AI_ENRICH_MODEL` and `AI_TRANSCRIBE_MODEL` are validated at boot against the allow-list in
+  `ingest/models.ts`. A value outside it refuses to start, which is deliberate: an unpriceable
+  model meters every call at $0.00 and a misspelled one 404s on every message, both of them
+  quietly for the life of the deploy.
 - AI stages fail **soft**: a bad key, an unavailable model or a rate limit leaves the extraction
   intact, marks the item `done`, and records a classified reason (`OpenAI rejected the API key
-(401)`, `model not found (404), check AI_ENRICH_MODEL`, …) that the item's detail view shows
+(401)`, `OpenAI has no such model for this account (404)`, …) that the item's detail view shows
   next to a **Run enrichment** button. They never burn ingest retries or discard extracted text.
 - Items that finished without a summary (e.g. everything sent while a server ran keyless) don't
   re-run on their own: they're `done`. The sidebar offers **Enrich N items**, which re-queues them

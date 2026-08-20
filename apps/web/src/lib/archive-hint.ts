@@ -14,13 +14,13 @@
 
 const KEY = "ragbag:archive";
 
-export type ArchiveHint = { count: number; at: number };
+export type TArchiveHint = { count: number; at: number };
 
-export function loadArchiveHint(): ArchiveHint | null {
+export function loadArchiveHint(): TArchiveHint | null {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ArchiveHint>;
+    const parsed = JSON.parse(raw) as Partial<TArchiveHint>;
     return typeof parsed.count === "number" ? { count: parsed.count, at: parsed.at ?? 0 } : null;
   } catch {
     // Unparseable or storage blocked: no hint is a perfectly good answer.
@@ -30,7 +30,7 @@ export function loadArchiveHint(): ArchiveHint | null {
 
 export function saveArchiveHint(count: number): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ count, at: Date.now() } satisfies ArchiveHint));
+    localStorage.setItem(KEY, JSON.stringify({ count, at: Date.now() } satisfies TArchiveHint));
   } catch {
     // Private mode / quota: the app simply waits for rows next time.
   }

@@ -1,5 +1,5 @@
 import { ragbagZeroOptions } from "@ragbag/client-runtime";
-import { queries, type Schema } from "@ragbag/contracts";
+import { queries, type TSchema } from "@ragbag/contracts";
 import { useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { AttachmentDetail } from "@/components/attachment-detail";
@@ -22,16 +22,16 @@ import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-c
 import { useArchiveHintWriter, useArchiveState, useStableRows } from "@/lib/archive-state";
 import { BlobQueueProvider, blobQueueFor, useBlobQueue, useBlobQueueToasts } from "@/lib/blobs";
 import { EntityTypesProvider, useEntityTypes } from "@/lib/entity-types";
-import { loadIdentity, saveIdentity, type Identity } from "@/lib/identity";
+import { loadIdentity, saveIdentity, type TIdentity } from "@/lib/identity";
 import { registerMediaWorker, requestPersistence } from "@/lib/media";
 import { isChatView, useFilter, usePanel, useSettingsOpen } from "@/lib/routes";
 import { useTimelineSearch } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
 import { BUDGET, useHeld, useLatch } from "@/lib/settle";
-import { useSyncStatus, type SyncStatus } from "@/lib/sync-status";
+import { useSyncStatus, type TSyncStatus } from "@/lib/sync-status";
 import { applyTheme, watchSystemTheme } from "@/lib/theme";
 import { useMeta } from "@/lib/use-meta";
-import type { MetaResponse } from "@ragbag/contracts";
+import type { TMetaResponse } from "@ragbag/contracts";
 import type { Zero } from "@rocicorp/zero";
 
 /**
@@ -49,7 +49,7 @@ const WHOLE_ARCHIVE = { limit: null };
 // Nothing here paints a state it is about to take back (lib/settle.ts): the
 // boot screen is the bare canvas until it knows which screen it owes you.
 
-type SessionStatus = "checking" | "ok" | "expired" | "offline";
+type TSessionStatus = "checking" | "ok" | "expired" | "offline";
 
 /**
  * better-auth probes the session once on mount and then leaves `error` set
@@ -93,7 +93,7 @@ function useSessionRecovery(error: unknown, refetch: () => void): void {
 export function App() {
   const session = authClient.useSession();
   const meta = useMeta();
-  const [stored, setStored] = useState<Identity | null>(() => loadIdentity());
+  const [stored, setStored] = useState<TIdentity | null>(() => loadIdentity());
   // The boot screen's budget: how long the canvas may stand in for a sign-in
   // screen before an unreachable server becomes the thing we say out loud.
   const waited = useHeld(!meta, BUDGET.unreachable);
@@ -124,8 +124,8 @@ export function App() {
     }
   }, [session.data]);
 
-  let identity: Identity | null = null;
-  let status: SessionStatus;
+  let identity: TIdentity | null = null;
+  let status: TSessionStatus;
   if (session.data) {
     identity = { userID: session.data.user.id, email: session.data.user.email || "you" };
     status = "ok";
@@ -180,7 +180,7 @@ export function App() {
  * which reset every query view to empty and made the timeline flash the sync
  * spinner over and over.
  */
-const preloadArchive = (zero: Zero<Schema>) => {
+const preloadArchive = (zero: Zero<TSchema>) => {
   if (import.meta.env.DEV) {
     inits += 1;
     if (inits > 2) {
@@ -208,9 +208,9 @@ function Workspace({
   meta,
   status,
 }: {
-  identity: Identity;
-  meta: MetaResponse | undefined;
-  status: SessionStatus;
+  identity: TIdentity;
+  meta: TMetaResponse | undefined;
+  status: TSessionStatus;
 }) {
   const queue = blobQueueFor(identity.userID);
   const opts = useMemo(
@@ -306,7 +306,7 @@ function BannerAlert({ children }: { children: React.ReactNode }) {
 const BANNER_BUTTON =
   "bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground active:bg-warning active:text-warning-foreground active:ring-1 active:ring-warning-foreground";
 
-function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaResponse | undefined }) {
+function SyncBanner({ sync, meta }: { sync: TSyncStatus | null; meta: TMetaResponse | undefined }) {
   const zero = useZero();
   const shell = useBannerShell();
   // Seeded so a re-auth that failed mid-round-trip explains itself here rather
@@ -394,8 +394,8 @@ function Shell({
   status,
 }: {
   email: string;
-  meta: MetaResponse | undefined;
-  status: SessionStatus;
+  meta: TMetaResponse | undefined;
+  status: TSessionStatus;
 }) {
   const { sidebarCollapsed, setSidebarCollapsed } = useViewStore();
 
@@ -438,8 +438,8 @@ function ShellBody({
   status,
 }: {
   email: string;
-  meta: MetaResponse | undefined;
-  status: SessionStatus;
+  meta: TMetaResponse | undefined;
+  status: TSessionStatus;
 }) {
   const [rawMessages, messagesResult] = useQuery(queries.messages(WHOLE_ARCHIVE));
   const [entities] = useQuery(queries.entities());

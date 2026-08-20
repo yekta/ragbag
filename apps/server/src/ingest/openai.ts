@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env } from "../env.js";
+import { PermanentError } from "./errors.js";
 
 // One client for vision, transcription, the scanned-PDF pass and synthesis
 // (plan §5). Null when no key is configured: ingestion still runs (local
@@ -16,6 +17,11 @@ export const openai: OpenAI | null = env.OPENAI_API_KEY
  * reason has to say what an operator should actually fix.
  */
 export function describeAiError(err: unknown): string {
+  // A PermanentError was raised by our own code and already says, in words, what
+  // an operator should do about it. Running it through the HTTP branches below
+  // would dress a metering bug up as "couldn't reach OpenAI".
+  if (err instanceof PermanentError) return err.message;
+
   const status = (err as { status?: unknown } | null)?.status;
   // A 400 always names what it refused, and the note is the only place anyone
   // will see it: "OpenAI error (HTTP 400)" on its own is how a response_format
@@ -29,7 +35,9 @@ export function describeAiError(err: unknown): string {
   }
   if (status === 401) return "OpenAI rejected the API key (401)";
   if (status === 403) return "OpenAI refused access to the model (403)";
-  if (status === 404) return "model not found (404), check AI_ENRICH_MODEL / AI_TRANSCRIBE_MODEL";
+  // The model names are validated at boot against the allow-list in models.ts,
+  // so a 404 here is the account lacking access rather than a typo in the env.
+  if (status === 404) return "OpenAI has no such model for this account (404)";
   if (status === 429) return "OpenAI rate limit or quota exceeded (429)";
   if (typeof status === "number") return `OpenAI error (HTTP ${status})`;
   const message = err instanceof Error ? err.message : String(err);

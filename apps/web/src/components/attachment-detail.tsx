@@ -1,5 +1,5 @@
 import { mutators, queries } from "@ragbag/contracts";
-import { faceForMime, type AudioSegment } from "@ragbag/shared";
+import { faceForMime, type TAudioSegment } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -203,7 +203,7 @@ export function AttachmentDetail({ id }: { id: string }) {
                     with whatever its text and its other files said. */}
                 {entities.length > 0 && (
                   <section>
-                    <SectionHeading>Things Found</SectionHeading>
+                    <SectionHeading>Things TFound</SectionHeading>
                     <div className="flex flex-col gap-1.5">
                       {entities.map((entity) => (
                         <EntityCard
@@ -379,7 +379,7 @@ function TranscriptLine({
   segment,
 }: {
   attachmentId: string;
-  segment: AudioSegment;
+  segment: TAudioSegment;
 }) {
   const scope = useAudioScope();
   return (

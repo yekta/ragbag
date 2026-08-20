@@ -5,7 +5,7 @@ import {
   typeFromRows,
   typeRowFor,
 } from "@ragbag/shared";
-import type { EntityTypeFieldRow, EntityTypeRow } from "@ragbag/shared";
+import type { TEntityTypeFieldRow, TEntityTypeRow } from "@ragbag/shared";
 import { describe, expect, it } from "vitest";
 import { buildSynthesisPrompt, buildSynthesisSchema } from "./synthesis.js";
 
@@ -25,7 +25,7 @@ const sources = [
   },
 ];
 
-const brandRow: EntityTypeRow = {
+const brandRow: TEntityTypeRow = {
   kind: "brand",
   label: "Brand",
   sidebarTitle: "Brands",
@@ -38,7 +38,7 @@ const brandRow: EntityTypeRow = {
   version: 4,
 };
 
-const brandFields: EntityTypeFieldRow[] = [
+const brandFields: TEntityTypeFieldRow[] = [
   {
     name: "name",
     label: "Brand Name",

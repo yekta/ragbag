@@ -11,13 +11,13 @@ import {
 } from "@rocicorp/zero";
 import type { ReadonlyJSONObject } from "@rocicorp/zero";
 import type {
-  AttachmentStatus,
-  AudioSegment,
-  BlobVariants,
-  MentionSource,
-  MessageStatus,
-  TagKind,
-  TagSource,
+  TAttachmentStatus,
+  TAudioSegment,
+  TBlobVariants,
+  TMentionSource,
+  TMessageStatus,
+  TTagKind,
+  TTagSource,
 } from "@ragbag/shared";
 
 // The Zero schema mirrors the synced subset of the Postgres schema (plan
@@ -42,7 +42,7 @@ const messages = table("messages")
     generatedTitle: string().from("generated_title").optional(),
     generatedSummary: string().from("generated_summary").optional(),
     lang: string().optional(),
-    status: enumeration<MessageStatus>(),
+    status: enumeration<TMessageStatus>(),
     error: string().optional(),
     processedAt: number().from("processed_at").optional(),
   })
@@ -63,10 +63,10 @@ const attachments = table("attachments")
     durationMs: number().from("duration_ms").optional(),
     placeholder: string().optional(),
     waveform: json<number[]>().optional(),
-    variants: json<BlobVariants>(),
+    variants: json<TBlobVariants>(),
     generatedTitle: string().from("generated_title").optional(),
     generatedSummary: string().from("generated_summary").optional(),
-    status: enumeration<AttachmentStatus>(),
+    status: enumeration<TAttachmentStatus>(),
     error: string().optional(),
   })
   .primaryKey("id");
@@ -78,7 +78,7 @@ const attachmentContents = table("attachmentContents")
     attachmentId: string().from("attachment_id"),
     contentMd: string().from("content_md"),
     truncated: boolean(),
-    segments: json<AudioSegment[]>().optional(),
+    segments: json<TAudioSegment[]>().optional(),
   })
   .primaryKey("attachmentId");
 
@@ -122,7 +122,7 @@ const entityTypeFields = table("entityTypeFields")
     typeId: string().from("type_id"),
     name: string(),
     label: string(),
-    // string(), not enumeration<FieldType>(), for the same reason as
+    // string(), not enumeration<TFieldType>(), for the same reason as
     // `entities.kind` below: a field type a newer build added would otherwise
     // be a value this client's types cannot represent. As a string it is data,
     // and `typeFromRows` skips the type rather than breaking on it.
@@ -167,7 +167,7 @@ const messageEntities = table("messageEntities")
     entityId: string().from("entity_id"),
     attachmentId: string().from("attachment_id").optional(),
     userId: string().from("user_id"),
-    source: enumeration<MentionSource>(),
+    source: enumeration<TMentionSource>(),
     confidence: number().optional(),
     snippet: string().optional(),
     dismissedAt: number().from("dismissed_at").optional(),
@@ -179,7 +179,7 @@ const tags = table("tags")
     id: string(),
     userId: string().from("user_id"),
     name: string(),
-    kind: enumeration<TagKind>(),
+    kind: enumeration<TTagKind>(),
   })
   .primaryKey("id");
 
@@ -188,7 +188,7 @@ const messageTags = table("messageTags")
   .columns({
     messageId: string().from("message_id"),
     tagId: string().from("tag_id"),
-    source: enumeration<TagSource>(),
+    source: enumeration<TTagSource>(),
   })
   .primaryKey("messageId", "tagId");
 
@@ -197,7 +197,7 @@ const attachmentTags = table("attachmentTags")
   .columns({
     attachmentId: string().from("attachment_id"),
     tagId: string().from("tag_id"),
-    source: enumeration<TagSource>(),
+    source: enumeration<TTagSource>(),
   })
   .primaryKey("attachmentId", "tagId");
 
@@ -206,7 +206,7 @@ const entityTags = table("entityTags")
   .columns({
     entityId: string().from("entity_id"),
     tagId: string().from("tag_id"),
-    source: enumeration<TagSource>(),
+    source: enumeration<TTagSource>(),
   })
   .primaryKey("entityId", "tagId");
 
@@ -307,12 +307,12 @@ export const schema = createSchema({
   enableLegacyMutators: false,
 });
 
-export type Schema = typeof schema;
+export type TSchema = typeof schema;
 
 export const zql = createBuilder(schema);
 
 declare module "@rocicorp/zero" {
   interface DefaultTypes {
-    schema: Schema;
+    schema: TSchema;
   }
 }

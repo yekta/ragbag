@@ -5,7 +5,7 @@ import { invoiceBehaviour } from "./invoice.js";
 import { linkBehaviour } from "./link.js";
 import { phoneBehaviour } from "./phone.js";
 import { trackingBehaviour } from "./tracking.js";
-import type { EntityBehaviour } from "./types.js";
+import type { TEntityBehaviour } from "./types.js";
 
 // The code half of a type, keyed by the string in `entities.kind`.
 //
@@ -20,7 +20,7 @@ import type { EntityBehaviour } from "./types.js";
 // Code beats data (plan §10.3): a kind with a `normalize` here ignores its
 // rows' `key_rank` entirely, and a row cannot turn any of this off.
 
-export const BEHAVIOURS: Readonly<Record<string, EntityBehaviour>> = {
+export const BEHAVIOURS: Readonly<Record<string, TEntityBehaviour>> = {
   link: linkBehaviour,
   tracking: trackingBehaviour,
   address: addressBehaviour,

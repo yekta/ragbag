@@ -7,7 +7,7 @@ import {
   typeFromRows,
   typeRowFor,
 } from "@ragbag/shared";
-import type { EntityTypeDef, EntityTypes } from "@ragbag/shared";
+import type { TEntityTypeDef, TEntityTypes } from "@ragbag/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "./db/client.js";
 import { entityTypeFields, entityTypes, user } from "./db/schema.js";
@@ -30,7 +30,7 @@ import { entityTypeFields, entityTypes, user } from "./db/schema.js";
  * and it costs two indexed selects beside a model call a thousand times more
  * expensive.
  */
-export async function loadEntityTypes(userId: string): Promise<EntityTypes> {
+export async function loadEntityTypes(userId: string): Promise<TEntityTypes> {
   const rows = await db
     .select()
     .from(entityTypes)
@@ -49,7 +49,7 @@ export async function loadEntityTypes(userId: string): Promise<EntityTypes> {
     else byType.set(field.typeId, [field]);
   }
 
-  const declared: EntityTypeDef[] = [];
+  const declared: TEntityTypeDef[] = [];
   for (const row of rows) {
     const def = typeFromRows(row, byType.get(row.id) ?? []);
     if (!def) {

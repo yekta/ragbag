@@ -1,5 +1,5 @@
 import { faceForMime, newId } from "@ragbag/shared";
-import type { AttachmentFace } from "@ragbag/shared";
+import type { TAttachmentFace } from "@ragbag/shared";
 import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
 
 // The persistent blob upload queue + lazy blob cache: Zero syncs rows, not
@@ -22,14 +22,14 @@ import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
 // presign has a deadline, and the PUT has a stall watchdog. Nothing in this
 // file may hang forever.
 
-export type CapturedBlob = {
+export type TCapturedBlob = {
   blobId: string;
   sha256: string;
   mime: string;
   size: number;
   originalName?: string | undefined;
   /** How it renders and which extraction path it will take. */
-  face: AttachmentFace;
+  face: TAttachmentFace;
   /**
    * True when capture matched bytes already queued on this device: the
    * blobId belongs to an earlier attachment (possibly an already-sent
@@ -38,7 +38,7 @@ export type CapturedBlob = {
   reused: boolean;
 };
 
-export type BlobUploadState = {
+export type TBlobUploadState = {
   /** waiting = queued or backing off; inflight = presign/PUT running now. */
   stage: "waiting" | "inflight" | "done";
   /** 0..1 while the PUT reports progress, else null (indeterminate). */
@@ -50,7 +50,7 @@ export type BlobUploadState = {
   lastError: string | null;
 };
 
-export type BlobQueueState = {
+export type TBlobQueueState = {
   /** Uploads waiting or retrying (persisted; survives restarts). */
   pending: number;
   /** Why the queue is parked, if it is. */
@@ -61,10 +61,10 @@ export type BlobQueueState = {
    */
   ephemeral: boolean;
   /** Per-blob upload lifecycle, keyed by blobId; drives all upload UI. */
-  blobs: Record<string, BlobUploadState>;
+  blobs: Record<string, TBlobUploadState>;
 };
 
-type UploadRecord = {
+type TUploadRecord = {
   blobId: string;
   /** Set on send: the bytes now belong to a message and are not ours to drop. */
   messageId?: string;
@@ -80,7 +80,7 @@ type UploadRecord = {
   lastError?: string;
 };
 
-type CacheRecord = {
+type TCacheRecord = {
   blobId: string;
   mime: string;
   size: number;
@@ -113,7 +113,7 @@ const IDB_OP_TIMEOUT_MS = 4_000;
 const CORS_HINT =
   "The storage bucket blocked the browser's upload; its CORS policy must allow this site (see DEPLOY.md)";
 
-export type BlobQueueOptions = {
+export type TBlobQueueOptions = {
   /** Scopes the IndexedDB database, like Zero scopes its store. */
   userID: string;
   /** Base URL of the API, "" when same-origin (web behind the dev proxy). */
@@ -155,7 +155,7 @@ function describeHttp(status: number): string {
   return `The storage bucket refused the upload (HTTP ${status})`;
 }
 
-type PutResult = { ok: true } | { ok: false; reason: string };
+type TPutResult = { ok: true } | { ok: false; reason: string };
 
 export class BlobQueue {
   readonly #apiBase: string;
@@ -168,17 +168,17 @@ export class BlobQueue {
    * whenever IndexedDB is broken or a write to it times out. Consulted first
    * everywhere, so a record's home never matters to the rest of the code.
    */
-  readonly #mem = new Map<string, UploadRecord>();
+  readonly #mem = new Map<string, TUploadRecord>();
   readonly #listeners = new Set<() => void>();
   /** Abort hooks for in-flight PUTs, keyed by blobId. */
   readonly #aborts = new Map<string, () => void>();
   /** Blobs canceled mid-flight; their failure is cleanup, not a retry. */
   readonly #cancelled = new Set<string>();
-  #state: BlobQueueState = { pending: 0, blocked: null, ephemeral: false, blobs: {} };
+  #state: TBlobQueueState = { pending: 0, blocked: null, ephemeral: false, blobs: {} };
   #flushing = false;
   #flushTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(opts: BlobQueueOptions) {
+  constructor(opts: TBlobQueueOptions) {
     this.#apiBase = opts.apiBase ?? "";
     this.#authHeaders = opts.authHeaders;
     this.#fetch = opts.fetchImpl ?? fetch.bind(globalThis);
@@ -249,7 +249,7 @@ export class BlobQueue {
 
   // --- state for UI ---
 
-  get state(): BlobQueueState {
+  get state(): TBlobQueueState {
     return this.#state;
   }
 
@@ -258,7 +258,7 @@ export class BlobQueue {
     return () => this.#listeners.delete(listener);
   }
 
-  #setState(patch: Partial<BlobQueueState>) {
+  #setState(patch: Partial<TBlobQueueState>) {
     this.#state = { ...this.#state, ...patch };
     for (const l of this.#listeners) l();
   }
@@ -268,7 +268,7 @@ export class BlobQueue {
   }
 
   /** Replace (or with null, remove) one blob's published upload state. */
-  #noteBlob(blobId: string, entry: BlobUploadState | null) {
+  #noteBlob(blobId: string, entry: TBlobUploadState | null) {
     const blobs = { ...this.#state.blobs };
     if (entry === null) delete blobs[blobId];
     else blobs[blobId] = entry;
@@ -293,7 +293,7 @@ export class BlobQueue {
    */
   async #refreshPending() {
     const uploads = await this.#allUploads();
-    const blobs: Record<string, BlobUploadState> = {};
+    const blobs: Record<string, TBlobUploadState> = {};
     for (const [id, entry] of Object.entries(this.#state.blobs)) {
       if (entry.stage === "done" || entry.stage === "inflight") blobs[id] = entry;
     }
@@ -318,12 +318,12 @@ export class BlobQueue {
 
   // --- record storage (IndexedDB with a memory fallback) ---
 
-  async #allUploads(): Promise<UploadRecord[]> {
+  async #allUploads(): Promise<TUploadRecord[]> {
     const db = await this.#idb;
-    let disk: UploadRecord[] = [];
+    let disk: TUploadRecord[] = [];
     if (db) {
       try {
-        disk = await withDeadline(idbGetAll<UploadRecord>(db, UPLOADS), IDB_OP_TIMEOUT_MS, "read");
+        disk = await withDeadline(idbGetAll<TUploadRecord>(db, UPLOADS), IDB_OP_TIMEOUT_MS, "read");
       } catch {
         this.#markEphemeral();
       }
@@ -333,14 +333,14 @@ export class BlobQueue {
     return [...merged.values()];
   }
 
-  async #getUpload(blobId: string): Promise<UploadRecord | undefined> {
+  async #getUpload(blobId: string): Promise<TUploadRecord | undefined> {
     const inMem = this.#mem.get(blobId);
     if (inMem) return inMem;
     const db = await this.#idb;
     if (!db) return undefined;
     try {
       return await withDeadline(
-        idbGet<UploadRecord>(db, UPLOADS, blobId),
+        idbGet<TUploadRecord>(db, UPLOADS, blobId),
         IDB_OP_TIMEOUT_MS,
         "read",
       );
@@ -349,7 +349,7 @@ export class BlobQueue {
     }
   }
 
-  async #putUpload(record: UploadRecord): Promise<void> {
+  async #putUpload(record: TUploadRecord): Promise<void> {
     if (this.#mem.has(record.blobId)) {
       this.#mem.set(record.blobId, record);
       return;
@@ -385,7 +385,7 @@ export class BlobQueue {
    * Hash + persist the bytes locally and return the blobId to put on the
    * item. Pure local work: safe offline; the upload happens in the flush.
    */
-  async capture(file: Blob, originalName?: string): Promise<CapturedBlob> {
+  async capture(file: Blob, originalName?: string): Promise<TCapturedBlob> {
     const sha256 = await sha256Hex(file);
     const mime = file.type || "application/octet-stream";
 
@@ -404,7 +404,7 @@ export class BlobQueue {
       };
     }
 
-    const record: UploadRecord = {
+    const record: TUploadRecord = {
       blobId: newId(),
       sha256,
       mime,
@@ -479,7 +479,7 @@ export class BlobQueue {
     }
   }
 
-  async #uploadOne(record: UploadRecord): Promise<"done" | "retry" | "auth"> {
+  async #uploadOne(record: TUploadRecord): Promise<"done" | "retry" | "auth"> {
     const blobId = record.blobId;
     if (this.#cancelled.has(blobId)) return this.#finishCancelled(blobId);
 
@@ -603,7 +603,7 @@ export class BlobQueue {
    * dead connection surfaces in under a minute instead of never. Non-browser
    * runtimes (tests, workers) fall back to fetch without progress.
    */
-  #putBytes(url: string, record: UploadRecord): Promise<PutResult> {
+  #putBytes(url: string, record: TUploadRecord): Promise<TPutResult> {
     const blobId = record.blobId;
     if (typeof XMLHttpRequest === "undefined") {
       const controller = new AbortController();
@@ -614,14 +614,14 @@ export class BlobQueue {
         headers: { "content-type": record.mime },
         signal: controller.signal,
       })
-        .then<PutResult>((res) =>
+        .then<TPutResult>((res) =>
           res.ok ? { ok: true } : { ok: false, reason: describeHttp(res.status) },
         )
-        .catch(() => ({ ok: false, reason: CORS_HINT }) satisfies PutResult)
+        .catch(() => ({ ok: false, reason: CORS_HINT }) satisfies TPutResult)
         .finally(() => this.#aborts.delete(blobId));
     }
 
-    return new Promise<PutResult>((resolve) => {
+    return new Promise<TPutResult>((resolve) => {
       const xhr = new XMLHttpRequest();
       let stalled = false;
       let lastProgressAt = Date.now();
@@ -631,7 +631,7 @@ export class BlobQueue {
           xhr.abort();
         }
       }, 5_000);
-      const finish = (result: PutResult) => {
+      const finish = (result: TPutResult) => {
         clearInterval(stallTimer);
         this.#aborts.delete(blobId);
         resolve(result);
@@ -668,7 +668,7 @@ export class BlobQueue {
 
   // --- lazy blob cache (downloads) ---
 
-  async #cachePut(record: CacheRecord): Promise<void> {
+  async #cachePut(record: TCacheRecord): Promise<void> {
     const db = await this.#idb;
     if (!db) return; // no cache without IndexedDB: downloads just refetch
     try {
@@ -687,7 +687,7 @@ export class BlobQueue {
     if (!db) return null;
     try {
       const cached = await withDeadline(
-        idbGet<CacheRecord>(db, CACHE, blobId),
+        idbGet<TCacheRecord>(db, CACHE, blobId),
         IDB_OP_TIMEOUT_MS,
         "cache read",
       );
@@ -731,7 +731,7 @@ export class BlobQueue {
 
   /** LRU-evict the download cache; pending uploads are never touched. */
   async #evict(db: IDBDatabase): Promise<void> {
-    const all = await idbGetAll<CacheRecord>(db, CACHE);
+    const all = await idbGetAll<TCacheRecord>(db, CACHE);
     let total = all.reduce((sum, r) => sum + r.size, 0);
     let count = all.length;
     for (const record of all.toSorted((a, b) => a.lastUsedAt - b.lastUsedAt)) {

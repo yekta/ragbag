@@ -39,7 +39,7 @@ export class AudioInputError extends Error {}
 export class AudioTooLargeError extends AudioInputError {}
 export class AudioUnsupportedError extends AudioInputError {}
 
-export type SniffedAudio = {
+export type TSniffedAudio = {
   /** What the bytes are, in the words the error and the log line use. */
   label: string;
   /** The extension the endpoint knows this container by, null when it has none. */
@@ -47,7 +47,7 @@ export type SniffedAudio = {
   mime: string | null;
 };
 
-export type PreparedAudio = {
+export type TPreparedAudio = {
   bytes: Uint8Array;
   filename: string;
   mime: string;
@@ -61,7 +61,7 @@ export type PreparedAudio = {
  * cases this exists for: a phone names an Ogg stream `.opus`, a share sheet
  * hands over `audio/mpeg` for whatever it happened to have.
  */
-export function sniffAudio(bytes: Uint8Array): SniffedAudio {
+export function sniffAudio(bytes: Uint8Array): TSniffedAudio {
   const head = Buffer.from(bytes.buffer, bytes.byteOffset, Math.min(bytes.byteLength, 512));
   const at = (offset: number, length: number) => head.toString("latin1", offset, offset + length);
 
@@ -111,7 +111,7 @@ export async function prepareAudio(input: {
   bytes: Uint8Array;
   filename: string;
   mime: string;
-}): Promise<PreparedAudio> {
+}): Promise<TPreparedAudio> {
   const sniffed = sniffAudio(input.bytes);
   const oversized = input.bytes.byteLength > MAX_AUDIO_BYTES;
 
@@ -167,7 +167,7 @@ export function ffmpegBinary(): string | null {
 async function convert(
   ffmpeg: string,
   bytes: Uint8Array,
-  sniffed: SniffedAudio,
+  sniffed: TSniffedAudio,
 ): Promise<Uint8Array> {
   const dir = await mkdtemp(join(tmpdir(), "ragbag-audio-"));
   const source = join(dir, `source${sniffed.ext ? `.${sniffed.ext}` : ""}`);

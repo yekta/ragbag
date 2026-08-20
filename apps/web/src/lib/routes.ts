@@ -1,4 +1,4 @@
-import type { AttachmentFace, EntityTypes } from "@ragbag/shared";
+import type { TAttachmentFace, TEntityTypes } from "@ragbag/shared";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { declaredSlugs } from "./thing-slugs.js";
@@ -18,7 +18,7 @@ import { declaredSlugs } from "./thing-slugs.js";
 //   /tags/<id>           one of the user's own tags
 //   /links/tags/<id>     both, because the two filters have always combined
 //
-// and, over any of them, the surfaces that are not places (`AppSearch` below):
+// and, over any of them, the surfaces that are not places (`TAppSearch` below):
 //
 //   ?message=<id>        one message, in the panel
 //   ?entity=<id>         one thing, in the panel
@@ -43,7 +43,7 @@ const CHAT_VIEWS = { favorites: "favorites" } as const;
 /** Rows backed by attachments rather than by entities. */
 const ATTACHMENT_VIEWS = { images: "image", files: "file" } as const satisfies Record<
   string,
-  AttachmentFace
+  TAttachmentFace
 >;
 
 /**
@@ -57,13 +57,13 @@ const ATTACHMENT_VIEWS = { images: "image", files: "file" } as const satisfies R
 export const VIEW_SLUGS = [...Object.keys(CHAT_VIEWS), ...Object.keys(ATTACHMENT_VIEWS)] as const;
 
 /** A view is named by its slug: the URL vocabulary is the only vocabulary. */
-export type ViewFilter = string | null;
+export type TViewFilter = string | null;
 
 /** What the sidebar is narrowing to: at most one view, at most one tag. */
-export type Filter = { view: ViewFilter; tagId: string | null };
+export type TFilter = { view: TViewFilter; tagId: string | null };
 
 /** No filter at all: the whole archive. */
-export const EVERYTHING: Filter = { view: null, tagId: null };
+export const EVERYTHING: TFilter = { view: null, tagId: null };
 
 const KNOWN = new Set<string>(VIEW_SLUGS);
 
@@ -77,12 +77,12 @@ export const isViewSlug = (slug: string): boolean =>
   KNOWN.has(slug) || declaredSlugs().includes(slug);
 
 /** True when this view filters the chat rather than replacing it (plan §8.2). */
-export function isChatView(view: ViewFilter): boolean {
+export function isChatView(view: TViewFilter): boolean {
   return view === null || view in CHAT_VIEWS;
 }
 
 /** Which attachment face this view shows, if it shows one. */
-export function attachmentFaceOf(view: ViewFilter): AttachmentFace | null {
+export function attachmentFaceOf(view: TViewFilter): TAttachmentFace | null {
   return view && view in ATTACHMENT_VIEWS
     ? ATTACHMENT_VIEWS[view as keyof typeof ATTACHMENT_VIEWS]
     : null;
@@ -95,7 +95,7 @@ export function attachmentFaceOf(view: ViewFilter): AttachmentFace | null {
  * type's slug arrives over sync (lib/entity-types.tsx): that is what gives a
  * kind added in Postgres a URL of its own with no code change at all.
  */
-export function entityKindOf(view: ViewFilter, types: EntityTypes): string | null {
+export function entityKindOf(view: TViewFilter, types: TEntityTypes): string | null {
   return (view && types.bySlug(view)?.kind) ?? null;
 }
 
@@ -130,7 +130,7 @@ export function entityKindOf(view: ViewFilter, types: EntityTypes): string | nul
  * would be one back gesture for both. You would tap a photo, tap back, and the
  * message you were reading would be gone too.
  */
-export type AppSearch = {
+export type TAppSearch = {
   /** The message panel. */
   message?: string;
   /** The thing panel. The same slot: at most one of the three is ever open. */
@@ -160,7 +160,7 @@ const idParam = (value: unknown): string | undefined =>
  * resolves to nothing when the panel looks it up, which the panel already
  * draws as "this is gone".
  */
-export function validateAppSearch(search: Record<string, unknown>): AppSearch {
+export function validateAppSearch(search: Record<string, unknown>): TAppSearch {
   const message = idParam(search.message);
   const entity = idParam(search.entity);
   const attachment = idParam(search.attachment);
@@ -175,7 +175,7 @@ export function validateAppSearch(search: Record<string, unknown>): AppSearch {
 }
 
 /** What is open over the view, if anything. */
-export type Panel = { kind: "message" | "entity" | "attachment"; id: string };
+export type TPanel = { kind: "message" | "entity" | "attachment"; id: string };
 
 /**
  * One slot, so one hook: the panels are three shapes of the same surface, and a
@@ -186,7 +186,7 @@ export type Panel = { kind: "message" | "entity" | "attachment"; id: string };
  * params: the shell renders above every route in the tree and has no single one
  * to ask.
  */
-export function usePanel(): Panel | null {
+export function usePanel(): TPanel | null {
   const { message, entity, attachment } = useSearch({ strict: false });
   return useMemo(
     () =>
@@ -229,7 +229,7 @@ export function useSettingsOpen(): boolean {
 export function messageLink(id: string) {
   return {
     to: ".",
-    search: (prev: AppSearch) => ({
+    search: (prev: TAppSearch) => ({
       ...validateAppSearch(prev),
       message: id,
       entity: undefined,
@@ -243,7 +243,7 @@ export function messageLink(id: string) {
 export function entityLink(id: string) {
   return {
     to: ".",
-    search: (prev: AppSearch) => ({
+    search: (prev: TAppSearch) => ({
       ...validateAppSearch(prev),
       entity: id,
       message: undefined,
@@ -257,7 +257,7 @@ export function entityLink(id: string) {
 export function attachmentLink(id: string) {
   return {
     to: ".",
-    search: (prev: AppSearch) => ({
+    search: (prev: TAppSearch) => ({
       ...validateAppSearch(prev),
       attachment: id,
       message: undefined,
@@ -271,7 +271,7 @@ export function attachmentLink(id: string) {
 /** Closing whichever panel is open, and the photo it may have had open. */
 export const closePanelLink = {
   to: ".",
-  search: (prev: AppSearch) => ({
+  search: (prev: TAppSearch) => ({
     ...validateAppSearch(prev),
     message: undefined,
     entity: undefined,
@@ -285,20 +285,20 @@ export const closePanelLink = {
 export function photoLink(id: string | undefined) {
   return {
     to: ".",
-    search: (prev: AppSearch) => ({ ...validateAppSearch(prev), photo: id }),
+    search: (prev: TAppSearch) => ({ ...validateAppSearch(prev), photo: id }),
     resetScroll: false,
   } as const;
 }
 
 export const openSettingsLink = {
   to: ".",
-  search: (prev: AppSearch) => ({ ...validateAppSearch(prev), settings: true as const }),
+  search: (prev: TAppSearch) => ({ ...validateAppSearch(prev), settings: true as const }),
   resetScroll: false,
 } as const;
 
 export const closeSettingsLink = {
   to: ".",
-  search: (prev: AppSearch) => ({ ...validateAppSearch(prev), settings: undefined }),
+  search: (prev: TAppSearch) => ({ ...validateAppSearch(prev), settings: undefined }),
   resetScroll: false,
 } as const;
 
@@ -312,7 +312,7 @@ export const closeSettingsLink = {
  * has no single one to read params from; the router merges the matched chain's
  * params, so a missing segment is simply `undefined` here.
  */
-export function useFilter(): Filter {
+export function useFilter(): TFilter {
   const { view, tagId } = useParams({ strict: false });
   return useMemo(
     // An unknown slug can't reach this point (main.tsx redirects), so `?? null`
@@ -337,7 +337,7 @@ export function useFilter(): Filter {
  * default jump to the top would be a frame of the wrong position before that
  * runs.
  */
-export function filterLink(filter: Filter) {
+export function filterLink(filter: TFilter) {
   const view = filter.view ?? undefined;
   return filter.tagId
     ? ({

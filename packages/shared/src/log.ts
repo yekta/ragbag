@@ -1,8 +1,8 @@
 // Minimal structured logger: one JSON object per line, ready for log drains.
 // Deliberately tiny: swap for OpenTelemetry-aware logging in M8.
-type Level = "debug" | "info" | "warn" | "error";
+type TLevel = "debug" | "info" | "warn" | "error";
 
-function write(level: Level, msg: string, fields?: Record<string, unknown>) {
+function write(level: TLevel, msg: string, fields?: Record<string, unknown>) {
   const line = JSON.stringify({ level, msg, time: new Date().toISOString(), ...fields });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);

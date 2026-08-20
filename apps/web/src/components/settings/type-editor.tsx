@@ -1,6 +1,6 @@
 import { mutators, queries } from "@ragbag/contracts";
 import { FIELD_TYPES, hasBehaviour, humanize, newId, slugFromLabel } from "@ragbag/shared";
-import type { FieldType } from "@ragbag/shared";
+import type { TFieldType } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { runMutation } from "@/lib/mutate";
-import type { TypeRow } from "@/lib/types";
+import type { TTypeRow } from "@/lib/types";
 
 // One kind of thing, as a form: what it is called, what to look for, and the
 // details ragbag should fill in when it finds one.
@@ -32,12 +32,12 @@ import type { TypeRow } from "@/lib/types";
 const READ_ONLY = "border-transparent bg-muted";
 
 /** What one row of the field table holds while it is being edited. */
-type DraftField = {
+type TDraftField = {
   /** Local only: React keys, and what the move buttons reorder. */
   uid: string;
   name: string;
   label: string;
-  type: FieldType;
+  type: TFieldType;
   values: string;
   required: boolean;
   description: string;
@@ -45,7 +45,7 @@ type DraftField = {
   key: boolean;
 };
 
-type Draft = {
+type TDraft = {
   label: string;
   sidebarTitle: string;
   slug: string;
@@ -54,10 +54,10 @@ type Draft = {
   examples: string;
   titleTemplate: string;
   sidebar: boolean;
-  fields: DraftField[];
+  fields: TDraftField[];
 };
 
-function emptyField(): DraftField {
+function emptyField(): TDraftField {
   return {
     uid: newId(),
     name: "",
@@ -70,7 +70,7 @@ function emptyField(): DraftField {
   };
 }
 
-function draftFrom(type: TypeRow | null): Draft {
+function draftFrom(type: TTypeRow | null): TDraft {
   if (!type) {
     return {
       label: "",
@@ -99,7 +99,7 @@ function draftFrom(type: TypeRow | null): Draft {
         uid: field.id,
         name: field.name,
         label: field.label,
-        type: field.type as FieldType,
+        type: field.type as TFieldType,
         values: (field.values ?? []).join(", "),
         required: field.required,
         description: field.description ?? "",
@@ -143,18 +143,18 @@ function Form({
   onDone,
 }: {
   zero: ReturnType<typeof useZero>;
-  type: TypeRow | null;
+  type: TTypeRow | null;
   onDone: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(type));
+  const [draft, setDraft] = useState<TDraft>(() => draftFrom(type));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // A kind ragbag understands itself. Its details are code's, not the user's,
   // so they are shown rather than offered.
   const owned = type ? hasBehaviour(type.kind) : false;
-  const patch = (over: Partial<Draft>) => setDraft((current) => ({ ...current, ...over }));
+  const patch = (over: Partial<TDraft>) => setDraft((current) => ({ ...current, ...over }));
 
-  const patchField = (uid: string, over: Partial<DraftField>) =>
+  const patchField = (uid: string, over: Partial<TDraftField>) =>
     patch({
       fields: draft.fields.map((field) => (field.uid === uid ? { ...field, ...over } : field)),
     });
@@ -396,7 +396,7 @@ function Form({
                   value={field.type}
                   disabled={owned}
                   aria-label="Kind of detail"
-                  onChange={(e) => patchField(field.uid, { type: e.target.value as FieldType })}
+                  onChange={(e) => patchField(field.uid, { type: e.target.value as TFieldType })}
                 >
                   {FIELD_TYPES.map((name) => (
                     <option key={name} value={name}>

@@ -1,4 +1,4 @@
-import type { SearchHit } from "./search-index.js";
+import type { TSearchHit } from "./search-index.js";
 
 // Turning one ranked list of hits into the two sections search shows.
 //
@@ -29,12 +29,12 @@ import type { SearchHit } from "./search-index.js";
 // testing and apps/web has no test runner.
 
 export const RESULT_GROUPS = ["messages", "things"] as const;
-export type ResultGroup = (typeof RESULT_GROUPS)[number];
+export type TResultGroup = (typeof RESULT_GROUPS)[number];
 
-export type ResultRow = {
-  group: ResultGroup;
+export type TResultRow = {
+  group: TResultGroup;
   /** The hit that put this row here: the best-ranked one for its target. */
-  hit: SearchHit;
+  hit: TSearchHit;
   /**
    * The message this row opens: the Messages row's own, or the one a file came
    * in. Absent on an entity row, which opens the thing's own page instead.
@@ -57,16 +57,16 @@ const SECTION_LIMIT = 40;
  * index knowing anything about Zero.
  */
 export function groupHits(
-  hits: readonly SearchHit[],
+  hits: readonly TSearchHit[],
   opts: {
     hasMessage: (id: string) => boolean;
     hasAttachment: (id: string) => boolean;
     hasEntity: (id: string) => boolean;
     limit?: number;
   },
-): ResultRow[] {
+): TResultRow[] {
   const limit = opts.limit ?? SECTION_LIMIT;
-  const rows: ResultRow[] = [];
+  const rows: TResultRow[] = [];
   const messages = new Set<string>();
   // One set for both kinds of thing, because the section is capped as a whole
   // and no file shares an id with an entity.

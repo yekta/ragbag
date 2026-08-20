@@ -9,20 +9,20 @@ import {
 } from "./fields.js";
 import {
   FIELD_TYPES,
-  type EntityType,
-  type EntityTypeDef,
-  type EntityTypes,
-  type FieldSpec,
-  type FieldType,
-  type KindedCandidate,
+  type TEntityType,
+  type TEntityTypeDef,
+  type TEntityTypes,
+  type TFieldSpec,
+  type TFieldType,
+  type TKindedCandidate,
 } from "./types.js";
 
 // Resolving a set of entity types.
 //
 // Every type is a row (`entity_types` + `entity_type_fields`) belonging to one
 // user, seeded at signup from the catalog and theirs to edit from then on. A
-// row compiles to `EntityType` here, picking up whatever behaviour code has
-// registered for its kind, and the resolved `EntityTypes` is what the prompt,
+// row compiles to `TEntityType` here, picking up whatever behaviour code has
+// registered for its kind, and the resolved `TEntityTypes` is what the prompt,
 // the validator and the UI read.
 //
 // Nothing is a module-level constant: the server resolves a set per ingestion
@@ -38,7 +38,7 @@ import {
  * that strips tracking params, so `key_rank` on it is ignored rather than
  * fought with, and settings hides the column for those kinds.
  */
-export function compileEntityType(def: EntityTypeDef): EntityType {
+export function compileEntityType(def: TEntityTypeDef): TEntityType {
   const behaviour = BEHAVIOURS[def.kind];
   return {
     ...def,
@@ -56,7 +56,7 @@ export function compileEntityType(def: EntityTypeDef): EntityType {
  * imported from drizzle or Zero so the same mapper serves the server's rows and
  * the client's synced ones.
  */
-export type EntityTypeRow = {
+export type TEntityTypeRow = {
   kind: string;
   label: string;
   sidebarTitle: string;
@@ -72,7 +72,7 @@ export type EntityTypeRow = {
 };
 
 /** One `entity_type_fields` row, same deal. */
-export type EntityTypeFieldRow = {
+export type TEntityTypeFieldRow = {
   name: string;
   label: string;
   type: string;
@@ -83,7 +83,7 @@ export type EntityTypeFieldRow = {
   keyRank?: number | null;
 };
 
-function isFieldType(type: string): type is FieldType {
+function isFieldType(type: string): type is TFieldType {
   return (FIELD_TYPES as readonly string[]).includes(type);
 }
 
@@ -99,12 +99,12 @@ function isFieldType(type: string): type is FieldType {
  * (a recipe name, a person), with no structure worth filling in.
  */
 export function typeFromRows(
-  row: EntityTypeRow,
-  fieldRows: readonly EntityTypeFieldRow[],
-): EntityTypeDef | null {
+  row: TEntityTypeRow,
+  fieldRows: readonly TEntityTypeFieldRow[],
+): TEntityTypeDef | null {
   if (!row.kind || !row.label || !row.slug) return null;
   const ordered = [...fieldRows].toSorted((a, b) => a.position - b.position);
-  const fields: FieldSpec[] = [];
+  const fields: TFieldSpec[] = [];
   for (const spec of ordered) {
     if (!isFieldType(spec.type)) return null;
     const values = spec.values ?? undefined;
@@ -209,7 +209,7 @@ export function freeName(
  * client's `entityType.install` mutator derive `position` and `key_rank` the
  * same way rather than each having its own idea of the order.
  */
-export function typeRowFor(def: EntityTypeDef): EntityTypeRow {
+export function typeRowFor(def: TEntityTypeDef): TEntityTypeRow {
   return {
     kind: def.kind,
     label: def.label,
@@ -226,7 +226,7 @@ export function typeRowFor(def: EntityTypeDef): EntityTypeRow {
 }
 
 /** The field rows of one definition, in declared order. */
-export function fieldRowsFor(def: EntityTypeDef): EntityTypeFieldRow[] {
+export function fieldRowsFor(def: TEntityTypeDef): TEntityTypeFieldRow[] {
   const keyFields = def.keyFields ?? [];
   return def.fields.map((spec, position) => {
     const rank = keyFields.indexOf(spec.name);
@@ -252,8 +252,8 @@ export function fieldRowsFor(def: EntityTypeDef): EntityTypeFieldRow[] {
  * Deduped by (kind, normalized value): the same URL twice in one message is one
  * entity with, at this stage, one candidate.
  */
-function matchIn(types: readonly EntityType[], text: string): KindedCandidate[] {
-  const found: KindedCandidate[] = [];
+function matchIn(types: readonly TEntityType[], text: string): TKindedCandidate[] {
+  const found: TKindedCandidate[] = [];
   const seen = new Set<string>();
   for (const type of types) {
     if (!type.match || !type.enabled) continue;
@@ -278,14 +278,14 @@ function matchIn(types: readonly EntityType[], text: string): KindedCandidate[] 
  * extracted any more, and everything it already found still draws under its own
  * labels, which is the difference between disabling a type and deleting one.
  */
-export function resolveEntityTypes(declared: readonly EntityTypeDef[]): EntityTypes {
-  const byKind = new Map<string, EntityType>();
+export function resolveEntityTypes(declared: readonly TEntityTypeDef[]): TEntityTypes {
+  const byKind = new Map<string, TEntityType>();
   for (const def of declared) {
     if (byKind.has(def.kind)) continue;
     byKind.set(def.kind, compileEntityType(def));
   }
   const list = [...byKind.values()];
-  const bySlug = new Map<string, EntityType>();
+  const bySlug = new Map<string, TEntityType>();
   for (const type of list) if (!bySlug.has(type.slug)) bySlug.set(type.slug, type);
 
   return {

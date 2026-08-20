@@ -1,6 +1,6 @@
 import { hasBehaviour } from "./behaviours.js";
 import { field } from "./fields.js";
-import type { EntityTypeDef } from "./types.js";
+import type { TEntityTypeDef } from "./types.js";
 
 // The ready-made types this build ships.
 //
@@ -24,7 +24,7 @@ import type { EntityTypeDef } from "./types.js";
 // number people publish on invoices; a password, a card number, a national id
 // or a health record is not, and the catalog will never ship one.
 
-const link: EntityTypeDef = {
+const link: TEntityTypeDef = {
   kind: "link",
   label: "Link",
   sidebarTitle: "Links",
@@ -48,7 +48,7 @@ const link: EntityTypeDef = {
   ],
 };
 
-const tracking: EntityTypeDef = {
+const tracking: TEntityTypeDef = {
   kind: "tracking",
   label: "Tracking Number",
   sidebarTitle: "Tracking Numbers",
@@ -69,7 +69,7 @@ const tracking: EntityTypeDef = {
   ],
 };
 
-const address: EntityTypeDef = {
+const address: TEntityTypeDef = {
   kind: "address",
   label: "Address",
   sidebarTitle: "Addresses",
@@ -94,7 +94,7 @@ const address: EntityTypeDef = {
   ],
 };
 
-const phone: EntityTypeDef = {
+const phone: TEntityTypeDef = {
   kind: "phone",
   label: "Phone Number",
   sidebarTitle: "Phone Numbers",
@@ -109,7 +109,7 @@ const phone: EntityTypeDef = {
   ],
 };
 
-const email: EntityTypeDef = {
+const email: TEntityTypeDef = {
   kind: "email",
   label: "Email",
   sidebarTitle: "Email Addresses",
@@ -124,7 +124,7 @@ const email: EntityTypeDef = {
   ],
 };
 
-const invoice: EntityTypeDef = {
+const invoice: TEntityTypeDef = {
   kind: "invoice",
   label: "Invoice",
   sidebarTitle: "Invoices",
@@ -142,7 +142,7 @@ const invoice: EntityTypeDef = {
   ],
 };
 
-const iban: EntityTypeDef = {
+const iban: TEntityTypeDef = {
   kind: "iban",
   label: "IBAN",
   sidebarTitle: "IBANs",
@@ -161,7 +161,7 @@ const iban: EntityTypeDef = {
   keyFields: ["iban"],
 };
 
-const book: EntityTypeDef = {
+const book: TEntityTypeDef = {
   kind: "book",
   label: "Book",
   sidebarTitle: "Books",
@@ -187,7 +187,7 @@ const book: EntityTypeDef = {
 };
 
 /** In sidebar order, which is also the order a new account is seeded in. */
-export const CATALOG: readonly EntityTypeDef[] = [
+export const CATALOG: readonly TEntityTypeDef[] = [
   link,
   tracking,
   address,
@@ -199,14 +199,14 @@ export const CATALOG: readonly EntityTypeDef[] = [
 ];
 
 /** In v3 the catalog is the starter set: every entry is seeded (plan §5). */
-export const STARTER_SET: readonly EntityTypeDef[] = CATALOG;
+export const STARTER_SET: readonly TEntityTypeDef[] = CATALOG;
 
-export function catalogEntry(kind: string): EntityTypeDef | undefined {
+export function catalogEntry(kind: string): TEntityTypeDef | undefined {
   return CATALOG.find((def) => def.kind === kind);
 }
 
 /** One entry of the list settings shows, whether or not it has a row yet. */
-export type TypeChoice = {
+export type TTypeChoice = {
   /** Absent for a catalog entry this user has never turned on. */
   id?: string;
   kind: string;
@@ -222,7 +222,7 @@ export type TypeChoice = {
 };
 
 /** What settings needs off a row to list it. */
-export type TypeChoiceRow = {
+export type TTypeChoiceRow = {
   id: string;
   kind: string;
   sidebarTitle: string;
@@ -242,9 +242,9 @@ export type TypeChoiceRow = {
  * tell them apart. Turning any of them on is one tap; whether that is an update
  * or an insert is the mutator's problem, not the screen's.
  */
-const byTitle = (a: TypeChoice, b: TypeChoice) => a.sidebarTitle.localeCompare(b.sidebarTitle);
+const byTitle = (a: TTypeChoice, b: TTypeChoice) => a.sidebarTitle.localeCompare(b.sidebarTitle);
 
-const choiceOf = (row: TypeChoiceRow): TypeChoice => ({
+const choiceOf = (row: TTypeChoiceRow): TTypeChoice => ({
   id: row.id,
   kind: row.kind,
   sidebarTitle: row.sidebarTitle,
@@ -256,10 +256,10 @@ const choiceOf = (row: TypeChoiceRow): TypeChoice => ({
 });
 
 export function typeChoices(
-  rows: readonly TypeChoiceRow[],
-  catalog: readonly EntityTypeDef[] = CATALOG,
-): TypeChoice[] {
-  const choices: TypeChoice[] = [];
+  rows: readonly TTypeChoiceRow[],
+  catalog: readonly TEntityTypeDef[] = CATALOG,
+): TTypeChoice[] {
+  const choices: TTypeChoice[] = [];
   const claimed = new Set<string>();
   for (const row of rows) {
     claimed.add(row.kind);

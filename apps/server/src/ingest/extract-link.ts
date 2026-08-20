@@ -6,7 +6,7 @@ import { parseHTML } from "linkedom";
 // text via Readability. Video links stop at metadata: no transcript, no
 // content-level analysis; they get tagged from title + description only.
 
-export type LinkExtraction = {
+export type TLinkExtraction = {
   title?: string;
   description?: string;
   siteName?: string;
@@ -32,7 +32,7 @@ function collapseWhitespace(text: string): string {
 
 const MAX_EXTRACTED_CHARS = 200_000;
 
-export function extractFromHtml(html: string, pageUrl: string): LinkExtraction {
+export function extractFromHtml(html: string, pageUrl: string): TLinkExtraction {
   const { document } = parseHTML(html);
 
   const meta = (name: string): string | undefined => {

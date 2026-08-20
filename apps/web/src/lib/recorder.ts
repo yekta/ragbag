@@ -29,15 +29,15 @@ export function recordingSupported(): boolean {
 /** How many peaks a waveform carries; enough to draw, small enough to sync. */
 const WAVEFORM_BUCKETS = 64;
 
-export type Recording = {
+export type TRecording = {
   file: File;
   durationMs: number;
   /** 0-1 peaks, computed here so no device ever decodes audio to draw a bubble. */
   waveform: number[];
 };
 
-export type RecorderHandle = {
-  stop: () => Promise<Recording | null>;
+export type TRecorderHandle = {
+  stop: () => Promise<TRecording | null>;
   cancel: () => void;
   /** Elapsed ms, polled by the timer in the composer. */
   elapsed: () => number;
@@ -47,7 +47,7 @@ export type RecorderHandle = {
  * Start recording. Rejects when the user denies the mic, which the composer
  * turns into a real state rather than a dead button.
  */
-export async function startRecording(): Promise<RecorderHandle> {
+export async function startRecording(): Promise<TRecorderHandle> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const mimeType = pickMimeType();
   const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -72,7 +72,7 @@ export async function startRecording(): Promise<RecorderHandle> {
       release();
     },
     stop: () =>
-      new Promise<Recording | null>((resolve) => {
+      new Promise<TRecording | null>((resolve) => {
         recorder.addEventListener("stop", () => {
           release();
           if (cancelled || chunks.length === 0) return resolve(null);

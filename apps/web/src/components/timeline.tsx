@@ -6,13 +6,13 @@ import { EmptyScreen } from "@/components/empty-screen";
 import { Icon } from "@/components/icon";
 import { MessageCard } from "@/components/message-card";
 import { Badge } from "@/components/ui/badge";
-import type { ArchiveState } from "@/lib/archive-state";
+import type { TArchiveState } from "@/lib/archive-state";
 import { aspectOf } from "@/lib/blobs";
 import { dayKey, dayLabel } from "@/lib/format";
 import { useFilter } from "@/lib/routes";
 import { BUDGET, usePatient } from "@/lib/settle";
-import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
-import type { Messages, Message } from "@/lib/types";
+import { isSyncPaused, type TSyncStatus } from "@/lib/sync-status";
+import type { TMessages, TMessage } from "@/lib/types";
 
 // The chat-style timeline: whole archive, oldest at the top, anchored to the
 // bottom like a messenger. Virtualized: the full personal archive is in memory
@@ -30,7 +30,7 @@ import type { Messages, Message } from "@/lib/types";
 // empty query result, which is what used to make it flash a sync spinner at a
 // device that had every row on disk.
 
-type Row = { type: "day"; key: string; label: string } | { type: "message"; message: Message };
+type TRow = { type: "day"; key: string; label: string } | { type: "message"; message: TMessage };
 
 /** How close to the newest message still counts as being at the newest one. */
 const AT_END_PX = 120;
@@ -46,7 +46,7 @@ const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "Ar
  */
 const HIGHLIGHT_MS = 3000;
 
-function useRows(messages: Messages): Row[] {
+function useRows(messages: TMessages): TRow[] {
   // The URL is the filter (lib/routes.ts).
   const { view, tagId } = useFilter();
   return useMemo(() => {
@@ -56,7 +56,7 @@ function useRows(messages: Messages): Row[] {
     if (view === "favorites") filtered = filtered.filter((m) => m.favorite);
     if (tagId) filtered = filtered.filter((m) => m.tags.some((t) => t.tagId === tagId));
 
-    const rows: Row[] = [];
+    const rows: TRow[] = [];
     let lastDay = "";
     for (const message of filtered) {
       const key = dayKey(message.createdAt);
@@ -114,7 +114,7 @@ function textHeight(text: string | null | undefined, width: number): number {
   );
 }
 
-export function estimateMessage(message: Message, width: number): number {
+export function estimateMessage(message: TMessage, width: number): number {
   let height = CARD_CHROME + textHeight(message.text, width);
 
   for (const block of toBlocks(message.attachments)) {
@@ -153,10 +153,10 @@ export function Timeline({
   sync,
   listRef,
 }: {
-  messages: Messages;
+  messages: TMessages;
   /** What the workspace is doing. Nothing here second-guesses it. */
-  state: ArchiveState;
-  sync: SyncStatus | null;
+  state: TArchiveState;
+  sync: TSyncStatus | null;
   /** Owned by the shell, which watches it to know when the page has settled. */
   listRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -490,8 +490,8 @@ function Placeholder({
 }: {
   /** There are messages; this filter just doesn't match any of them. */
   filtered: boolean;
-  state: ArchiveState;
-  sync: SyncStatus | null;
+  state: TArchiveState;
+  sync: TSyncStatus | null;
 }) {
   // A loader that does appear stays long enough to be read.
   const syncing = usePatient(state === "syncing", BUDGET.loaderMin);

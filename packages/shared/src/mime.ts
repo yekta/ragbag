@@ -5,9 +5,9 @@
 // never disagree with the bytes it holds.
 
 export const ATTACHMENT_FACES = ["image", "pdf", "audio", "file"] as const;
-export type AttachmentFace = (typeof ATTACHMENT_FACES)[number];
+export type TAttachmentFace = (typeof ATTACHMENT_FACES)[number];
 
-export function faceForMime(mime: string): AttachmentFace {
+export function faceForMime(mime: string): TAttachmentFace {
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
   if (mime.startsWith("audio/")) return "audio";

@@ -17,9 +17,9 @@ import {
   typeChoices,
   typeFromRows,
   typeRowFor,
-  type EntityTypeDef,
-  type EntityTypeFieldRow,
-  type EntityTypeRow,
+  type TEntityTypeDef,
+  type TEntityTypeFieldRow,
+  type TEntityTypeRow,
 } from "./index.js";
 
 /**
@@ -28,14 +28,14 @@ import {
  * than against the definitions in code, because rows are the only thing the
  * pipeline and the UI ever see.
  */
-function seeded(defs: readonly EntityTypeDef[] = CATALOG) {
+function seeded(defs: readonly TEntityTypeDef[] = CATALOG) {
   return resolveEntityTypes(defs.map((def) => typeFromRows(typeRowFor(def), fieldRowsFor(def))!));
 }
 
 const types = seeded();
 
 // One type a user made up, exactly as its two tables describe it.
-const brandRow: EntityTypeRow = {
+const brandRow: TEntityTypeRow = {
   kind: "brand",
   label: "Brand",
   sidebarTitle: "Brands",
@@ -48,7 +48,7 @@ const brandRow: EntityTypeRow = {
   version: 3,
 };
 
-const brandFields: EntityTypeFieldRow[] = [
+const brandFields: TEntityTypeFieldRow[] = [
   {
     name: "name",
     label: "Brand Name",

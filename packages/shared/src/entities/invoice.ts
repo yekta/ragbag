@@ -1,11 +1,11 @@
-import type { EntityBehaviour } from "./types.js";
+import type { TEntityBehaviour } from "./types.js";
 
 // No matcher: "invoice" is a judgment about a document, not a pattern in a
 // string. The synthesis pass reads a receipt's extracted text and fills the
 // fields in; the normalizer's job is to decide when two of them are the same
 // bill, which is more than a list of key fields can say.
 
-export const invoiceBehaviour: EntityBehaviour = {
+export const invoiceBehaviour: TEntityBehaviour = {
   normalize(_value, data) {
     const vendor = typeof data.vendor === "string" ? data.vendor.trim().toLowerCase() : "";
     if (!vendor) return null;

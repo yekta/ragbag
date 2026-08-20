@@ -11,7 +11,7 @@ const blobId = z.string().regex(UUID_RE, "blobId must be a UUID");
 
 /** The derivatives an image has, all served from the same URL shape (§6.3). */
 export const BLOB_VARIANTS = ["original", "display", "thumb"] as const;
-export type BlobVariant = (typeof BLOB_VARIANTS)[number];
+export type TBlobVariant = (typeof BLOB_VARIANTS)[number];
 
 export const presignUploadRequest = z.object({
   // Client-minted UUID v7 (offline capture creates the message before the
@@ -26,7 +26,7 @@ export const presignUploadRequest = z.object({
   size: z.number().int().positive().max(MAX_BLOB_BYTES),
   originalName: z.string().max(512).optional(),
 });
-export type PresignUploadRequest = z.infer<typeof presignUploadRequest>;
+export type TPresignUploadRequest = z.infer<typeof presignUploadRequest>;
 
 export const presignUploadResponse = z.object({
   blobId: z.string(),
@@ -34,12 +34,12 @@ export const presignUploadResponse = z.object({
   // and no upload is needed.
   uploadUrl: z.string().nullable(),
 });
-export type PresignUploadResponse = z.infer<typeof presignUploadResponse>;
+export type TPresignUploadResponse = z.infer<typeof presignUploadResponse>;
 
 export const downloadUrlResponse = z.object({
   url: z.string(),
 });
-export type DownloadUrlResponse = z.infer<typeof downloadUrlResponse>;
+export type TDownloadUrlResponse = z.infer<typeof downloadUrlResponse>;
 
 /**
  * How many blobs one batch presign may ask about (plan §6.4).
@@ -53,7 +53,7 @@ export const downloadUrlsRequest = z.object({
   blobIds: z.array(blobId).min(1).max(MAX_DOWNLOAD_URL_BATCH),
   variant: z.enum(BLOB_VARIANTS).default("original"),
 });
-export type DownloadUrlsRequest = z.infer<typeof downloadUrlsRequest>;
+export type TDownloadUrlsRequest = z.infer<typeof downloadUrlsRequest>;
 
 export const downloadUrlsResponse = z.object({
   /** blobId → presigned GET; ids the caller does not own are simply absent. */
@@ -67,7 +67,7 @@ export const downloadUrlsResponse = z.object({
    */
   fallback: z.array(z.string()),
 });
-export type DownloadUrlsResponse = z.infer<typeof downloadUrlsResponse>;
+export type TDownloadUrlsResponse = z.infer<typeof downloadUrlsResponse>;
 
 /** GET /api/meta: lets clients adapt to server capabilities. */
 export const metaResponse = z.object({
@@ -77,4 +77,4 @@ export const metaResponse = z.object({
   /** AI enrichment configured (always true in production; boot requires it). */
   ai: z.boolean(),
 });
-export type MetaResponse = z.infer<typeof metaResponse>;
+export type TMetaResponse = z.infer<typeof metaResponse>;

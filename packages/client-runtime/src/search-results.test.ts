@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { groupHits } from "./search-results.js";
-import type { SearchHit } from "./search-index.js";
+import type { TSearchHit } from "./search-index.js";
 
-function hit(over: Partial<SearchHit> & { type: SearchHit["type"]; targetId: string }): SearchHit {
+function hit(
+  over: Partial<TSearchHit> & { type: TSearchHit["type"]; targetId: string },
+): TSearchHit {
   return {
     id: `${over.type}:${over.targetId}`,
     score: over.score ?? 1,

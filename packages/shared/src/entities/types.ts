@@ -13,7 +13,7 @@ import type { z } from "zod";
 // keyed by the same strings.
 
 /** One occurrence a deterministic matcher found in a block of text. */
-export type EntityCandidate = {
+export type TEntityCandidate = {
   /** The display form, exactly as it appears in the text. */
   value: string;
   /** Whatever per-kind structure the matcher could determine for free. */
@@ -23,7 +23,7 @@ export type EntityCandidate = {
 };
 
 /** A candidate plus the kind whose matcher produced it. */
-export type KindedCandidate = EntityCandidate & { kind: string };
+export type TKindedCandidate = TEntityCandidate & { kind: string };
 
 /**
  * What a field can hold. This list IS the check constraint on
@@ -44,9 +44,9 @@ export const FIELD_TYPES = [
   "url",
   "enum",
 ] as const;
-export type FieldType = (typeof FIELD_TYPES)[number];
+export type TFieldType = (typeof FIELD_TYPES)[number];
 
-export type FieldSpec = {
+export type TFieldSpec = {
   /**
    * The key inside `entities.data`, and the name the model answers with.
    * snake_case, always: one spelling for the jsonb, the wire and the prompt.
@@ -58,7 +58,7 @@ export type FieldSpec = {
    * is wrong ("Marka Adı", "VAT No").
    */
   label: string;
-  type: FieldType;
+  type: TFieldType;
   /** An `enum`'s complete vocabulary. Absent for every other type. */
   values?: readonly string[];
   required: boolean;
@@ -71,10 +71,10 @@ export type FieldSpec = {
  * could only express in code.
  *
  * That split is the point. This half is data, so a user can add, edit, disable
- * and delete their own kinds without a deploy; the other half is `EntityBehaviour`
+ * and delete their own kinds without a deploy; the other half is `TEntityBehaviour`
  * below, looked up by kind name.
  */
-export type EntityTypeDef = {
+export type TEntityTypeDef = {
   /** The value stored in `entities.kind`. An open text column, never an enum. */
   kind: string;
   /** What one of them is called: "Phone Number". Title Case. */
@@ -102,7 +102,7 @@ export type EntityTypeDef = {
   /** One line telling the synthesis model what this kind is. */
   promptHint: string;
   /** The fields, in the order the prompt, the card and Details show them. */
-  fields: readonly FieldSpec[];
+  fields: readonly TFieldSpec[];
   /** A few real values, so the model can see what it is looking for. */
   examples?: readonly string[];
   /** `{field}` template for the display title, e.g. `"{name}"`. */
@@ -132,13 +132,13 @@ export type EntityTypeDef = {
  * is a plain declared type and a row that claims `link` gets the URL matcher,
  * the tracking-param-stripping dedupe and the page fetcher whoever wrote it.
  */
-export type EntityBehaviour = {
+export type TEntityBehaviour = {
   /**
    * The free, deterministic pre-pass. Code-only, and absent for the kinds that
    * genuinely need judgment: a regex there would only invent things for the
    * model to have to reject.
    */
-  match?: (text: string) => EntityCandidate[];
+  match?: (text: string) => TEntityCandidate[];
   /**
    * The dedupe key behind `unique (user_id, kind, normalized_value)`.
    *
@@ -152,18 +152,18 @@ export type EntityBehaviour = {
 };
 
 /** A definition compiled for use: the zod validator, and the behaviour resolved. */
-export type EntityType = EntityTypeDef & {
+export type TEntityType = TEntityTypeDef & {
   version: number;
   enabled: boolean;
   /** Built from `fields`. What validates the model's answer before it is written. */
   data: z.ZodType;
-  match?: (text: string) => EntityCandidate[];
+  match?: (text: string) => TEntityCandidate[];
   normalize: (value: string, data: Record<string, unknown>) => string | null;
   title: (value: string, data: Record<string, unknown>) => string;
 };
 
 /** One filled field of one entity, ready to render. */
-export type FieldEntry = { name: string; label: string; value: string };
+export type TFieldEntry = { name: string; label: string; value: string };
 
 /**
  * The resolved set: one user's rows, compiled.
@@ -173,25 +173,25 @@ export type FieldEntry = { name: string; label: string; value: string };
  * ingestion job (so a type added mid-run cannot half-apply) and the web app
  * resolves one from the synced rows.
  */
-export type EntityTypes = {
+export type TEntityTypes = {
   /** Every type in the set, disabled ones included, in the order given. */
-  list: readonly EntityType[];
+  list: readonly TEntityType[];
   /** The kinds the model may answer with: enabled only, and no `other`. */
   kinds: readonly string[];
   /** The enabled types that claim a sidebar row, in the same order. */
-  sidebar: readonly EntityType[];
-  get: (kind: string) => EntityType | undefined;
-  bySlug: (slug: string) => EntityType | undefined;
+  sidebar: readonly TEntityType[];
+  get: (kind: string) => TEntityType | undefined;
+  bySlug: (slug: string) => TEntityType | undefined;
   /** A human name for a kind, including one this build has never heard of. */
   label: (kind: string) => string;
   sidebarTitle: (kind: string) => string;
   icon: (kind: string) => string;
   /** Every matcher in the set, run over one block of text. */
-  match: (text: string) => KindedCandidate[];
+  match: (text: string) => TKindedCandidate[];
   /** Validate one entity's fields, or null to drop it. */
   parseData: (kind: string, data: unknown) => Record<string, unknown> | null;
   normalize: (kind: string, value: string, data: Record<string, unknown>) => string | null;
   title: (kind: string, value: string, data: Record<string, unknown>) => string;
   /** The filled fields of one entity, in declared order, with their labels. */
-  fieldEntries: (kind: string, data: Record<string, unknown>) => FieldEntry[];
+  fieldEntries: (kind: string, data: Record<string, unknown>) => TFieldEntry[];
 };

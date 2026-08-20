@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FieldEntry, FieldSpec, FieldType } from "./types.js";
+import type { TFieldEntry, TFieldSpec, TFieldType } from "./types.js";
 
 // Everything derived from a type's field list. One list, four consumers:
 //
@@ -35,14 +35,14 @@ export function humanize(name: string): string {
 /** One field, with the label humanized from the name unless it is given. */
 export function field(
   name: string,
-  type: FieldType,
+  type: TFieldType,
   opts: {
     label?: string;
     required?: boolean;
     values?: readonly string[];
     description?: string;
   } = {},
-): FieldSpec {
+): TFieldSpec {
   return {
     name,
     label: opts.label ?? humanize(name),
@@ -53,7 +53,7 @@ export function field(
   };
 }
 
-function leafFor(spec: FieldSpec): z.ZodType {
+function leafFor(spec: TFieldSpec): z.ZodType {
   switch (spec.type) {
     case "enum":
       return z.enum([...(spec.values ?? [])] as [string, ...string[]]);
@@ -76,7 +76,7 @@ function leafFor(spec: FieldSpec): z.ZodType {
  * quietly drops a field a type used to declare instead of failing the whole
  * entity over it.
  */
-export function dataSchema(fields: readonly FieldSpec[]): z.ZodType {
+export function dataSchema(fields: readonly TFieldSpec[]): z.ZodType {
   const shape: Record<string, z.ZodType> = {};
   for (const spec of fields) {
     // The check constraint forbids it, so this only fires on a row written
@@ -104,7 +104,7 @@ export function dataSchema(fields: readonly FieldSpec[]): z.ZodType {
  * this way the label rides along in the description so the model reads the
  * words a person would use for the field and not just its snake_case key.
  */
-export function promptSchema(fields: readonly FieldSpec[]): Record<string, unknown> {
+export function promptSchema(fields: readonly TFieldSpec[]): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
   for (const spec of fields) {
@@ -119,7 +119,7 @@ export function promptSchema(fields: readonly FieldSpec[]): Record<string, unkno
   return { type: "object", properties, ...(required.length > 0 ? { required } : {}) };
 }
 
-function jsonType(type: FieldType): string {
+function jsonType(type: TFieldType): string {
   switch (type) {
     case "number":
       return "number";
@@ -150,10 +150,10 @@ export function displayValue(raw: unknown): string | null {
  * why editing a type never blanks data that is already stored.
  */
 export function fieldEntries(
-  fields: readonly FieldSpec[],
+  fields: readonly TFieldSpec[],
   data: Record<string, unknown>,
-): FieldEntry[] {
-  const entries: FieldEntry[] = [];
+): TFieldEntry[] {
+  const entries: TFieldEntry[] = [];
   const declared = new Set<string>();
   for (const spec of fields) {
     declared.add(spec.name);
@@ -189,7 +189,7 @@ function fold(raw: string): string {
  */
 export function normalizerFromKey(
   keyFields: readonly string[],
-  fields: readonly FieldSpec[],
+  fields: readonly TFieldSpec[],
 ): (value: string, data: Record<string, unknown>) => string | null {
   const declared = new Set(fields.map((spec) => spec.name));
   const keys = keyFields.filter((name) => declared.has(name));

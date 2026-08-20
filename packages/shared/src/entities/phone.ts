@@ -1,4 +1,4 @@
-import type { EntityBehaviour, EntityCandidate } from "./types.js";
+import type { TEntityBehaviour, TEntityCandidate } from "./types.js";
 
 // Phone numbers have a signature, but a loose one: any run of digits with
 // spaces in it looks like a number. So the matcher only fires on the two
@@ -16,9 +16,9 @@ function digitsOf(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-export const phoneBehaviour: EntityBehaviour = {
+export const phoneBehaviour: TEntityBehaviour = {
   match(text) {
-    const found: EntityCandidate[] = [];
+    const found: TEntityCandidate[] = [];
     const seen = new Set<string>();
     for (const re of [INTERNATIONAL, BRACKETED]) {
       for (const m of text.matchAll(re)) {

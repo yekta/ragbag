@@ -1,6 +1,6 @@
-import type { BlobQueueState } from "@ragbag/client-runtime";
+import type { TBlobQueueState } from "@ragbag/client-runtime";
 import { mutators } from "@ragbag/contracts";
-import type { MetaResponse } from "@ragbag/contracts";
+import type { TMetaResponse } from "@ragbag/contracts";
 import { faceForMime } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
@@ -26,10 +26,10 @@ import {
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs";
 import { runMutation } from "@/lib/mutate";
 import { useEntityTypes } from "@/lib/entity-types";
-import { EVERYTHING, filterLink, openSettingsLink, useFilter, type Filter } from "@/lib/routes";
+import { EVERYTHING, filterLink, openSettingsLink, useFilter, type TFilter } from "@/lib/routes";
 import { useViewStore } from "@/lib/store";
-import type { SyncStatus } from "@/lib/sync-status";
-import type { Messages, EntityRows, TagRow } from "@/lib/types";
+import type { TSyncStatus } from "@/lib/sync-status";
+import type { TMessages, TEntityRows, TTagRow } from "@/lib/types";
 
 // The left panel: the chat and the things in it, over the locally-synced archive,
 // plus sync state and the account.
@@ -42,7 +42,7 @@ import type { Messages, EntityRows, TagRow } from "@/lib/types";
 // Placement is the shadcn Sidebar's job: a floating card at md+, a flush
 // full-height Sheet below it. This file only fills the slots.
 
-const SYNC_DOT: Record<SyncStatus["name"], [tone: string, label: string]> = {
+const SYNC_DOT: Record<TSyncStatus["name"], [tone: string, label: string]> = {
   synced: ["bg-success-foreground", "Synced"],
   syncing: ["bg-warning-foreground", "Connecting…"],
   offline: ["bg-warning-foreground", "Offline"],
@@ -58,7 +58,7 @@ const SYNC_DOT: Record<SyncStatus["name"], [tone: string, label: string]> = {
  * claiming "Connecting…" on every load for the third of a second before the
  * socket opens.
  */
-function SyncDot({ sync }: { sync: SyncStatus | null }) {
+function SyncDot({ sync }: { sync: TSyncStatus | null }) {
   const [tone, label] = SYNC_DOT[sync?.name ?? "syncing"];
   return (
     <span
@@ -99,12 +99,12 @@ export function Sidebar({
   meta,
   sync,
 }: {
-  messages: Messages;
-  entities: EntityRows;
-  tags: readonly TagRow[];
+  messages: TMessages;
+  entities: TEntityRows;
+  tags: readonly TTagRow[];
   email: string;
-  meta: MetaResponse | undefined;
-  sync: SyncStatus | null;
+  meta: TMetaResponse | undefined;
+  sync: TSyncStatus | null;
 }) {
   const { setSearchOpen } = useViewStore();
   const filter = useFilter();
@@ -203,7 +203,10 @@ export function Sidebar({
   // always narrowed together. That is also what lights both rows at once on
   // `/links/tags/x`, with no rule about it written anywhere: each row points at
   // the URL you are on.
-  const rowLink = (target: Filter, activeOptions?: { exact: boolean; includeSearch: boolean }) => ({
+  const rowLink = (
+    target: TFilter,
+    activeOptions?: { exact: boolean; includeSearch: boolean },
+  ) => ({
     render: <Link {...filterLink(target)} activeOptions={activeOptions} onClick={closeDrawer} />,
   });
 
@@ -375,8 +378,8 @@ function EnrichBackfill({
   messages,
   meta,
 }: {
-  messages: Messages;
-  meta: MetaResponse | undefined;
+  messages: TMessages;
+  meta: TMetaResponse | undefined;
 }) {
   const zero = useZero();
   const [running, setRunning] = useState(0);
@@ -451,7 +454,7 @@ function EnrichBackfill({
  * "N pending" while every attempt was quietly dying looked exactly like a
  * healthy one: the reason is the point.
  */
-function QueueStatus({ state, onRetry }: { state: BlobQueueState; onRetry: () => void }) {
+function QueueStatus({ state, onRetry }: { state: TBlobQueueState; onRetry: () => void }) {
   if (state.pending === 0) return null;
   const entries = Object.values(state.blobs);
   const failing = entries.filter((b) => b.stage === "waiting" && b.lastError);

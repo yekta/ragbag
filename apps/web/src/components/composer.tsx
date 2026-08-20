@@ -1,7 +1,7 @@
-import type { CapturedBlob } from "@ragbag/client-runtime";
+import type { TCapturedBlob } from "@ragbag/client-runtime";
 import { MAX_ATTACHMENTS, MAX_BLOB_BYTES, mutators } from "@ragbag/contracts";
 import { faceForMime, newId } from "@ragbag/shared";
-import type { AttachmentFace } from "@ragbag/shared";
+import type { TAttachmentFace } from "@ragbag/shared";
 import { useZero } from "@rocicorp/zero/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -29,13 +29,13 @@ import { isTouch } from "@/lib/touch";
 
 const PLACEHOLDER = "Send anything: a thought, a link, a file…";
 
-type Attachment = {
+type TAttachment = {
   /** Chip identity from the moment of pick, before any blobId exists. */
   localId: string;
   file: File;
   name: string;
   size: number;
-  face: AttachmentFace;
+  face: TAttachmentFace;
   /** Object URL for image previews, created synchronously on pick. */
   previewUrl: string | null;
   /** Measured on this device, so the bubble has its geometry before the send. */
@@ -49,7 +49,7 @@ type Attachment = {
   error?: string;
   /** False for validation failures (too large, empty); retrying can't help. */
   retryable?: boolean;
-  captured?: CapturedBlob;
+  captured?: TCapturedBlob;
 };
 
 /** How long the local hash+persist may take before the chip goes red. */
@@ -85,9 +85,9 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
   // Attachments also live in a ref so async completions (capture resolving
   // after the chip was removed, dedupe checks) can read the current list
   // without smuggling side effects into React state updaters.
-  const [attachments, setAttachmentsState] = useState<Attachment[]>([]);
-  const attachmentsRef = useRef<Attachment[]>([]);
-  const setAttachments = useCallback((update: (prev: Attachment[]) => Attachment[]) => {
+  const [attachments, setAttachmentsState] = useState<TAttachment[]>([]);
+  const attachmentsRef = useRef<TAttachment[]>([]);
+  const setAttachments = useCallback((update: (prev: TAttachment[]) => TAttachment[]) => {
     attachmentsRef.current = update(attachmentsRef.current);
     setAttachmentsState(attachmentsRef.current);
   }, []);
@@ -209,7 +209,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
         const face = faceForMime(file.type || "application/octet-stream");
         // The preview exists before any async work: the whole point.
         const previewUrl = face === "image" ? URL.createObjectURL(file) : null;
-        const base: Attachment = {
+        const base: TAttachment = {
           localId,
           file,
           name: file.name || face,
@@ -345,7 +345,7 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     if (gone.captured && !gone.captured.reused) void queue.cancel(gone.captured.blobId);
   };
 
-  const retryCapture = (a: Attachment) => {
+  const retryCapture = (a: TAttachment) => {
     setAttachments((prev) =>
       prev.map((x) =>
         x.localId === a.localId ? { ...x, status: "reading", error: undefined } : x,
@@ -554,7 +554,7 @@ function AttachmentChip({
   onRemove,
   onRetryCapture,
 }: {
-  attachment: Attachment;
+  attachment: TAttachment;
   onRemove: () => void;
   onRetryCapture: () => void;
 }) {
@@ -714,7 +714,7 @@ function AttachmentChip({
  * tile. Two PDFs are otherwise the same grey square, and text in here is free,
  * since the box it sits in is a fixed size no matter what it says.
  */
-function FileFace({ attachment: a }: { attachment: Attachment }) {
+function FileFace({ attachment: a }: { attachment: TAttachment }) {
   const ext = /\.([a-z0-9]{1,8})$/i.exec(a.name)?.[1];
   return (
     <span className="flex size-full flex-col justify-between bg-card p-2.5 text-left">

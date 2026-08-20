@@ -1,15 +1,15 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { loadArchiveHint, saveArchiveHint } from "@/lib/archive-hint";
 import { BUDGET, useHeld, useLayoutSettled } from "@/lib/settle";
-import { isSyncPaused, type SyncStatus } from "@/lib/sync-status";
-import type { Messages } from "@/lib/types";
+import { isSyncPaused, type TSyncStatus } from "@/lib/sync-status";
+import type { TMessages } from "@/lib/types";
 
 // What the workspace is doing, in one word, with a reason for each. Readiness
 // used to be four booleans spread across the app shell, the timeline and the
 // sidebar, each deciding for itself what an empty-and-unknown query result
 // meant.
 
-export type ArchiveState =
+export type TArchiveState =
   /** Rows are expected and not here yet: show nothing at all. */
   | "opening"
   /** Nothing local to expect and sync is live: the one honest loader. */
@@ -28,10 +28,10 @@ export function useArchiveState({
   /** Rows the timeline would paint right now. */
   count: number;
   resultType: "unknown" | "complete" | "error";
-  sync: SyncStatus | null;
+  sync: TSyncStatus | null;
   /** The list element, watched to know when the page has come to rest. */
   anchor: RefObject<HTMLElement | null>;
-}): ArchiveState {
+}): TArchiveState {
   // Read once: this is what the device knew before Zero opened its store, and
   // it must not change under us mid-boot.
   const hint = useRef(loadArchiveHint()).current;
@@ -55,7 +55,7 @@ export function useArchiveState({
  * Records what the timeline settled on, for the next boot to expect. Only ever
  * writes a truth the UI actually painted, never a way-station.
  */
-export function useArchiveHintWriter(state: ArchiveState, count: number): void {
+export function useArchiveHintWriter(state: TArchiveState, count: number): void {
   useEffect(() => {
     if (state === "ready" || state === "empty") saveArchiveHint(count);
   }, [state, count]);
@@ -71,8 +71,8 @@ export function useArchiveHintWriter(state: ArchiveState, count: number): void {
  * screen and back. A `complete` empty result still
  * clears the list, so deleting your last item works.
  */
-export function useStableRows(items: Messages, resultType: "unknown" | "complete" | "error") {
-  const last = useRef<Messages>(items);
+export function useStableRows(items: TMessages, resultType: "unknown" | "complete" | "error") {
+  const last = useRef<TMessages>(items);
   const warned = useRef(false);
   if (items.length > 0 || resultType !== "unknown") last.current = items;
 

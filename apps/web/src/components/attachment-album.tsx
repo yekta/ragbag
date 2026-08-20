@@ -1,5 +1,5 @@
 import { faceForMime } from "@ragbag/shared";
-import type { AttachmentFace } from "@ragbag/shared";
+import type { TAttachmentFace } from "@ragbag/shared";
 import { Link } from "@tanstack/react-router";
 import {
   createContext,
@@ -24,7 +24,7 @@ import {
 import { mediaUrl } from "@/lib/media";
 import { formatBytes } from "@/lib/format";
 import { attachmentLink } from "@/lib/routes";
-import type { Attachment } from "@/lib/types";
+import type { TAttachment } from "@/lib/types";
 
 // The attachments of one message, laid out the way a messaging app lays them
 // out: an album of pictures, a bubble per voice note, a row per file.
@@ -53,12 +53,13 @@ const SINGLE_MAX_H = "20rem";
 /** Past this many tiles the grid stops growing and the last one counts. */
 const GRID_CAP = 6;
 
-type Block =
-  { type: "album"; items: Attachment[] } | { type: "one"; item: Attachment; face: AttachmentFace };
+type TBlock =
+  | { type: "album"; items: TAttachment[] }
+  | { type: "one"; item: TAttachment; face: TAttachmentFace };
 
 /** Batch consecutive images; everything else stands on its own, in order. */
-export function toBlocks(items: readonly Attachment[]): Block[] {
-  const blocks: Block[] = [];
+export function toBlocks(items: readonly TAttachment[]): TBlock[] {
+  const blocks: TBlock[] = [];
   for (const item of items) {
     const face = faceForMime(item.mime);
     const last = blocks.at(-1);
@@ -86,14 +87,14 @@ export function toBlocks(items: readonly Attachment[]): Block[] {
  * browser's full transport, because the panel is where you listen to it and
  * where its transcript is.
  */
-export type AlbumVariant = "timeline" | "detail";
+export type TAlbumVariant = "timeline" | "detail";
 
 export function AttachmentAlbum({
   attachments,
   variant = "timeline",
 }: {
-  attachments: readonly Attachment[];
-  variant?: AlbumVariant;
+  attachments: readonly TAttachment[];
+  variant?: TAlbumVariant;
 }) {
   if (attachments.length === 0) return null;
   return (
@@ -154,8 +155,8 @@ function AttachmentLink({
   style,
   children,
 }: {
-  attachment: Attachment;
-  variant: AlbumVariant;
+  attachment: TAttachment;
+  variant: TAlbumVariant;
   className: string;
   style?: CSSProperties;
   children: ReactNode;
@@ -198,7 +199,7 @@ function AttachmentLink({
   );
 }
 
-function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVariant }) {
+function ImageAlbum({ items, variant }: { items: TAttachment[]; variant: TAlbumVariant }) {
   // One picture is a picture, at its own shape. More than one is a grid, and a
   // grid of squares is what makes rows of different photos line up at all.
   if (items.length === 1) {
@@ -267,7 +268,7 @@ function ImageAlbum({ items, variant }: { items: Attachment[]; variant: AlbumVar
  * The icon and the picture share the box exactly, so a list of both stays a
  * column rather than a ragged edge.
  */
-export function AttachmentThumb({ attachment }: { attachment: Attachment }) {
+export function AttachmentThumb({ attachment }: { attachment: TAttachment }) {
   return (
     <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-sm border bg-muted text-muted-foreground">
       {attachment.variants.thumb ? (
@@ -298,7 +299,7 @@ function Tile({
   variant,
   fit,
 }: {
-  attachment: Attachment;
+  attachment: TAttachment;
   variant: "thumb" | "display";
   fit: "cover" | "contain";
 }) {
@@ -329,13 +330,13 @@ function Tile({
  * No provider means no registration and nothing to seek, which is exactly the
  * timeline: a card has no transcript.
  */
-type AudioScope = {
+type TAudioScope = {
   players: Map<string, HTMLAudioElement>;
   /** Whether the surface has had a layout yet; see below for why that matters. */
   settled: boolean;
 };
 
-const AudioPlayers = createContext<AudioScope | null>(null);
+const AudioPlayers = createContext<TAudioScope | null>(null);
 
 export function AudioPlayerScope({ children }: { children: ReactNode }) {
   // Lazily, and once: the map is the identity every player registers into.
@@ -359,7 +360,7 @@ export function AudioPlayerScope({ children }: { children: ReactNode }) {
 }
 
 /** This surface's players, or null outside a scope, which is the timeline. */
-export function useAudioScope(): AudioScope | null {
+export function useAudioScope(): TAudioScope | null {
   return useContext(AudioPlayers);
 }
 
@@ -368,7 +369,7 @@ export function useAudioScope(): AudioScope | null {
  * measured on the capturing device, so every device draws it without
  * downloading the audio at all (plan §8.5).
  */
-function AudioBubble({ attachment, variant }: { attachment: Attachment; variant: AlbumVariant }) {
+function AudioBubble({ attachment, variant }: { attachment: TAttachment; variant: TAlbumVariant }) {
   const scope = useAudioScope();
   // Local bytes first, so a voice note this device recorded plays before it
   // has finished uploading and while it is offline; the media URL is the
@@ -454,9 +455,9 @@ function FileRow({
   face,
   variant,
 }: {
-  attachment: Attachment;
-  face: AttachmentFace;
-  variant: AlbumVariant;
+  attachment: TAttachment;
+  face: TAttachmentFace;
+  variant: TAlbumVariant;
 }) {
   return (
     <AttachmentLink

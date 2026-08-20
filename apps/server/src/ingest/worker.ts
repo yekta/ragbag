@@ -1,5 +1,5 @@
 import { log } from "@ragbag/shared";
-import type { IngestStage } from "@ragbag/shared";
+import type { TIngestStage } from "@ragbag/shared";
 import { sql } from "../db/client.js";
 import { env } from "../env.js";
 import {
@@ -26,11 +26,11 @@ const MAX_ATTEMPTS = 4;
 /** How long to keep waiting for an offline device to upload its blob. */
 const BLOB_WAIT_MAX_SECONDS = 7 * 24 * 60 * 60;
 
-type ClaimedJob = {
+type TClaimedJob = {
   id: string;
   messageId: string;
   attachmentId: string | null;
-  stage: IngestStage;
+  stage: TIngestStage;
   userId: string;
   attempts: number;
   /** True once this job has waited longer than a blob upload is worth. */
@@ -44,7 +44,7 @@ export function ingestHeartbeat(): { enabled: boolean; lastLoopAt: number } {
   return { enabled: env.INGEST_WORKER, lastLoopAt };
 }
 
-async function claimJob(): Promise<ClaimedJob | null> {
+async function claimJob(): Promise<TClaimedJob | null> {
   // The wait deadline is evaluated in SQL on purpose: raw queries through
   // this client return timestamps as strings (drizzle/zero replace
   // postgres.js's date parsers), so JS-side date math on them is a trap.
@@ -57,7 +57,7 @@ async function claimJob(): Promise<ClaimedJob | null> {
       id: string;
       message_id: string;
       attachment_id: string | null;
-      stage: IngestStage;
+      stage: TIngestStage;
       user_id: string;
       attempts: number;
       wait_expired: boolean;
@@ -94,7 +94,7 @@ function backoffMs(attempts: number): number {
 }
 
 /** What a failure of this job means for the row the UI is watching. */
-async function noteFailure(job: ClaimedJob, message: string): Promise<void> {
+async function noteFailure(job: TClaimedJob, message: string): Promise<void> {
   if (job.stage === "attachment" && job.attachmentId) {
     await markAttachmentFailed(job.attachmentId, message);
     await refreshMessageStatus(job.messageId);
@@ -103,14 +103,14 @@ async function noteFailure(job: ClaimedJob, message: string): Promise<void> {
   }
 }
 
-async function notePending(job: ClaimedJob, message: string): Promise<void> {
+async function notePending(job: TClaimedJob, message: string): Promise<void> {
   if (job.stage === "attachment" && job.attachmentId) {
     await markAttachmentPending(job.attachmentId, message);
   }
   await refreshMessageStatus(job.messageId);
 }
 
-async function runJob(job: ClaimedJob): Promise<void> {
+async function runJob(job: TClaimedJob): Promise<void> {
   const started = Date.now();
   try {
     if (job.stage === "attachment") {
@@ -172,7 +172,7 @@ async function runJob(job: ClaimedJob): Promise<void> {
   }
 }
 
-async function failJob(job: ClaimedJob, message: string): Promise<void> {
+async function failJob(job: TClaimedJob, message: string): Promise<void> {
   await sql`update ingest_jobs set status = 'failed', last_error = ${message}, updated_at = now()
             where id = ${job.id}`;
   await noteFailure(job, message);
@@ -208,7 +208,7 @@ export function startIngestWorker(): () => Promise<void> {
     log.info("ingest worker loop started", { n });
     while (!state.stopping) {
       lastLoopAt = Date.now();
-      let job: ClaimedJob | null = null;
+      let job: TClaimedJob | null = null;
       try {
         job = await claimJob();
       } catch (err) {

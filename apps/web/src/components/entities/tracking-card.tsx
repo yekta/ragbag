@@ -1,7 +1,7 @@
 import { carrierName, trackingUrl } from "@ragbag/shared";
-import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, ExternalAction, str, type TEntityCardProps } from "./shell.js";
 
-export function TrackingCard({ entity, onOpen }: EntityCardProps) {
+export function TrackingCard({ entity, onOpen }: TEntityCardProps) {
   const data = entity.data as Record<string, unknown>;
   const number = str(data, "number") ?? entity.value;
   const carrier = str(data, "carrier");

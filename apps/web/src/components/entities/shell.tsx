@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { Icon, iconNamed } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { useEntityTypes } from "@/lib/entity-types";
-import type { EntityFields } from "@/lib/types";
+import type { TEntityFields } from "@/lib/types";
 
 // What every entity card is made of. One shell so the strip on a message
 // reads as one thing rather than as six differently-shaped boxes, and so a
@@ -20,9 +20,9 @@ import type { EntityFields } from "@/lib/types";
 // prop: the six cards forward nothing, and the list that draws them says once,
 // for all of them, where they are.
 
-type Surface = "timeline" | "nested";
+type TSurface = "timeline" | "nested";
 
-const SurfaceContext = createContext<Surface>("nested");
+const SurfaceContext = createContext<TSurface>("nested");
 
 /** Wraps a list of cards that ARE the timeline, rather than sitting in one. */
 export function TimelineEntities({ children }: { children: ReactNode }) {
@@ -36,8 +36,8 @@ export function TimelineEntities({ children }: { children: ReactNode }) {
  */
 export const MentionsContext = createContext(0);
 
-export type EntityCardProps = {
-  entity: EntityFields;
+export type TEntityCardProps = {
+  entity: TEntityFields;
   /** Opens the entity's own page. Absent where there is nowhere to go. */
   onOpen?: () => void;
   /**

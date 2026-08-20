@@ -29,6 +29,28 @@ describe("EnvSchema", () => {
     expect(() => EnvSchema.parse({})).not.toThrow();
   });
 
+  it("refuses to boot on a model that is not in the allow-list", () => {
+    // A misspelled model 404s on every message and a model with no price
+    // entry meters every call at $0.00, both of them quietly for the life of
+    // the deploy. Failing validation is the only version anyone notices.
+    expect(() => EnvSchema.parse({ AI_ENRICH_MODEL: "gpt-4o" })).toThrow();
+    expect(() => EnvSchema.parse({ AI_ENRICH_MODEL: "gpt-5.6-lunar" })).toThrow();
+    expect(() => EnvSchema.parse({ AI_TRANSCRIBE_MODEL: "whisper-1" })).toThrow();
+    // The transcription model is not an enrichment model, and vice versa.
+    expect(() => EnvSchema.parse({ AI_ENRICH_MODEL: "gpt-transcribe" })).toThrow();
+    expect(() => EnvSchema.parse({ AI_TRANSCRIBE_MODEL: "gpt-5.6-luna" })).toThrow();
+  });
+
+  it("defaults to the cheap models and takes the step-ups", () => {
+    const cfg = EnvSchema.parse({});
+    expect(cfg.AI_ENRICH_MODEL).toBe("gpt-5.6-luna");
+    expect(cfg.AI_TRANSCRIBE_MODEL).toBe("gpt-transcribe");
+    expect(EnvSchema.parse({ AI_ENRICH_MODEL: "gpt-5.6-terra" }).AI_ENRICH_MODEL).toBe(
+      "gpt-5.6-terra",
+    );
+    expect(EnvSchema.parse({ AI_ENRICH_MODEL: "gpt-5.6-sol" }).AI_ENRICH_MODEL).toBe("gpt-5.6-sol");
+  });
+
   it("parses booleans from env strings", () => {
     expect(EnvSchema.parse({ DEV_LOGIN: "true" }).DEV_LOGIN).toBe(true);
     expect(EnvSchema.parse({ MIGRATE_ON_START: "false" }).MIGRATE_ON_START).toBe(false);

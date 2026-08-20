@@ -1,6 +1,6 @@
-import { CopyButton, EntityShell, ExternalAction, str, type EntityCardProps } from "./shell.js";
+import { CopyButton, EntityShell, ExternalAction, str, type TEntityCardProps } from "./shell.js";
 
-export function EmailCard({ entity, onOpen }: EntityCardProps) {
+export function EmailCard({ entity, onOpen }: TEntityCardProps) {
   const data = entity.data as Record<string, unknown>;
   const address = str(data, "address") ?? entity.value;
   const name = str(data, "name");

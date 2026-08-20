@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { applyTheme, loadTheme, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, loadTheme, THEME_KEY, type TTheme } from "@/lib/theme";
 
 // View-only state (plan §10): all *data* state lives in Zero. Nothing here
 // survives a reload on purpose: except `sidebarCollapsed` and `theme`, device
@@ -14,14 +14,14 @@ import { applyTheme, loadTheme, THEME_KEY, type Theme } from "@/lib/theme";
 
 const COLLAPSE_KEY = "ragbag:sidebar-collapsed";
 
-type ViewState = {
+type TViewState = {
   searchOpen: boolean;
   sidebarCollapsed: boolean; // desktop sidebar hidden (persisted)
-  theme: Theme; // persisted
+  theme: TTheme; // persisted
   setSearchOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setTheme: (theme: Theme) => void;
+  setTheme: (theme: TTheme) => void;
 };
 
 const persistCollapsed = (collapsed: boolean) => {
@@ -29,7 +29,7 @@ const persistCollapsed = (collapsed: boolean) => {
   return { sidebarCollapsed: collapsed };
 };
 
-export const useViewStore = create<ViewState>((set) => ({
+export const useViewStore = create<TViewState>((set) => ({
   searchOpen: false,
   sidebarCollapsed: localStorage.getItem(COLLAPSE_KEY) === "1",
   theme: loadTheme(),
