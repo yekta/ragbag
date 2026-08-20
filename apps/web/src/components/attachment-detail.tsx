@@ -237,7 +237,7 @@ export function AttachmentDetail({ id }: { id: string }) {
                 {attachment.content?.contentMd && (
                   <section>
                     <SectionHeading>
-                      What we read out of it
+                      Content
                       {attachment.content.truncated ? " (truncated)" : ""}
                     </SectionHeading>
                     {/* The extracted text, as text. `content_md` is markdown by

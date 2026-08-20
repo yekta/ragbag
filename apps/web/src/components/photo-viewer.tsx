@@ -209,20 +209,22 @@ export function PhotoViewerScope({
               the panel behind it). The popup is `inset-0` regardless, so it is
               the same rectangle the backdrop would have been.
 
-              Opaque, where the app's ordinary scrim is tuned to let a screen
-              show through behind a small dialog. This is not a dialog in front
-              of the app, it is the picture and nothing else, and a picture is
-              judged against what surrounds it. At 90% the panel behind stayed
-              legible enough to read, which put a second close button a few
-              pixels from this one's. The canvas colour, not a wash over it, so
-              nothing of the panel behind shows through at any theme.
+              The app's own scrim, `--scrim-alpha`, which is the 90% the
+              composer's drop prompt lays over the app: the canvas colour, at
+              the one alpha this app covers itself with, rather than a
+              viewer-only wash invented here. A picture is judged against what
+              surrounds it, so what surrounds it is the app's canvas and
+              almost nothing else; the tenth left of the panel behind says the
+              picture is sitting *on* the app without offering anything to
+              read. Same alpha in both themes, since the token has no dark
+              override.
 
               Paying for the fill by hand means paying for the click by hand
               too: pressing the scrim is outside the *picture* but inside the
               popup, so Base UI's own dismissal never sees it. Anything that is
               not a control and not the picture closes. */}
           <DialogPopup
-            className="fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none"
+            className="fixed inset-0 z-50 flex flex-col bg-background/scrim text-foreground outline-none"
             onClick={(event) => {
               const target = event.target as HTMLElement;
               if (!target.closest("button, a, img")) close();
