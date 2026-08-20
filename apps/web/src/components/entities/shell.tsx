@@ -102,7 +102,18 @@ export function EntityShell({
   // a card that is otherwise all greys. That token is for menu focus and for
   // selection, and a hover is neither. Both surfaces here are bordered, so the
   // rung is the one that keeps its distance from --border.
-  const hover = onOpen ? "cursor-pointer hover:bg-background-hover" : "";
+  //
+  // The guard is the click rule below said in CSS. `:hover` matches every
+  // ancestor of whatever is under the pointer, so a button on the card hovered
+  // the card as well, and the outline button hovers to this very token: the
+  // button dissolved into the fill behind it instead of standing on it. Same
+  // `a,button` as the click, so the fill now shows exactly where a click would
+  // land on the card rather than on something sitting in it. That includes the
+  // 44px touch box a `Button` carries as a ::before, which is wider than the
+  // button looks but is already where a click goes to the button, not here.
+  const hover = onOpen
+    ? "cursor-pointer hover:not-has-[a:hover,button:hover]:bg-background-hover"
+    : "";
   return (
     <div
       className={`flex gap-3 transition ${surface} ${hover}`}

@@ -16,10 +16,25 @@ function AlertDialogPortal({ ...props }: AlertDialogPrimitive.Portal.Props) {
   return <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />;
 }
 
-function AlertDialogOverlay({ className, ...props }: AlertDialogPrimitive.Backdrop.Props) {
+// Local edit (the convention is in the header of ui/button.tsx): the backdrop
+// renders even when the dialog is nested. Base UI leaves it out for a dialog
+// opened from inside another one, on the theory that the outer scrim is already
+// on screen, but every confirmation in this app is asked from inside a drawer:
+// the entity panel's delete, the message panel's, the type editor's in
+// settings. That outer scrim sits *under* the panel, so the thing being asked
+// about stayed fully lit while the dialog asked about it, and the dialog read
+// as part of the panel rather than as a question over it. The two scrims do
+// stack over the page behind the panel, which is what a dialog opened from a
+// drawer looks like everywhere else.
+function AlertDialogOverlay({
+  forceRender = true,
+  className,
+  ...props
+}: AlertDialogPrimitive.Backdrop.Props) {
   return (
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
+      forceRender={forceRender}
       className={cn(
         "fixed inset-0 isolate z-50 bg-overlay/overlay duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className,

@@ -23,10 +23,20 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
-function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
+// Local edit, for the reason spelled out over the same line in ui/alert-dialog.tsx:
+// a dialog opened from inside another one gets no backdrop from Base UI unless
+// it asks, and a dialog with nothing behind it is the one thing a dialog cannot
+// be. Nothing in the app opens a card dialog from a drawer today; this is here
+// so the first one that does arrives lit correctly.
+function DialogOverlay({
+  forceRender = true,
+  className,
+  ...props
+}: DialogPrimitive.Backdrop.Props) {
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
+      forceRender={forceRender}
       className={cn(
         "fixed inset-0 isolate z-50 bg-overlay/overlay duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className,

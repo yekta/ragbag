@@ -251,12 +251,13 @@ function EntityStrip({ message }: { message: Message }) {
  *
  * Two pulls, because both of the things it is measured against move at that
  * breakpoint and they do not move together: the row's padding doubles while the
- * paragraph's inset gains 4px. And the narrow one is a pixel past what that
- * arithmetic asks for, because a glyph is not its box. The icon draws its
- * square inset from the edge of the 16px it is handed, the way a letter carries
- * a side bearing, so the two boxes agreeing is not the two marks agreeing.
- * These are the numbers that looked right, which is the only test a leading
- * edge has.
+ * paragraph's inset gains 4px. Both land a pixel past what that arithmetic asks
+ * for, because a glyph is not its box. The icon draws its square inset from the
+ * edge of the 16px it is handed, the way a letter carries a side bearing, so
+ * the two boxes agreeing is not the two marks agreeing. It is the same pixel at
+ * both widths, which is what says it belongs to the icon and not to either
+ * layout. These are the numbers that looked right, which is the only test a
+ * leading edge has.
  */
 function DetailsLink({ message }: { message: Message }) {
   return (
@@ -266,7 +267,7 @@ function DetailsLink({ message }: { message: Message }) {
     <Button
       variant="ghost"
       size="sm"
-      className="-my-1.5 -ml-2.75 text-muted-foreground md:-ml-2"
+      className="-my-1.5 -ml-2.75 text-muted-foreground md:-ml-2.25"
       nativeButton={false}
       render={<Link {...messageLink(message.id)} />}
     >

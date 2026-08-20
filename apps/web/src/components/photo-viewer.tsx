@@ -201,13 +201,16 @@ export function PhotoViewerScope({
       {children}
       <Dialog open={current !== null} onOpenChange={(next) => !next && close()}>
         <DialogPortal>
-          {/* The scrim is the popup's own fill rather than a `Dialog.Backdrop`,
-              and that is not a preference: this dialog opens from inside the
+          {/* The scrim is the popup's own fill rather than a `Dialog.Backdrop`.
+              It started as a workaround: this dialog opens from inside the
               detail drawer, and Base UI renders no backdrop at all for a
               nested one (measured: no `dialog-overlay` in the DOM, the photo
               floating over a fully lit app with the caption illegible against
-              the panel behind it). The popup is `inset-0` regardless, so it is
-              the same rectangle the backdrop would have been.
+              the panel behind it). The overlay in ui/dialog.tsx now asks for
+              one, so what keeps the fill here is the colour argued for below
+              rather than the missing element. The popup is `inset-0`
+              regardless, so it is the same rectangle the backdrop would have
+              been.
 
               The app's own scrim, `--scrim-alpha`, which is the 90% the
               composer's drop prompt lays over the app: the canvas colour, at
