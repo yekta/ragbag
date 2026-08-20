@@ -311,7 +311,7 @@ export function MessageDetail({ id }: { id: string }) {
                         })
                       }
                     >
-                      <Icon name="inbox" className="size-3.5" /> Show in TMessages
+                      <Icon name="inbox" className="size-3.5" /> Show in Messages
                     </Button>
                   </div>
                 </div>
@@ -488,7 +488,7 @@ function ThingsFound({ message }: { message: NonNullable<MessageDetailRow> }) {
 
   return (
     <section>
-      <SectionHeading>Things TFound</SectionHeading>
+      <SectionHeading>Things Found</SectionHeading>
       <div className="flex flex-col gap-1.5">
         {entities.map((entity) => (
           <EntityCard

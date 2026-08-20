@@ -203,7 +203,7 @@ export function AttachmentDetail({ id }: { id: string }) {
                     with whatever its text and its other files said. */}
                 {entities.length > 0 && (
                   <section>
-                    <SectionHeading>Things TFound</SectionHeading>
+                    <SectionHeading>Things Found</SectionHeading>
                     <div className="flex flex-col gap-1.5">
                       {entities.map((entity) => (
                         <EntityCard
