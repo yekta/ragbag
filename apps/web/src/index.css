@@ -68,6 +68,10 @@
   --secondary-hover: oklch(0.922 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.54 0 0);
+  /* The highlight: a menu item under the cursor, the route you are on. One
+     token for both, because they were two spellings of one value and the
+     sidebar's copy is exactly the kind of thing that gets tuned alone and
+     leaves the app with two highlights. */
   --accent: oklch(0.921 0.032 272.314);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -86,9 +90,9 @@
   --sidebar-foreground: oklch(0.205 0 0);
   --sidebar-primary: oklch(0.511 0.262 276.966);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.921 0.032 272.314);
+  --sidebar-accent: var(--accent);
   --sidebar-accent-hover: oklch(0.878 0.042 272.314);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: oklch(0.902 0 0);
   --sidebar-ring: oklch(0.585 0.233 277.117);
   --kind-note: oklch(0.56 0.085 95);
@@ -133,10 +137,15 @@
 
 .dark {
   --background: oklch(0.14479 0 0);
-  /* Up rather than down, as every neutral rung in this theme goes. The bordered
-     rung keeps its 0.025 clear of --border; the edgeless one spends it. */
+  /* Up rather than down, as every neutral rung in this theme goes, and both
+     with the clearance their light twins keep: 0.007 between the two rungs,
+     and 0.018 from the edgeless one to --border. The edgeless rung used to
+     spend that last 0.018 and stop 0.005 short of the border, which made a
+     hovered row the heaviest neutral on the screen and, once the highlight
+     came down to match light's, very nearly as filled as the row you were
+     actually on. It stops where light's stops now. */
   --background-hover: oklch(0.225 0 0);
-  --hover: oklch(0.245 0 0);
+  --hover: oklch(0.232 0 0);
   --foreground: oklch(0.97 0 0);
   --foreground-hover: oklch(0.885 0 0);
   --card: oklch(0.182 0 0);
@@ -155,7 +164,12 @@
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
 
-  --accent: oklch(0.31 0.05 277);
+  /* Measured against the light theme's own rather than picked by eye: there
+     the highlight is 1.27:1 on the surface under it, and this was 1.41:1 on a
+     darker one, which is why the route you are on read as a lit block here and
+     as a tint there. Same relationship now (1.28:1), same hue, and the brand
+     ink on it goes from 4.3:1 to 4.8:1 on the way. */
+  --accent: oklch(0.28 0.045 277);
   --accent-foreground: oklch(0.97 0 0);
   --overlay-alpha: 60%;
   --destructive: oklch(0.665 0.165 27);
@@ -175,9 +189,12 @@
   --sidebar-foreground: oklch(0.97 0 0);
   --sidebar-primary: oklch(0.673 0.182 276.935);
   --sidebar-primary-foreground: oklch(0.205 0.03 277);
-  --sidebar-accent: oklch(0.31 0.05 277);
-  --sidebar-accent-hover: oklch(0.355 0.055 277);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
+  --sidebar-accent: var(--accent);
+  /* The one rung the sidebar keeps for itself: hovering the row you are
+     already on. Spelled out rather than derived, like every other -hover in
+     this file, and it keeps the step off the fill it always had. */
+  --sidebar-accent-hover: oklch(0.328 0.05 277);
+  --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: oklch(0.25 0 0);
   --sidebar-ring: oklch(0.673 0.182 276.935);
   --kind-note: oklch(0.79 0.09 95);

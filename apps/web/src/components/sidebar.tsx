@@ -220,9 +220,9 @@ export function Sidebar({
             row pills under that, no inset of its own, because unlike those
             rows it is not a control and has no box of its own to pad.
             Geometrically the logo is already flush with the field at that rail;
-            the 4px is optical, the mark being a rounded silhouette with no
+            the 6px is optical, the mark being a rounded silhouette with no
             straight edge to line up on. */}
-        <div className="flex items-center gap-2 pb-2 pl-1">
+        <div className="flex items-center gap-2 pb-2 pl-1.5">
           <Logo className="size-5" />
           <span className="text-lg font-bold tracking-tight">Ragbag</span>
           <SidebarTrigger className="ml-auto text-muted-foreground" title="Hide sidebar (⌘\)" />

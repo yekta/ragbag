@@ -248,9 +248,13 @@ export function EntityDetail({ id }: { id: string }) {
               <p className="text-[13px] text-muted-foreground">
                 {/* The kind wears the card's own border and fill, because
                       "Deletes this Email" reads as a message otherwise: the
-                      chip is what says it is a kind of thing. */}
+                      chip is what says it is a kind of thing.
+
+                      A step under the card's corner, though: this is a word
+                      inside a sentence, about 24px tall, and the radius a card
+                      wears reads as a lozenge at that size. */}
                 Deletes this{" "}
-                <span className="rounded-md border bg-panel px-1.5 py-0.5 text-foreground">
+                <span className="rounded-sm border bg-panel px-1.5 py-0.5 text-foreground">
                   {types.label(entity.kind)}
                 </span>{" "}
                 everywhere.{" "}

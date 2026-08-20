@@ -26,7 +26,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { formatBytes, timeLabel } from "@/lib/format";
+import { dayLabel, formatBytes, timeLabel } from "@/lib/format";
 import { attachmentLink, closePanelLink, entityLink } from "@/lib/routes";
 import { useHeld } from "@/lib/settle";
 import { useMeta } from "@/lib/use-meta";
@@ -271,12 +271,19 @@ export function MessageDetail({ id }: { id: string }) {
                   )}
                   <AttachmentAlbum attachments={message.attachments} variant="detail" />
                   <div className="flex flex-col items-start gap-2">
+                    {/* The day the way the timeline says it, then the time the
+                        way the card says it: this is the same message, so the
+                        stamp under it open should be the words you would have
+                        read on it in the chat. It was `toLocaleDateString`,
+                        which is the one place in the app that answered
+                        "8/19/2026" where every other surface says "Yesterday"
+                        (the thing panel and the file panel already pair these
+                        two). The exact stamp is still a second away, on hover. */}
                     <time
                       className="font-mono text-[11px] text-muted-foreground"
                       title={new Date(message.createdAt).toLocaleString()}
                     >
-                      {new Date(message.createdAt).toLocaleDateString()} ·{" "}
-                      {timeLabel(message.createdAt)}
+                      {dayLabel(message.createdAt)} · {timeLabel(message.createdAt)}
                     </time>
                     {/* Every thing-shaped view still gets you home (plan
                         §8.2). The id rides in the hash, so this is a real URL
@@ -290,6 +297,11 @@ export function MessageDetail({ id }: { id: string }) {
                     <Button
                       variant="outline"
                       size="sm"
+                      // A hair further from the stamp than the column's own
+                      // gap: a line of 11px text and a 32px control read as
+                      // closer than they measure, the text being mostly the
+                      // space around it.
+                      className="mt-0.5"
                       onClick={() =>
                         void navigate({
                           to: "/{-$view}",
