@@ -233,10 +233,21 @@ function EntityStrip({ message }: { message: Message }) {
  * cluster it left behind is icons only, which is what that cluster's 2px gap
  * was measured for.
  *
- * The negative margin is what lets a 32px control live in a 20px row, the same
+ * The vertical margin is what lets a 32px control live in a 20px row, the same
  * trick the cluster opposite plays: six of the button's pixels go back to the
  * row top and bottom, so the footer stands exactly as tall as it did when this
  * row held nothing but a timestamp and a chip.
+ *
+ * The horizontal one is what makes it look like the first thing in the row.
+ * A ghost button at rest is only its glyph, but it is measured from the edge of
+ * a fill nobody can see, so 10px of button padding stood between the card's
+ * inset and the first mark on the line while everything above started at the
+ * inset itself. Eight come back: four of them cancel the row's own padding,
+ * which everything else in it keeps, and the other four land the icon on the
+ * 20px the message's text is set in at on a wide card. The fill that carries
+ * it ends up sitting 4px proud of the inset, in the card's own gutter, which
+ * is where a ghost button has to start if its glyph is to line up with type
+ * that has no padding at all.
  */
 function DetailsLink({ message }: { message: Message }) {
   return (
@@ -246,7 +257,7 @@ function DetailsLink({ message }: { message: Message }) {
     <Button
       variant="ghost"
       size="sm"
-      className="-my-1.5 text-muted-foreground"
+      className="-my-1.5 -ml-2 text-muted-foreground"
       nativeButton={false}
       render={<Link {...messageLink(message.id)} />}
     >
@@ -438,12 +449,17 @@ export function MessageCard({
 
             12px of air above rather than 8: the buttons paint 6px past the row
             they measure, and a hover fill landing 2px off the edge of a photo
-            reads as a mistake. It wraps because on a phone the way in, the
+            reads as a mistake. The 4px on each side is the same argument
+            sideways: a photo runs to the card's inset and a stamp set flush
+            with it reads as having fallen off the picture, so the row holds
+            itself in a little from what it closes. The one thing in it that
+            must not move for that is the way in, which cancels the 4px back
+            out (`DetailsLink` above). It wraps because on a phone the way in, the
             icons and the stamp are most of the width: with tags and a status
             badge among them there is no line that fits everything, and the
             chips drop under the button that leads them rather than being
             squeezed into a column. */}
-        <div className="mt-3 flex min-h-5 flex-wrap items-center justify-between gap-2">
+        <div className="mt-3 flex min-h-5 flex-wrap items-center justify-between gap-2 px-1">
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
             <DetailsLink message={message} />
             <StatusChip message={message} />
