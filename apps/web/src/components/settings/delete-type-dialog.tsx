@@ -60,7 +60,7 @@ export function DeleteTypeDialog({
 
   return (
     <AlertDialog open onOpenChange={(open) => !open && onClose()}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {type.sidebarTitle}?</AlertDialogTitle>
           <AlertDialogDescription>
