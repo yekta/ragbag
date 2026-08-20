@@ -2,6 +2,7 @@ import { ragbagZeroOptions } from "@ragbag/client-runtime";
 import { queries, type Schema } from "@ragbag/contracts";
 import { useQuery, useZero, ZeroProvider } from "@rocicorp/zero/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { AttachmentDetail } from "@/components/attachment-detail";
 import { Composer } from "@/components/composer";
 import { EntityDetail } from "@/components/entity-detail";
 import { Icon } from "@/components/icon";
@@ -620,6 +621,7 @@ function ShellBody({
           keyed for. */}
       {panel?.kind === "message" && <MessageDetail id={panel.id} />}
       {panel?.kind === "entity" && <EntityDetail id={panel.id} />}
+      {panel?.kind === "attachment" && <AttachmentDetail id={panel.id} />}
       {settingsOpen && <Settings />}
 
       <Toaster position="top-center" />

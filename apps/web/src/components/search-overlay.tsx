@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/command";
 import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, formatBytes } from "@/lib/format";
-import { entityLink, messageLink } from "@/lib/routes";
+import { attachmentLink, entityLink, messageLink } from "@/lib/routes";
 import { RESULT_GROUPS, useSearchResults, type Result, type ResultGroup } from "@/lib/search";
 import { useViewStore } from "@/lib/store";
 import type { Messages, EntityRows } from "@/lib/types";
@@ -185,15 +185,17 @@ export function SearchOverlay({
 
   const pick = (result: Result) => {
     setSearchOpen(false);
-    // An entity opens its own page; a message, and a file inside one, open the
-    // message, because that is where a file lives. Either way the overlay
-    // opens over the view the search was called from, and closing it lands
-    // back there.
+    // Every row opens the thing it drew. A Things row is a thing whether it is
+    // an entity or a file, and both have a page of their own; a Messages row
+    // opens the message. The overlay opens over the view the search was called
+    // from either way, and closing it lands back there.
     const to = result.entity
       ? entityLink(result.entity.id)
-      : result.message
-        ? messageLink(result.message.id)
-        : null;
+      : result.attachment
+        ? attachmentLink(result.attachment.id)
+        : result.message
+          ? messageLink(result.message.id)
+          : null;
     if (to) void navigate(to);
   };
 

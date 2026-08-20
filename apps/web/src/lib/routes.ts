@@ -22,7 +22,8 @@ import { declaredSlugs } from "./thing-slugs.js";
 //
 //   ?message=<id>        one message, in the panel
 //   ?entity=<id>         one thing, in the panel
-//   ?photo=<id>          one photo of the open message, full screen
+//   ?attachment=<id>     one file, which is a thing too, in the panel
+//   ?photo=<id>          one photo of whatever the panel is showing, full screen
 //   ?settings=true       the settings drawer
 //
 // The route tree that serves these is in main.tsx, and it is deliberately small
@@ -102,8 +103,8 @@ export function entityKindOf(view: ViewFilter, types: EntityTypes): string | nul
  * The query string: every surface that opens *over* a view.
  *
  * The path says which view is on screen. Nothing else does, because nothing
- * else is a view: a message, a thing, a photo of one and the settings drawer
- * are all surfaces stacked on top of whatever the path is showing, and the
+ * else is a view: a message, a thing, a file, a photo of one and the settings
+ * drawer are all surfaces stacked on top of whatever the path is showing, and the
  * shape that says so is a flag beside the path rather than a segment appended
  * to it.
  *
@@ -120,7 +121,7 @@ export function entityKindOf(view: ViewFilter, types: EntityTypes): string | nul
  * view, and a tag narrowing it), opening a panel cannot disturb what is behind
  * it, and closing one is a key going away.
  *
- * All four are declared on the root route (main.tsx), so every screen carries
+ * All five are declared on the root route (main.tsx), so every screen carries
  * them and the shell can read them from above all of them. In the URL rather
  * than in a piece of state, for the same reason the filters are: these are
  * things you look at, so they survive a reload, they can be sent to someone,
@@ -132,9 +133,15 @@ export function entityKindOf(view: ViewFilter, types: EntityTypes): string | nul
 export type AppSearch = {
   /** The message panel. */
   message?: string;
-  /** The thing panel. The same slot: at most one of the two is ever open. */
+  /** The thing panel. The same slot: at most one of the three is ever open. */
   entity?: string;
-  /** Which photo of the open message is full screen (components/photo-viewer.tsx). */
+  /**
+   * The file panel. The same slot again: a file is a thing this app keeps
+   * (the rail lists it, search gives it its own row), so it opens the way the
+   * other things do rather than opening the message it arrived in.
+   */
+  attachment?: string;
+  /** Which photo of the open panel is full screen (components/photo-viewer.tsx). */
   photo?: string;
   /** The settings drawer. */
   settings?: true;
@@ -156,37 +163,41 @@ const idParam = (value: unknown): string | undefined =>
 export function validateAppSearch(search: Record<string, unknown>): AppSearch {
   const message = idParam(search.message);
   const entity = idParam(search.entity);
+  const attachment = idParam(search.attachment);
   const photo = idParam(search.photo);
   return {
     ...(message ? { message } : {}),
     ...(entity ? { entity } : {}),
+    ...(attachment ? { attachment } : {}),
     ...(photo ? { photo } : {}),
     ...(search.settings === true ? { settings: true as const } : {}),
   };
 }
 
 /** What is open over the view, if anything. */
-export type Panel = { kind: "message" | "entity"; id: string };
+export type Panel = { kind: "message" | "entity" | "attachment"; id: string };
 
 /**
- * One slot, so one hook: the panels are two shapes of the same surface, and a
- * hand-edited URL naming both gets the message rather than two drawers stacked
- * on each other.
+ * One slot, so one hook: the panels are three shapes of the same surface, and a
+ * hand-edited URL naming more than one gets the first of them rather than a
+ * stack of drawers on each other.
  *
  * Read `strict: false` from the nearest match, the way `useFilter` reads
  * params: the shell renders above every route in the tree and has no single one
  * to ask.
  */
 export function usePanel(): Panel | null {
-  const { message, entity } = useSearch({ strict: false });
+  const { message, entity, attachment } = useSearch({ strict: false });
   return useMemo(
     () =>
       message
         ? { kind: "message" as const, id: message }
         : entity
           ? { kind: "entity" as const, id: entity }
-          : null,
-    [message, entity],
+          : attachment
+            ? { kind: "attachment" as const, id: attachment }
+            : null,
+    [message, entity, attachment],
   );
 }
 
@@ -222,6 +233,7 @@ export function messageLink(id: string) {
       ...validateAppSearch(prev),
       message: id,
       entity: undefined,
+      attachment: undefined,
       photo: undefined,
     }),
     resetScroll: false,
@@ -235,6 +247,21 @@ export function entityLink(id: string) {
       ...validateAppSearch(prev),
       entity: id,
       message: undefined,
+      attachment: undefined,
+      photo: undefined,
+    }),
+    resetScroll: false,
+  } as const;
+}
+
+export function attachmentLink(id: string) {
+  return {
+    to: ".",
+    search: (prev: AppSearch) => ({
+      ...validateAppSearch(prev),
+      attachment: id,
+      message: undefined,
+      entity: undefined,
       photo: undefined,
     }),
     resetScroll: false,
@@ -248,12 +275,13 @@ export const closePanelLink = {
     ...validateAppSearch(prev),
     message: undefined,
     entity: undefined,
+    attachment: undefined,
     photo: undefined,
   }),
   resetScroll: false,
 } as const;
 
-/** One photo of the open message, full screen; `undefined` closes it. */
+/** One photo of the open panel, full screen; `undefined` closes it. */
 export function photoLink(id: string | undefined) {
   return {
     to: ".",

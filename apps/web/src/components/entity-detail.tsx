@@ -4,7 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EntityCard } from "@/components/entities";
-import { Icon } from "@/components/icon";
+import { Icon, iconNamed } from "@/components/icon";
 import { TagEditor } from "@/components/tag-editor";
 import { SectionHeading } from "@/components/typography";
 import {
@@ -96,9 +96,40 @@ export function EntityDetail({ id }: { id: string }) {
           "md:rounded-xl md:border"
         }
       >
-        <DrawerTitle className="sr-only">
-          {entity?.generatedTitle ?? entity?.value ?? "Entity"}
-        </DrawerTitle>
+        {/* The header names the surface: the kind's own icon and the kind's own
+            label, the pair the sidebar's row for it already uses. Not the
+            thing's title, which is the first line of the card below and would
+            otherwise be said twice.
+
+            Drawn whether or not the row has landed, so the drawer has a name
+            in the frame the store is still answering in. Until it does there
+            is no kind to name, and the fallback is the one every unknown kind
+            already gets: the generic sparkle (components/icon.tsx). */}
+        <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
+          <DrawerTitle className="flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight">
+            <Icon
+              name={entity ? iconNamed(types.icon(entity.kind)) : "sparkles"}
+              className="size-4.5 shrink-0"
+            />
+            <span className="truncate">{entity ? types.label(entity.kind) : "Thing"}</span>
+          </DrawerTitle>
+          {entity && (
+            <span className="truncate text-xs text-muted-foreground">
+              First seen {dayLabel(entity.firstSeenAt)}
+            </span>
+          )}
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Close (Esc)"
+              className="text-muted-foreground"
+              onClick={close}
+            >
+              <Icon name="x" className="size-4" />
+            </Button>
+          </span>
+        </div>
         <DrawerDescription className="sr-only">
           What this is, and every message that mentions it.
         </DrawerDescription>
@@ -113,164 +144,141 @@ export function EntityDetail({ id }: { id: string }) {
             </div>
           )
         ) : (
-          <>
-            <div className="flex shrink-0 items-center gap-2 border-b bg-card px-5 py-3">
-              <span className="text-sm font-medium">{types.label(entity.kind)}</span>
-              <span className="text-xs text-muted-foreground">
-                First seen {dayLabel(entity.firstSeenAt)}
-              </span>
-              <span className="ml-auto flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Close (Esc)"
-                  className="text-muted-foreground"
-                  onClick={close}
-                >
-                  <Icon name="x" className="size-4" />
-                </Button>
-              </span>
-            </div>
+          <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            {/* The same card the chat draws, at the top of its own page. */}
+            <EntityCard entity={entity} />
 
-            <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-              {/* The same card the chat draws, at the top of its own page. */}
-              <EntityCard entity={entity} />
-
-              {entity.generatedSummary && (
-                <section className="rounded-xl bg-ai-soft p-3.5">
-                  <SectionHeading className="text-ai">
-                    <span className="flex items-center gap-1">
-                      <Icon name="sparkles" className="size-3.5" /> Summary
-                    </span>
-                  </SectionHeading>
-                  <p className="text-sm leading-relaxed">{entity.generatedSummary}</p>
-                </section>
-              )}
-
-              {structured.length > 0 && (
-                <section>
-                  <SectionHeading>Details</SectionHeading>
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                    {structured.map((entry) => (
-                      <div key={entry.name} className="contents">
-                        <dt className="text-muted-foreground">{entry.label}</dt>
-                        <dd className="min-w-0 break-words">{entry.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              )}
-
-              <section>
-                <SectionHeading>Tags</SectionHeading>
-                <TagEditor
-                  userTagNames={entity.tags
-                    .filter((t) => t.source === "user" && t.tag)
-                    .map((t) => t.tag!.name)}
-                  suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
-                  onSave={(names) =>
-                    void zero.mutate(mutators.tag.setForEntity({ entityId: entity.id, names }))
-                  }
-                />
-                {entity.tags.some((t) => t.source === "ai" && t.tag) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {entity.tags
-                      .filter((t) => t.source === "ai" && t.tag)
-                      .map((t) => (
-                        <Badge key={t.tagId} className="bg-ai-soft font-normal text-ai">
-                          <Icon name="sparkles" className="size-3" />
-                          {t.tag!.name}
-                        </Badge>
-                      ))}
-                  </div>
-                )}
-              </section>
-
-              <section>
-                <SectionHeading>
-                  Seen in {entity.mentions.length} message{entity.mentions.length === 1 ? "" : "s"}
+            {entity.generatedSummary && (
+              <section className="rounded-xl bg-ai-soft p-3.5">
+                <SectionHeading className="text-ai">
+                  <span className="flex items-center gap-1">
+                    <Icon name="sparkles" className="size-3.5" /> Summary
+                  </span>
                 </SectionHeading>
-                <ul className="flex flex-col gap-1.5">
-                  {entity.mentions.map((mention) => (
-                    <li key={mention.id}>
-                      {/* The whole row goes to the message. It used to share the
+                <p className="text-sm leading-relaxed">{entity.generatedSummary}</p>
+              </section>
+            )}
+
+            {structured.length > 0 && (
+              <section>
+                <SectionHeading>Details</SectionHeading>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                  {structured.map((entry) => (
+                    <div key={entry.name} className="contents">
+                      <dt className="text-muted-foreground">{entry.label}</dt>
+                      <dd className="min-w-0 break-words">{entry.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
+            <section>
+              <SectionHeading>Tags</SectionHeading>
+              <TagEditor
+                userTagNames={entity.tags
+                  .filter((t) => t.source === "user" && t.tag)
+                  .map((t) => t.tag!.name)}
+                suggestions={allTags.filter((t) => t.kind === "topic").map((t) => t.name)}
+                onSave={(names) =>
+                  void zero.mutate(mutators.tag.setForEntity({ entityId: entity.id, names }))
+                }
+              />
+              {entity.tags.some((t) => t.source === "ai" && t.tag) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {entity.tags
+                    .filter((t) => t.source === "ai" && t.tag)
+                    .map((t) => (
+                      <Badge key={t.tagId} className="bg-ai-soft font-normal text-ai">
+                        <Icon name="sparkles" className="size-3" />
+                        {t.tag!.name}
+                      </Badge>
+                    ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <SectionHeading>
+                Seen in {entity.mentions.length} message{entity.mentions.length === 1 ? "" : "s"}
+              </SectionHeading>
+              <ul className="flex flex-col gap-1.5">
+                {entity.mentions.map((mention) => (
+                  <li key={mention.id}>
+                    {/* The whole row goes to the message. It used to share the
                           row with an eye that deleted the thing, which read as
                           an action on the message it sat on. */}
-                      <Link
-                        {...messageLink(mention.messageId)}
-                        className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"
-                        onClick={close}
-                      >
-                        <span className="block truncate text-sm font-medium">
-                          {mention.message?.generatedTitle ??
-                            mention.message?.text?.split("\n")[0] ??
-                            "(no text)"}
+                    <Link
+                      {...messageLink(mention.messageId)}
+                      className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"
+                      onClick={close}
+                    >
+                      <span className="block truncate text-sm font-medium">
+                        {mention.message?.generatedTitle ??
+                          mention.message?.text?.split("\n")[0] ??
+                          "(no text)"}
+                      </span>
+                      {mention.snippet && (
+                        <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted-foreground">
+                          {mention.snippet}
                         </span>
-                        {mention.snippet && (
-                          <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted-foreground">
-                            {mention.snippet}
-                          </span>
-                        )}
-                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                          {mention.message && dayLabel(mention.message.createdAt)}
-                          {mention.message && ` · ${timeLabel(mention.message.createdAt)}`}
-                          {mention.attachment && ` · found in ${mention.attachment.filename}`}
-                          {mention.source === "regex" && " · pattern match"}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+                      )}
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                        {mention.message && dayLabel(mention.message.createdAt)}
+                        {mention.message && ` · ${timeLabel(mention.message.createdAt)}`}
+                        {mention.attachment && ` · found in ${mention.attachment.filename}`}
+                        {mention.source === "regex" && " · pattern match"}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
 
-              {/* Its own section, because deleting the thing is about the thing.
+            {/* Its own section, because deleting the thing is about the thing.
                   The confirmation says what survives it: the messages. */}
-              <section>
-                <SectionHeading>Delete</SectionHeading>
-                <p className="text-[13px] text-muted-foreground">
-                  {/* The kind wears the card's own border and fill, because
+            <section>
+              <SectionHeading>Delete</SectionHeading>
+              <p className="text-[13px] text-muted-foreground">
+                {/* The kind wears the card's own border and fill, because
                       "Deletes this Email" reads as a message otherwise: the
                       chip is what says it is a kind of thing. */}
-                  Deletes this{" "}
-                  <span className="rounded-md border bg-panel px-1.5 py-0.5 text-foreground">
-                    {types.label(entity.kind)}
-                  </span>{" "}
-                  everywhere.{" "}
-                  {entity.mentions.length === 1
-                    ? "The message it was found in stays."
-                    : "The messages it was found in stay."}
-                </p>
-                <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                  <AlertDialogTrigger
-                    render={
-                      <Button variant="destructive" size="sm" className="mt-2">
-                        <Icon name="trash" className="size-3.5" /> Delete
-                      </Button>
-                    }
-                  />
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete this {types.label(entity.kind)}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        It disappears from all your devices, with its tags and everything found
-                        about it. The messages it was found in stay, and reading them again
-                        won&rsquo;t bring it back. This can&rsquo;t be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        onClick={() => void remove(entity.id)}
-                      >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </section>
-            </div>
-          </>
+                Deletes this{" "}
+                <span className="rounded-md border bg-panel px-1.5 py-0.5 text-foreground">
+                  {types.label(entity.kind)}
+                </span>{" "}
+                everywhere.{" "}
+                {entity.mentions.length === 1
+                  ? "The message it was found in stays."
+                  : "The messages it was found in stay."}
+              </p>
+              <AlertDialog open={confirming} onOpenChange={setConfirming}>
+                <AlertDialogTrigger
+                  render={
+                    <Button variant="destructive" size="sm" className="mt-2">
+                      <Icon name="trash" className="size-3.5" /> Delete
+                    </Button>
+                  }
+                />
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this {types.label(entity.kind)}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      It disappears from all your devices, with its tags and everything found about
+                      it. The messages it was found in stay, and reading them again won&rsquo;t
+                      bring it back. This can&rsquo;t be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction variant="destructive" onClick={() => void remove(entity.id)}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </section>
+          </div>
         )}
       </DrawerContent>
     </Drawer>

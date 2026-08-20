@@ -341,11 +341,12 @@
    The percentages are those milliseconds over the 3s duration, so the three
    move together.
 
-   What travels is the brand colour's alpha, from `primary/0` to `primary`,
-   inside an inset shadow that hugs the card's inner edge and falls off over
-   12px. Nothing else on the card is touched: the border keeps its own colour,
-   the fill keeps its own, and a shadow occupies no space, so the card cannot
-   change size or push the cards below it around.
+   What travels is the width of a ring of brand colour inside the card's edge,
+   from 0 to 2px, with no blur on it at all: it is a drawn edge that grows and
+   goes, not a glow that fades up and down. Nothing else on the card is
+   touched: the border keeps its own colour, the fill keeps its own, and a
+   shadow occupies no space, so the card cannot change size or push the cards
+   below it around.
 
    Reduced motion gets the same three seconds as a still frame rather than
    nothing at all: the base layer above collapses every animation to 1ms, so
@@ -356,17 +357,17 @@
 @keyframes highlight-pass {
   0%,
   100% {
-    box-shadow: inset 0 0 12px color-mix(in oklab, var(--primary) 0%, transparent);
+    box-shadow: inset 0 0 0 0 var(--primary);
   }
   10%,
   90% {
-    box-shadow: inset 0 0 12px var(--primary);
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
 }
 @utility highlight-pass {
   animation: highlight-pass 3s linear;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
-    box-shadow: inset 0 0 12px var(--primary);
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
 }

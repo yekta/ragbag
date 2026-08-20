@@ -28,7 +28,11 @@ import { cn } from "@/lib/utils";
 // that h1 was the model's title for the message, printed above the message
 // itself at a size that made it look like the thing a person had written.
 //
-// Sentence case throughout. Uppercase is a way of making small text look
+// Sentence case throughout, with one name in title case: "Things Found" is
+// what this app calls what the pipeline pulls out of a message, so it is
+// spelled that way wherever it is used as a name for them.
+//
+// Uppercase is a way of making small text look
 // deliberate, and it is paid for in word shapes, which is what a reader reads
 // by; it is also indiscriminate, which is how an attachment's filename and a
 // carrier spelled FedEx both ended up shouting. Size, weight and colour carry
@@ -62,7 +66,7 @@ export function SectionHeading({
 }
 
 /**
- * The label over a group of rows: "Things", "Messages", "Things found".
+ * The label over a group of rows: "Things", "Messages", "Things Found".
  *
  * Not a section heading. It names a bucket rather than a part of a document,
  * and it appears inside surfaces (a timeline card, a search palette) where

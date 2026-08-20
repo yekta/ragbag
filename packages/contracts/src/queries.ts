@@ -61,6 +61,35 @@ export const queries = defineQueries({
   ),
 
   /**
+   * One file, with everything on it, for the file panel.
+   *
+   * A file is one of the things this app keeps, not a detail of the message it
+   * arrived in: the rail lists it, search gives it its own row, and the
+   * pipeline writes its own title, summary, tags and mentions against it. This
+   * is the query that lets it have a page of its own.
+   *
+   * Its mentions are the entities found *in this file*, which is a narrower
+   * set than the message's and the one thing no other query can answer: on a
+   * message they arrive mixed in with what its text and its other files said.
+   *
+   * The message rides along for the header and the way back, and its liveness
+   * is asked separately: a soft-deleted message keeps its attachment rows, so
+   * without this check a link to a file would outlive the message it was sent
+   * in (the same rule `entities` applies to mentions).
+   */
+  attachment: defineQuery(idArgs, ({ args, ctx }) =>
+    zql.attachments
+      .where("userId", ctx.userID)
+      .where("id", args.id)
+      .whereExists("message", (m) => m.where("deletedAt", "IS", null))
+      .related("content")
+      .related("message")
+      .related("mentions", (m) => m.where("dismissedAt", "IS", null).related("entity"))
+      .related("tags", (t) => t.related("tag"))
+      .one(),
+  ),
+
+  /**
    * Every entity with its live mentions attached, which is what the Things
    * rail counts. Mentions to deleted messages are excluded here rather than
    * filtered downstream, so a deleted message cannot leave a ghost address in

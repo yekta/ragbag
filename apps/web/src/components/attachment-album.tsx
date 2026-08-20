@@ -23,7 +23,7 @@ import {
 } from "@/lib/blobs";
 import { mediaUrl } from "@/lib/media";
 import { formatBytes } from "@/lib/format";
-import { messageLink } from "@/lib/routes";
+import { attachmentLink } from "@/lib/routes";
 import type { Attachment } from "@/lib/types";
 
 // The attachments of one message, laid out the way a messaging app lays them
@@ -75,8 +75,10 @@ export function toBlocks(items: readonly Attachment[]): Block[] {
 /**
  * Which surface this album is on.
  *
- * `timeline`: a tile opens the message it belongs to, and a voice note gets
- * the compact transport a preview has room for.
+ * `timeline`: a tile opens the file's own page, because a file is one of the
+ * things this app keeps (components/attachment-detail.tsx), and a voice note
+ * gets the compact transport a preview has room for. The message is one tap
+ * away in the card around it, which is what the rest of the card opens.
  *
  * `detail`: the message is already open, so a tile opens the file itself,
  * which is where "see it at full size" lives now that the panel shows the
@@ -190,7 +192,7 @@ function AttachmentLink({
     );
   }
   return (
-    <Link {...messageLink(attachment.messageId)} className={className} style={style}>
+    <Link {...attachmentLink(attachment.id)} className={className} style={style}>
       {children}
     </Link>
   );

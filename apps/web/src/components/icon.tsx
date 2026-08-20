@@ -153,6 +153,22 @@ export const FACE_ICON = {
 } as const satisfies Record<AttachmentFace, IconName>;
 
 /**
+ * What a file's own page calls it.
+ *
+ * Finer than the rail, which has two rows for four faces: everything that is
+ * not a picture is under "Files" there, because a rail row is a place to go
+ * and three of them for the same kind of browsing is three near-empty lists.
+ * A page is about one file, so it can say which of them it is, and "PDF" and
+ * "Audio" are what a person would call the thing in front of them.
+ */
+export const FACE_LABEL = {
+  image: "Image",
+  pdf: "PDF",
+  audio: "Audio",
+  file: "File",
+} as const satisfies Record<AttachmentFace, string>;
+
+/**
  * An icon named by a type rather than by this build.
  *
  * A declared type's `icon` is a string in Postgres, so it can name an icon this

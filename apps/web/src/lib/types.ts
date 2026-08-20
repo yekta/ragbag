@@ -17,6 +17,9 @@ export type MessageDetail = QueryResultType<typeof queries.message>;
 /** The detail view's attachments carry their content_md; the chat's do not. */
 export type DetailAttachment = NonNullable<MessageDetail>["attachments"][number];
 
+/** One file on its own page: its content, its message, its mentions, its tags. */
+export type AttachmentDetail = QueryResultType<typeof queries.attachment>;
+
 /**
  * The entity columns, without relations: what a card needs and what a mention
  * carries. `EntityRow` (which also has its mentions and tags) is assignable to

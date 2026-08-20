@@ -1,6 +1,6 @@
 import type { MetaResponse } from "@ragbag/contracts";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/icon";
+import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { authClient, OAUTH_REDIRECT_ERROR, signInWithGoogle } from "@/lib/auth-client";
@@ -35,9 +35,7 @@ export function SignIn({ meta }: { meta: MetaResponse | null }) {
     <main className="flex h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm shadow-float">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Icon name="inbox" className="size-6" />
-          </span>
+          <Logo className="size-12" />
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Ragbag</h1>
             <p className="mt-1 text-sm text-muted-foreground">

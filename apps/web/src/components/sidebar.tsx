@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Icon, iconNamed } from "@/components/icon";
+import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar as SidebarRoot,
@@ -221,9 +222,7 @@ export function Sidebar({
             Geometrically the logo is already flush with the field at that rail;
             the 2px is optical. */}
         <div className="flex items-center gap-2 pb-2 pl-0.5">
-          <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Icon name="inbox" className="size-4" />
-          </span>
+          <Logo className="size-6" />
           <span className="text-lg font-bold tracking-tight">Ragbag</span>
           <SidebarTrigger className="ml-auto text-muted-foreground" title="Hide sidebar (⌘\)" />
         </div>

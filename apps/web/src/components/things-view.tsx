@@ -7,13 +7,25 @@ import { TimelineEntities } from "@/components/entities/shell";
 import { FACE_ICON, Icon } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
 import { useEntityTypes } from "@/lib/entity-types";
-import { attachmentFaceOf, entityKindOf, entityLink, messageLink, useFilter } from "@/lib/routes";
+import {
+  attachmentFaceOf,
+  attachmentLink,
+  entityKindOf,
+  entityLink,
+  useFilter,
+} from "@/lib/routes";
 import { dayLabel, formatBytes } from "@/lib/format";
 import type { Attachment, Messages, EntityRows, Message } from "@/lib/types";
 
 // The other half of the sidebar (plan §8.2). Chat-shaped rows filter the chat;
 // thing-shaped rows replace it with a grid (images) or a list (everything
-// else), newest first, each row linking back to the message it came from.
+// else), newest first, each row opening the thing it draws: a file opens the
+// file panel and an entity opens the thing panel, the same way round.
+//
+// A file row used to open the *message* it arrived in, which made these two
+// rails behave as two different kinds of list while looking like one: an
+// address opened the address, and a photo opened something else entirely. The
+// message is one tap further in, from the file's own page.
 //
 // Why not just filter the chat: filtering it to "messages containing an image"
 // is strictly worse than showing the images. You lose density (one chat row
@@ -77,10 +89,10 @@ function AttachmentThings({ messages, face }: { messages: Messages; face: string
   if (face === "image") {
     return (
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-        {found.map(({ attachment, message }) => (
+        {found.map(({ attachment }) => (
           <Link
             key={attachment.id}
-            {...messageLink(message.id)}
+            {...attachmentLink(attachment.id)}
             title={attachment.generatedTitle ?? attachment.filename}
             className="relative aspect-square overflow-hidden rounded-xl border"
           >
@@ -102,7 +114,7 @@ function AttachmentThings({ messages, face }: { messages: Messages; face: string
       {found.map(({ attachment, message }) => (
         <li key={attachment.id}>
           <Link
-            {...messageLink(message.id)}
+            {...attachmentLink(attachment.id)}
             className="flex items-center gap-3 rounded-2xl border bg-background p-3.5 transition hover:bg-background-hover"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
