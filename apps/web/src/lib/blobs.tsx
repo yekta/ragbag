@@ -196,6 +196,15 @@ export function aspectOf(
  * and for the image itself, so the swap changes nothing. `min()` rather than
  * arithmetic on a measured width: the browser resolves it against whatever the
  * column happens to be, at any viewport, without React measuring anything.
+ *
+ * `maxHeight` is a length in whatever unit the caller's ceiling is written in:
+ * a fixed one in the album, `100cqh` in the full-screen viewer, where the
+ * ceiling is the frame's own height and the frame is a size container. That
+ * second case is why this is a width and a ratio rather than a pair of maxes:
+ * `max-height` fitting a picture down leaves its width where it was, so a
+ * photo shorter than the frame is wide gets an element wider than itself, and
+ * whatever is painted on that element (a fill, a border) shows down both
+ * sides of it. A width the height cannot contradict has nothing to letterbox.
  */
 export function mediaBox(
   width: number | null | undefined,

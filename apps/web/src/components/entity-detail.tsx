@@ -20,7 +20,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEntityTypes } from "@/lib/entity-types";
 import { dayLabel, timeLabel } from "@/lib/format";
@@ -144,7 +150,7 @@ export function EntityDetail({ id }: { id: string }) {
             </div>
           )
         ) : (
-          <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <DrawerBody className="space-y-8">
             {/* The same card the chat draws, at the top of its own page. */}
             <EntityCard entity={entity} />
 
@@ -278,7 +284,7 @@ export function EntityDetail({ id }: { id: string }) {
                 </AlertDialogContent>
               </AlertDialog>
             </section>
-          </div>
+          </DrawerBody>
         )}
       </DrawerContent>
     </Drawer>

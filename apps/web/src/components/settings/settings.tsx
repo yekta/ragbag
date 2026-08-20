@@ -8,7 +8,13 @@ import { Icon, iconNamed } from "@/components/icon";
 import { TypeEditor } from "@/components/settings/type-editor";
 import { SectionHeading } from "@/components/typography";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Switch } from "@/components/ui/switch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { signOut } from "@/lib/auth-client";
@@ -90,10 +96,7 @@ export function Settings() {
           </Button>
         </div>
 
-        {/* Bottom padding is the safe area plus 2rem, added rather than maxed:
-            the extra is room to breathe under the last section, and the phone's
-            home indicator should not be allowed to eat it. */}
-        <div className="min-h-0 flex-1 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[calc(2rem+max(1.25rem,env(safe-area-inset-bottom)))]">
+        <DrawerBody>
           {editing ? (
             <TypeEditor typeId={editing.id} onDone={() => setEditing(null)} />
           ) : (
@@ -104,7 +107,7 @@ export function Settings() {
               <AccountSection />
             </div>
           )}
-        </div>
+        </DrawerBody>
       </DrawerContent>
     </Drawer>
   );
@@ -358,7 +361,12 @@ function AppearanceSection() {
 // --- account ---
 
 function AccountSection() {
-  const identity = loadIdentity();
+  // Read once, on mount, rather than on every render. Signing out clears the
+  // stored identity before it goes anywhere near the network, so a render in
+  // between (the button going busy is one) would find nothing there and swap
+  // the address for "Signed in" while the address is still true. What you
+  // pressed sign out on stays on screen until the page does.
+  const [identity] = useState(loadIdentity);
   // Signing out clears the local identity, tells the server, and reloads the
   // app; on a slow connection that is a second or two of a screen that looks
   // exactly as it did before the press. The button holds it (ui/button.tsx),

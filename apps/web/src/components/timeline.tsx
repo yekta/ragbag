@@ -245,11 +245,21 @@ export function Timeline({
   // (~500ms for 400 rows on a dev box). That correction is the reason the shell
   // is revealed on a settled layout rather than on the arrival of data
   // (lib/settle.ts).
+  //
+  // The hash is *read* here rather than depended on, and that distinction is
+  // the whole of a bug: this effect is about the filter changing, and a hash
+  // that goes away is not a filter changing. Every panel link drops the hash
+  // (lib/routes.ts names the keys it writes, and a `to: "."` navigation
+  // carries no fragment), so with `hash` in the dependencies, clicking a
+  // picture in a message you had jumped to re-ran this with nothing to skip on
+  // and threw the reader from that message to the newest one.
+  const hashRef = useRef(hash);
+  hashRef.current = hash;
   useLayoutEffect(() => {
     // A hash asks for a specific message; the effect below takes it there.
-    if (hash) return;
+    if (hashRef.current) return;
     virtualizer.scrollToEnd();
-  }, [view, tagId, virtualizer, hash]);
+  }, [view, tagId, virtualizer]);
 
   // Jump to one message and hold there. Handled once per hash: `rows` changes
   // identity on every sync tick, and re-running would drag the reader back to

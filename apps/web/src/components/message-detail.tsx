@@ -18,7 +18,13 @@ import { SectionHeading } from "@/components/typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatBytes, timeLabel } from "@/lib/format";
 import { attachmentLink, closePanelLink, entityLink } from "@/lib/routes";
@@ -242,7 +248,7 @@ export function MessageDetail({ id }: { id: string }) {
                 a picture is opened from the album at the top and from its
                 own row further down, and those are two subtrees. */}
             <PhotoViewerScope attachments={message.attachments}>
-              <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+              <DrawerBody className="space-y-8">
                 {/* The message, first, whatever it is made of: a paragraph, a
                   photo, a voice note, all three, or one file and nothing
                   else. No heading over it, because it is not a section of
@@ -448,7 +454,7 @@ export function MessageDetail({ id }: { id: string }) {
                       )}
                     </div>
                   )}
-              </div>
+              </DrawerBody>
             </PhotoViewerScope>
           </AudioPlayerScope>
         )}

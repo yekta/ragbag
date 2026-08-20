@@ -220,8 +220,9 @@ export function Sidebar({
             row pills under that, no inset of its own, because unlike those
             rows it is not a control and has no box of its own to pad.
             Geometrically the logo is already flush with the field at that rail;
-            the 2px is optical. */}
-        <div className="flex items-center gap-2 pb-2 pl-0.5">
+            the 4px is optical, the mark being a rounded silhouette with no
+            straight edge to line up on. */}
+        <div className="flex items-center gap-2 pb-2 pl-1">
           <Logo className="size-5" />
           <span className="text-lg font-bold tracking-tight">Ragbag</span>
           <SidebarTrigger className="ml-auto text-muted-foreground" title="Hide sidebar (⌘\)" />
@@ -312,8 +313,7 @@ export function Sidebar({
           <SidebarGroupContent>
             {rankedTags.length === 0 ? (
               <p className="px-2 text-xs text-muted-foreground">
-                Your tags show up here as you add them. Auto-tags stay out of the way but still
-                power search.
+                Tags created by you show up here as you add them.
               </p>
             ) : (
               <SidebarMenu>

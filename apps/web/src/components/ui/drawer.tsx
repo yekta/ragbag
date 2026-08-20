@@ -168,6 +168,33 @@ function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+// Local addition, not from the generator: the scrolling middle of a panel,
+// between the header and the bottom of the screen.
+//
+// Every panel in this app is this drawer with different contents in it
+// (settings, a message, a thing, a file), and each one had spelled the same
+// eight utilities out for itself. They had drifted apart where it shows: three
+// ended at `max(1.25rem, safe-area)` and one at `2rem + max(...)`, so the last
+// line of a message sat hard against the bottom edge while the last line of
+// settings had room under it.
+//
+// That sum is the one kept, and it is a sum rather than a max on purpose: the
+// 2rem is room to breathe under the last thing in the panel, and the strip a
+// phone reserves for its home indicator must not be allowed to eat it. Below
+// that strip there is nothing to read anyway.
+function DrawerBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="drawer-body"
+      className={cn(
+        "min-h-0 flex-1 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[calc(2rem+max(1.25rem,env(safe-area-inset-bottom)))]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -207,6 +234,7 @@ export {
   DrawerClose,
   DrawerContent,
   DrawerHeader,
+  DrawerBody,
   DrawerFooter,
   DrawerTitle,
   DrawerDescription,

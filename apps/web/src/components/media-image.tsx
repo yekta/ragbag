@@ -1,5 +1,5 @@
 import type { BlobVariant } from "@ragbag/contracts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { thumbHashToDataURL } from "thumbhash";
 import { Icon } from "@/components/icon";
 import { useBlobUrlState } from "@/lib/blobs";
@@ -119,8 +119,7 @@ export function MediaImage({
   placeholder,
   alt,
   className,
-  width,
-  height,
+  style,
   fit = "cover",
   sizing = "fill",
 }: {
@@ -139,16 +138,16 @@ export function MediaImage({
   alt: string;
   className?: string;
   /**
-   * The picture's own pixel size, off the synced row, when it is known.
+   * Geometry for the element itself, which is `mediaBox`'s output at every
+   * caller that passes it (lib/blobs.tsx): a width and the picture's aspect
+   * ratio, so the box is the picture's own box before any bytes arrive.
    *
-   * Attributes rather than CSS, and only useful with `sizing="fit"`: they give
-   * the element an intrinsic size and ratio before a single byte has arrived,
-   * which is what lets the box below be the picture's own box while it is
-   * still coming down the wire. Without them a fitted element is nothing until
-   * it decodes, and there is nowhere to draw a loading state.
+   * On the element rather than on a wrapper, unlike the album, because at
+   * `sizing="fit"` this element *is* the picture: anything painted on it
+   * (the placeholder, a fill) then covers exactly what the photo will cover
+   * and not a pixel more.
    */
-  width?: number | null;
-  height?: number | null;
+  style?: CSSProperties;
   fit?: "cover" | "contain";
   /**
    * `fill`: the element is the box its parent gives it, and the picture is
@@ -195,7 +194,10 @@ export function MediaImage({
     return (
       <span
         className={`flex size-full items-center justify-center bg-muted text-muted-foreground ${className ?? ""}`}
-        style={blur ? { backgroundImage: `url(${blur})`, backgroundSize: "cover" } : undefined}
+        style={{
+          ...style,
+          ...(blur && { backgroundImage: `url(${blur})`, backgroundSize: "cover" }),
+        }}
       >
         {!blur && <Icon name="image" className="size-6" />}
       </span>
@@ -206,24 +208,20 @@ export function MediaImage({
     <img
       src={src}
       alt={alt}
-      // Presentational hints, which the `h-auto` below is what makes safe: a
-      // width and a height both spelled out is a fixed box, so clamping the
-      // width against the viewport would keep the height and squash the
-      // picture. With the height back on `auto` the pair is a size and a
-      // ratio, and the two maxes fit it the way `contain` would.
-      width={width ?? undefined}
-      height={height ?? undefined}
       // Native lazy loading, which is the whole reason the URL is stable.
       loading="lazy"
       decoding="async"
       onError={() => setSource((s) => (s === "media" ? "local" : "gone"))}
       // Spelled out rather than interpolated: Tailwind scans source text for
       // whole class names, so `object-${fit}` would generate neither.
-      className={`${sizing === "fill" ? "size-full" : "h-auto max-h-full max-w-full"} ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
+      className={`${sizing === "fill" ? "size-full" : "max-h-full max-w-full"} ${fit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
       // The placeholder is the element's own background rather than a second
       // element, so nothing is added to or removed from the DOM when the
       // picture lands: the image simply paints over it.
-      style={blur ? { backgroundImage: `url(${blur})`, backgroundSize: "cover" } : undefined}
+      style={{
+        ...style,
+        ...(blur && { backgroundImage: `url(${blur})`, backgroundSize: "cover" }),
+      }}
     />
   );
 }

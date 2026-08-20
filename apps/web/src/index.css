@@ -328,6 +328,25 @@
     overflow-wrap: anywhere;
   }
 
+  /* The hand, on anything you press.
+
+     Not a preference: a button and a link are the same promise to a reader,
+     and this app draws plenty of both in the same row. Tailwind's preflight
+     used to say so and stopped in v4, on the argument that native controls
+     show an arrow, so every button in the app quietly went back to the arrow
+     while every link kept the hand. The upgrade guide's own answer is this
+     rule, and it belongs here rather than on a `cursor-pointer` per call site,
+     which is a thing to remember and therefore a thing to forget.
+
+     Disabled excluded: nothing is being offered, so nothing should look
+     pressable. Anything that wants a different cursor still says so with a
+     utility, which wins over this layer by construction: the resize rail, the
+     search field that is a button, the picture that zooms. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

@@ -20,6 +20,7 @@ import {
   DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { mediaBox } from "@/lib/blobs";
 import { formatBytes } from "@/lib/format";
 import { mediaUrl, rendersInBrowser } from "@/lib/media";
 import { photoLink, type AppSearch } from "@/lib/routes";
@@ -250,40 +251,26 @@ export function PhotoViewerScope({
                       {index + 1} of {photos.length}
                     </span>
                   )}
-                  <span className="ml-auto flex items-center gap-1">
-                    {/* The file on its own, out of the app: to save it, to
-                        zoom it past the frame in the browser's own viewer, or
-                        to read a format this one draws the transcode for. It
-                        used to be labelled "Original" and was the only way to
-                        see one; the picture above is the original now, so what
-                        is left is the file, and that is what it says. */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground"
-                      render={
-                        <a
-                          href={mediaUrl(current.blobId, "original")}
-                          target="_blank"
-                          rel="noreferrer"
-                        />
-                      }
-                    >
-                      <Icon name="external" className="size-3.5" /> Open file
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Close (Esc)"
-                      className="text-muted-foreground"
-                      onClick={close}
-                    >
-                      <Icon name="x" className="size-4" />
-                    </Button>
-                  </span>
+                  {/* The only control up here now. It used to sit in a flex
+                      wrapper beside a link to the file, which was worth having
+                      while the picture was a transcode and the file was
+                      somewhere else; it is the file. */}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Close (Esc)"
+                    className="ml-auto text-muted-foreground"
+                    onClick={close}
+                  >
+                    <Icon name="x" className="size-4" />
+                  </Button>
                 </div>
 
-                <div className="relative flex min-h-0 flex-1 items-center justify-center px-3">
+                {/* A size container, so the picture below can be sized against
+                    this frame's *height* in CSS (`100cqh`). Its own size comes
+                    from the column it is in and never from what is in it,
+                    which is exactly the containment that buys. */}
+                <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 [container-type:size]">
                   {/* Keyed, so stepping is a fresh picture rather than the
                       previous one's source ladder carried over: a photo that
                       had run out of sources would otherwise hand its stand-in
@@ -292,13 +279,12 @@ export function PhotoViewerScope({
                     key={current.id}
                     blobId={current.blobId}
                     variant={sourceVariant(current)}
-                    // The dimensions off the row, which every device has before
-                    // any bytes (lib/blobs.tsx), so the box is the picture's own
-                    // box from the first frame: the fill below is exactly where
-                    // the photo will be, and nothing on screen moves when it
-                    // lands.
-                    width={current.width}
-                    height={current.height}
+                    // The largest box of this photo's shape that fits the
+                    // frame, worked out from the dimensions on the row, which
+                    // every device has before any bytes (lib/blobs.tsx). So the
+                    // element is the picture: the fill below is exactly where
+                    // the photo will be and nothing moves when it lands.
+                    style={mediaBox(current.width, current.height, "100cqh")}
                     // No blurred stand-in, though the row carries the hash for
                     // one. A thumbhash is a guess at a picture, and it is a
                     // fine one to paint under a tile that resolves in a moment;

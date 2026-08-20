@@ -18,7 +18,13 @@ import { TagEditor } from "@/components/tag-editor";
 import { SectionHeading } from "@/components/typography";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { dayLabel, formatBytes, timeLabel } from "@/lib/format";
 import { closePanelLink, entityLink, messageLink } from "@/lib/routes";
@@ -141,7 +147,7 @@ export function AttachmentDetail({ id }: { id: string }) {
                 steps through the message's others. Each surface's viewer
                 covers that surface's pictures. */}
             <PhotoViewerScope attachments={[attachment]}>
-              <div className="min-h-0 flex-1 space-y-8 scroll-fade-b overflow-x-hidden overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+              <DrawerBody className="space-y-8">
                 {/* The file itself, first and at the top, drawn by the album
                     the timeline and the message panel both use: a message has
                     to read as the same message everywhere, and a file as the
@@ -343,7 +349,7 @@ export function AttachmentDetail({ id }: { id: string }) {
                     </Link>
                   </section>
                 )}
-              </div>
+              </DrawerBody>
             </PhotoViewerScope>
           </AudioPlayerScope>
         )}
