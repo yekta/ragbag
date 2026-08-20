@@ -245,17 +245,18 @@ function EntityStrip({ message }: { message: Message }) {
  * inset itself. The pull takes those back and then some, and what it is aiming
  * at is not this row at all: it is the paragraph, which sets its own text 2px
  * in from the card on a phone and 6px in on a wider one, for the reasons
- * written where it does it. So the glyph lands on 16px at the narrow width and
- * on 20px at the wide one, under the first letter of the message either way,
- * and the fill that carries it sits out in the card's own gutter, which is
- * where a ghost button has to start if its glyph is to line up with type that
- * has no padding at all.
+ * written where it does it. The fill that carries the glyph ends up out in the
+ * card's own gutter, which is where a ghost button has to start if its mark is
+ * to sit under type that has no padding at all.
  *
- * Two pulls rather than one because both of the things it is measured against
- * move at that breakpoint and they do not move together: the row's padding
- * doubles while the paragraph's inset gains 4px. The 2px between them is the
- * whole of the difference between these two numbers, and either alone would
- * put the button under the wrong thing at one of the two widths.
+ * Two pulls, because both of the things it is measured against move at that
+ * breakpoint and they do not move together: the row's padding doubles while the
+ * paragraph's inset gains 4px. And the narrow one is a pixel past what that
+ * arithmetic asks for, because a glyph is not its box. The icon draws its
+ * square inset from the edge of the 16px it is handed, the way a letter carries
+ * a side bearing, so the two boxes agreeing is not the two marks agreeing.
+ * These are the numbers that looked right, which is the only test a leading
+ * edge has.
  */
 function DetailsLink({ message }: { message: Message }) {
   return (
@@ -265,7 +266,7 @@ function DetailsLink({ message }: { message: Message }) {
     <Button
       variant="ghost"
       size="sm"
-      className="-my-1.5 -ml-2.5 text-muted-foreground md:-ml-2"
+      className="-my-1.5 -ml-2.75 text-muted-foreground md:-ml-2"
       nativeButton={false}
       render={<Link {...messageLink(message.id)} />}
     >
