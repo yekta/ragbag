@@ -242,17 +242,20 @@ function EntityStrip({ message }: { message: Message }) {
  * A ghost button at rest is only its glyph, but it is measured from the edge of
  * a fill nobody can see, so 10px of button padding stood between the card's
  * inset and the first mark on the line while everything above started at the
- * inset itself. Eight come back: four of them cancel the row's own padding on
- * a wide card, which everything else in the row keeps, and the other four land
- * the icon on the 20px the message's text is set in at there. The fill that
- * carries it ends up sitting 4px proud of the inset, in the card's own gutter,
- * which is where a ghost button has to start if its glyph is to line up with
- * type that has no padding at all.
+ * inset itself. The pull takes those back and then some, and what it is aiming
+ * at is not this row at all: it is the paragraph, which sets its own text 2px
+ * in from the card on a phone and 6px in on a wider one, for the reasons
+ * written where it does it. So the glyph lands on 16px at the narrow width and
+ * on 20px at the wide one, under the first letter of the message either way,
+ * and the fill that carries it sits out in the card's own gutter, which is
+ * where a ghost button has to start if its glyph is to line up with type that
+ * has no padding at all.
  *
- * A phone halves the row's padding and this does not follow, so the glyph runs
- * 2px further out than the text above it. At that width the line is short
- * enough that what the row buys by stepping in is worth more than the 2px, and
- * a button that looked indented from its own row would cost more than either.
+ * Two pulls rather than one because both of the things it is measured against
+ * move at that breakpoint and they do not move together: the row's padding
+ * doubles while the paragraph's inset gains 4px. The 2px between them is the
+ * whole of the difference between these two numbers, and either alone would
+ * put the button under the wrong thing at one of the two widths.
  */
 function DetailsLink({ message }: { message: Message }) {
   return (
@@ -262,7 +265,7 @@ function DetailsLink({ message }: { message: Message }) {
     <Button
       variant="ghost"
       size="sm"
-      className="-my-1.5 -ml-2 text-muted-foreground"
+      className="-my-1.5 -ml-2.5 text-muted-foreground md:-ml-2"
       nativeButton={false}
       render={<Link {...messageLink(message.id)} />}
     >
@@ -460,9 +463,10 @@ export function MessageCard({
             itself in a little from what it closes. Half as much on a phone,
             where the card is narrow enough that 4px off both ends is a
             visible bite out of the line the chips have to wrap inside of. The
-            way in does not follow it at either width: it cancels a flat 4px
-            (`DetailsLink` above), so it holds still while the rest of the row
-            steps in around it. It wraps because on a phone the way in, the
+            way in is exempt from all of it: it carries a pull measured
+            against the paragraph above rather than against this row
+            (`DetailsLink` above), so the row can step in without taking the
+            first mark on the line in with it. It wraps because on a phone the way in, the
             icons and the stamp are most of the width: with tags and a status
             badge among them there is no line that fits everything, and the
             chips drop under the button that leads them rather than being
