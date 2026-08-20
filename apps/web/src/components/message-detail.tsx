@@ -196,7 +196,7 @@ export function MessageDetail({ id }: { id: string }) {
                     variant="ghost"
                     size="icon-sm"
                     title="Delete"
-                    className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                    className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive active:bg-destructive-soft active:text-destructive"
                   >
                     <Icon name="trash" className="size-4" />
                   </Button>

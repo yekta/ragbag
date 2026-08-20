@@ -385,7 +385,7 @@ function TranscriptLine({
   return (
     <button
       type="button"
-      className="flex w-full gap-2 rounded px-1 text-left hover:bg-panel-hover"
+      className="flex w-full gap-2 rounded px-1 text-left hover:bg-panel-hover active:bg-panel-hover"
       onClick={() => {
         const audio = scope?.players.get(attachmentId);
         if (!audio) return;

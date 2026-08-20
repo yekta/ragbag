@@ -45,7 +45,7 @@ export function TagEditor({
           <Button
             variant="ghost"
             size="icon-xs"
-            className="size-4 rounded-full text-muted-foreground before:min-h-6 before:min-w-6 hover:text-foreground"
+            className="size-4 rounded-full text-muted-foreground before:min-h-6 before:min-w-6 hover:text-foreground active:text-foreground"
             title={`Remove ${name}`}
             onClick={() => save(userTagNames.filter((n) => n !== name))}
           >

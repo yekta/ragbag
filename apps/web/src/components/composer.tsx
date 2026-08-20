@@ -699,7 +699,7 @@ function AttachmentChip({
       <Button
         variant="outline"
         size="icon-xs"
-        className="absolute -right-1.5 -top-1.5 hidden rounded-full text-muted-foreground hover:text-destructive group-hover/att:flex max-md:flex"
+        className="absolute -right-1.5 -top-1.5 hidden rounded-full text-muted-foreground hover:text-destructive active:text-destructive group-hover/att:flex max-md:flex"
         title="Remove"
         onClick={onRemove}
       >

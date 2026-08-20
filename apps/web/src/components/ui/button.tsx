@@ -47,13 +47,28 @@ import { cn } from "@/lib/utils";
 // `relative` is here for that strip. Call sites that position the button
 // themselves pass `absolute`, which twMerge resolves in favour of the call
 // site; either way the button is the pseudo's containing block.
+//
+// --- the press state ---
+//
+// Every variant's pointer state is repeated below as a press state, on the
+// same token. A phone has no pointer, so a fill that only exists under one is
+// a control that never acknowledges a tap: the finger goes down, the finger
+// comes up, and nothing in between said the button heard it. Repeating the
+// rung under the press pseudo-class is the whole of the fix, and it costs a
+// pointer nothing, where a press already implies a hover and lands on the
+// same fill it was already showing.
+//
+// The same rung, not a deeper one. A press is not a third rest state to
+// design, and a fill that darkened under the finger would be a value change
+// arriving at the one moment the finger is on top of it.
 
 const buttonVariants = cva(
   "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none before:absolute before:top-1/2 before:left-1/2 before:size-full before:min-h-11 before:min-w-11 before:-translate-x-1/2 before:-translate-y-1/2 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-hover",
         // The ink itself as a fill, and the background as the ink. For the one
         // action on a screen that has no competition and needs no colour to
         // say so: the way in. The brand fill says "this is a Ragbag thing" on
@@ -63,7 +78,8 @@ const buttonVariants = cva(
         // Its hover is the one rung in index.css that travels toward the
         // canvas rather than away from it, because this fill is the canvas
         // inverted; the argument is written there.
-        foreground: "bg-foreground text-background hover:bg-foreground-hover",
+        foreground:
+          "bg-foreground text-background hover:bg-foreground-hover active:bg-foreground-hover",
         // Its hover fill is a rung off its own rest fill rather than the muted
         // fill the generator reached for. That token is a fill, not a rung: it
         // sits a hair *under* the canvas in the light theme and well *over* it
@@ -76,14 +92,14 @@ const buttonVariants = cva(
         // hover: reading as filled is the point of it, and the muted fill it
         // used to take was invisible in light for the same reason.
         outline:
-          "border border-border bg-background shadow-xs hover:bg-background-hover hover:text-foreground aria-expanded:bg-background-hover aria-expanded:text-foreground",
+          "border border-border bg-background shadow-xs hover:bg-background-hover hover:text-foreground active:bg-background-hover active:text-foreground aria-expanded:bg-background-hover aria-expanded:text-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-secondary-hover active:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground",
+          "hover:bg-hover hover:text-foreground active:bg-hover active:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground",
         destructive:
-          "bg-destructive-soft text-destructive hover:bg-destructive-soft-hover focus-visible:border-destructive focus-visible:ring-destructive",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-destructive-soft text-destructive hover:bg-destructive-soft-hover active:bg-destructive-soft-hover focus-visible:border-destructive focus-visible:ring-destructive",
+        link: "text-primary underline-offset-4 hover:underline active:underline",
       },
       size: {
         default:

@@ -499,7 +499,7 @@ function Form({
           <Button
             variant="ghost"
             size="sm"
-            className="text-destructive hover:bg-destructive-soft"
+            className="text-destructive hover:bg-destructive-soft active:bg-destructive-soft"
             onClick={() => setDeleting(true)}
           >
             <Icon name="trash" className="size-3.5" /> Delete this type

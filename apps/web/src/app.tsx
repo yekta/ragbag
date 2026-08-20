@@ -304,7 +304,7 @@ function BannerAlert({ children }: { children: React.ReactNode }) {
 // Both actions borrow the banner's own amber rather than the mint primary, and
 // swap to a solid fill on hover, no alpha either way.
 const BANNER_BUTTON =
-  "bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground";
+  "bg-warning-foreground text-warning hover:bg-warning hover:text-warning-foreground hover:ring-1 hover:ring-warning-foreground active:bg-warning active:text-warning-foreground active:ring-1 active:ring-warning-foreground";
 
 function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaResponse | undefined }) {
   const zero = useZero();
@@ -346,7 +346,7 @@ function SyncBanner({ sync, meta }: { sync: SyncStatus | null; meta: MetaRespons
           <Button
             size="xs"
             variant="outline"
-            className="border-warning-foreground bg-warning text-warning-foreground hover:bg-warning-foreground hover:text-warning"
+            className="border-warning-foreground bg-warning text-warning-foreground hover:bg-warning-foreground hover:text-warning active:bg-warning-foreground active:text-warning"
             onClick={() => {
               setError(undefined);
               void authClient.signIn
@@ -650,7 +650,7 @@ function FloatingButton({ className, ...props }: ComponentProps<typeof Button>) 
     <Button
       variant="ghost"
       size="icon"
-      className={`absolute rounded-full border bg-card text-muted-foreground shadow-float hover:bg-background-hover ${className ?? ""}`}
+      className={`absolute rounded-full border bg-card text-muted-foreground shadow-float hover:bg-background-hover active:bg-background-hover ${className ?? ""}`}
       {...props}
     />
   );

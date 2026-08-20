@@ -95,7 +95,7 @@ export function StatusChip({ message }: { message: Message }) {
       >
         <span title={message.error ?? undefined}>{failed ? "Failed" : "Partly read"}</span>
         <button
-          className="inline-flex items-center gap-0.5 rounded-full bg-card px-1.5 py-px text-foreground hover:bg-hover"
+          className="inline-flex items-center gap-0.5 rounded-full bg-card px-1.5 py-px text-foreground hover:bg-hover active:bg-hover"
           title={message.error ?? "Retry ingestion"}
           onClick={(e) => {
             e.preventDefault();
@@ -223,15 +223,57 @@ function EntityStrip({ message }: { message: Message }) {
 }
 
 /**
+ * The way into the message's own page, at the head of the footer row.
+ *
+ * It leads the row rather than standing with the icon buttons opposite,
+ * because it is the one control on the card that is a place to go rather than
+ * something done to the message, and a worded button wedged between a star and
+ * a menu reads as a third icon that happens to have letters in it. On the left
+ * it opens the row the way the message's own text opens the card, and the
+ * cluster it left behind is icons only, which is what that cluster's 2px gap
+ * was measured for.
+ *
+ * The negative margin is what lets a 32px control live in a 20px row, the same
+ * trick the cluster opposite plays: six of the button's pixels go back to the
+ * row top and bottom, so the footer stands exactly as tall as it did when this
+ * row held nothing but a timestamp and a chip.
+ */
+function DetailsLink({ message }: { message: Message }) {
+  return (
+    // A Link, not a click handler: the panel is a URL (lib/routes.ts), so this
+    // is something to open in a new tab or copy the address of, and
+    // `nativeButton={false}` tells Base UI the button is an anchor now.
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-my-1.5 text-muted-foreground"
+      nativeButton={false}
+      render={<Link {...messageLink(message.id)} />}
+    >
+      <Icon name="details" className="size-4" />
+      Show Details
+    </Button>
+  );
+}
+
+/**
  * What you can do to a message, on the card, at any width.
  *
  * These were a pill that appeared over the card's top edge on hover, which
- * meant a phone could not reach a single one of them: deleting was a desktop
- * action, and the favorite state had to be repeated as a bare star in the
- * footer so that touch had at least something to look at. Hover is not
- * something a design can be built on when half the devices have no pointer, so
- * the actions are simply here, always, in the one row of the card that was
- * already mostly empty. One set of controls, one behaviour, both form factors.
+ * meant a phone could not reach a single one of them. Hover is not something a
+ * design can be built on when half the devices have no pointer, so the actions
+ * are simply here, in the one row of the card that was already mostly empty.
+ * One set of controls, one behaviour, both form factors.
+ *
+ * Both verbs live under the menu, and only one of them also stands outside it.
+ * A card carrying a control for every verb is a card you read past, and an
+ * empty star on every message in the archive is a column of identical widgets
+ * saying nothing: what the star does out here is report, not offer. So it is
+ * drawn only when it is filled, which makes it the message saying something
+ * about itself rather than the app repeating furniture. And because the only
+ * message that can show one is a message you already favorited, the one thing
+ * it can do is take that back, which is exactly what the row it came from says
+ * while it is showing.
  *
  * The negative margin is what lets a 32px control live in a 20px row. A ghost
  * button is mostly the fill it paints when pointed at: 16px of glyph inside 8px
@@ -251,56 +293,67 @@ function MessageActions({ message }: { message: Message }) {
   // cannot hang off a trigger inside it: this holds the state and the dialog
   // sits outside the menu (components/delete-message-dialog.tsx).
   const [confirming, setConfirming] = useState(false);
+  // One write for both ways in, so the star and the row it shadows cannot come
+  // to disagree about what favoriting is.
+  const setFavorite = (favorite: boolean) =>
+    void zero.mutate(mutators.message.setFavorite({ id: message.id, favorite }));
 
   return (
     <span className="-my-1.5 flex items-center gap-0.5">
-      {/* A Link, not a click handler: the panel is a URL (lib/routes.ts), so
-          this is something to open in a new tab or copy the address of, and
-          `nativeButton={false}` tells Base UI the button is an anchor now. */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-muted-foreground"
-        nativeButton={false}
-        render={<Link {...messageLink(message.id)} />}
-      >
-        Show details
-      </Button>
-      {/* Colour and fill, nothing else: the box is the same in both states.
-          `aria-pressed` because a filled star is not a state a screen reader
-          can see. */}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-pressed={message.favorite}
-        aria-label={message.favorite ? "Remove from favorites" : "Add to favorites"}
-        className={message.favorite ? "text-kind-note" : "text-muted-foreground"}
-        onClick={() =>
-          void zero.mutate(
-            mutators.message.setFavorite({ id: message.id, favorite: !message.favorite }),
-          )
-        }
-      >
-        <Icon name="star" className="size-4" filled={message.favorite} />
-      </Button>
+      {/* Only ever drawn in its on state, so there is nothing here to swap a
+          colour or a fill for: the button either is the filled star or is not
+          in the row. `aria-pressed` because a filled star is not a state a
+          screen reader can see. */}
+      {message.favorite && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-pressed
+          aria-label="Remove from favorites"
+          className="text-kind-note"
+          onClick={() => setFavorite(false)}
+        >
+          <Icon name="star" className="size-4" filled />
+        </Button>
+      )}
       <DropdownMenu>
+        {/* The glyph takes a quarter turn while the menu is out, so the dots
+            stand in a column under a menu that is itself a column, and the
+            trigger reads as the thing the panel came out of rather than as a
+            button that happens to be lit. It rides on the expanded state Base
+            UI already puts on the trigger for the ghost variant's open fill
+            (ui/button.tsx), so there is no second source of truth for "open",
+            and the group is on the button because the glyph is its child.
+            Three round dots turning about their own centre have no orientation
+            to lose, which is the whole reason this can be a rotation and not a
+            swap to a different mark. */}
         <DropdownMenuTrigger
           render={
             <Button
               variant="ghost"
               size="icon-sm"
               aria-label="More actions"
-              className="text-muted-foreground"
+              className="group text-muted-foreground"
             />
           }
         >
-          <Icon name="more" className="size-4" />
+          <Icon name="more" className="size-4 transition-transform group-aria-expanded:rotate-90" />
         </DropdownMenuTrigger>
         {/* Anchored at its right edge, because the trigger is at the card's.
             `w-auto` undoes the component's default of matching the anchor's
             width, which is meant for a select-shaped trigger and here would be
             a menu the width of one icon. */}
         <DropdownMenuContent align="end" className="w-auto min-w-36">
+          {/* The label carries the state, not the glyph: a row that always
+              said "Favorite" would be a switch you have to look at the card to
+              read. The star is filled to match the one in the row when there
+              is one, and takes the menu's own ink either way, because a menu
+              is a column of equals and tinting one of them is how a list turns
+              into a ransom note. */}
+          <DropdownMenuItem onClick={() => setFavorite(!message.favorite)}>
+            <Icon name="star" className="size-4" filled={message.favorite} />
+            {message.favorite ? "Unfavorite" : "Favorite"}
+          </DropdownMenuItem>
           <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
             <Icon name="trash" className="size-4" /> Delete
           </DropdownMenuItem>
@@ -385,18 +438,20 @@ export function MessageCard({
 
             12px of air above rather than 8: the buttons paint 6px past the row
             they measure, and a hover fill landing 2px off the edge of a photo
-            reads as a mistake. It wraps because on a phone the actions and the
-            stamp are most of the width: with tags and a status badge beside
-            them there is no line that fits both, and the cluster drops below
-            the chips rather than squeezing them into a column. */}
+            reads as a mistake. It wraps because on a phone the way in, the
+            icons and the stamp are most of the width: with tags and a status
+            badge among them there is no line that fits everything, and the
+            chips drop under the button that leads them rather than being
+            squeezed into a column. */}
         <div className="mt-3 flex min-h-5 flex-wrap items-center justify-between gap-2">
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <DetailsLink message={message} />
             <StatusChip message={message} />
             <TagChips message={message} />
           </span>
-          {/* `ml-auto`, not just `justify-between`: with no chips at all the
-              left span is an empty flex item and there is nothing to be
-              between. */}
+          {/* `ml-auto`, not just `justify-between`: once the left span wraps,
+              what is left on this line is one flex item and there is nothing
+              to be between. */}
           <span className="ml-auto flex shrink-0 items-center gap-1.5">
             <MessageActions message={message} />
             <time

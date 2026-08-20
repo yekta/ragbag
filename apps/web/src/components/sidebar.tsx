@@ -425,7 +425,7 @@ function EnrichBackfill({
     <Button
       variant="ghost"
       size="xs"
-      className="mb-1.5 justify-start px-0 text-xs font-normal text-muted-foreground hover:text-foreground"
+      className="mb-1.5 justify-start px-0 text-xs font-normal text-muted-foreground hover:text-foreground active:text-foreground"
       disabled={running > 0}
       title={`${pending.length} message${pending.length === 1 ? "" : "s"} finished without a summary`}
       onClick={() => void run()}

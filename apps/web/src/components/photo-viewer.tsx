@@ -359,7 +359,7 @@ function Step({
       size="icon"
       disabled={disabled}
       title={side === "left" ? "Previous (←)" : "Next (→)"}
-      className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-card/70 hover:bg-card ${
+      className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-card/70 hover:bg-card active:bg-card ${
         side === "left" ? "left-2" : "right-2"
       }`}
       onClick={onStep}
