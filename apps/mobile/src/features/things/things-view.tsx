@@ -152,7 +152,7 @@ function EntityThings({ entities, kind }: { entities: TEntityRows; kind: string 
     () =>
       entities
         .filter((e) => e.kind === kind && e.mentions.length > 0)
-        .toSorted((a, b) => b.updatedAt - a.updatedAt),
+        .sort((a, b) => b.updatedAt - a.updatedAt),
     [entities, kind],
   );
 

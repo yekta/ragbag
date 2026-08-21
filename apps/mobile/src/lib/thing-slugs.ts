@@ -31,7 +31,7 @@ export function declaredSlugs(): readonly string[] {
 }
 
 export function rememberDeclaredSlugs(slugs: readonly string[]): void {
-  const next = [...slugs].toSorted();
+  const next = [...slugs].sort();
   if (cache && cache.length === next.length && cache.every((slug, i) => slug === next[i])) return;
   cache = next;
   writePref(KEY, JSON.stringify(next));

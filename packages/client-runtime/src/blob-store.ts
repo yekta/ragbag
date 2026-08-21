@@ -122,7 +122,7 @@ export function evictionOrder(
   let total = entries.reduce((sum, r) => sum + r.size, 0);
   let count = entries.length;
   const drop: string[] = [];
-  for (const record of entries.toSorted((a, b) => a.lastUsedAt - b.lastUsedAt)) {
+  for (const record of [...entries].sort((a, b) => a.lastUsedAt - b.lastUsedAt)) {
     if (total <= bounds.maxBytes && count <= bounds.maxEntries) break;
     drop.push(record.blobId);
     total -= record.size;

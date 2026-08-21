@@ -50,7 +50,7 @@ const googleWebClientId =
   repoEnv.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
   repoEnv.GOOGLE_CLIENT_ID ||
   "254690380295-tuadi37tj2jpg9p6emurag2kfa5h1b96.apps.googleusercontent.com";
-const googleIosUrlScheme = googleIosClientId.split(".").toReversed().join(".");
+const googleIosUrlScheme = googleIosClientId.split(".").reverse().join(".");
 
 /**
  * The custom scheme, which is load-bearing rather than cosmetic: better-auth

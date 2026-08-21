@@ -409,7 +409,7 @@ export class BlobQueue {
   async #flushLoop(): Promise<void> {
     let nextWake = Infinity;
 
-    for (const record of (await this.#allUploads()).toSorted((a, b) => a.createdAt - b.createdAt)) {
+    for (const record of (await this.#allUploads()).sort((a, b) => a.createdAt - b.createdAt)) {
       if (record.nextAttemptAt > Date.now()) {
         nextWake = Math.min(nextWake, record.nextAttemptAt);
         continue;

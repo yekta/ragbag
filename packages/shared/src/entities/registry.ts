@@ -103,7 +103,7 @@ export function typeFromRows(
   fieldRows: readonly TEntityTypeFieldRow[],
 ): TEntityTypeDef | null {
   if (!row.kind || !row.label || !row.slug) return null;
-  const ordered = [...fieldRows].toSorted((a, b) => a.position - b.position);
+  const ordered = [...fieldRows].sort((a, b) => a.position - b.position);
   const fields: TFieldSpec[] = [];
   for (const spec of ordered) {
     if (!isFieldType(spec.type)) return null;
@@ -133,7 +133,7 @@ export function typeFromRows(
     // key_rank orders the key; a field outside it has none.
     keyFields: ordered
       .filter((spec) => spec.keyRank !== null && spec.keyRank !== undefined)
-      .toSorted((a, b) => a.keyRank! - b.keyRank!)
+      .sort((a, b) => a.keyRank! - b.keyRank!)
       .map((spec) => spec.name),
     version: row.version,
   };
@@ -264,7 +264,7 @@ function matchIn(types: readonly TEntityType[], text: string): TKindedCandidate[
       found.push({ ...candidate, kind: type.kind });
     }
   }
-  return found.toSorted((a, b) => a.index - b.index);
+  return found.sort((a, b) => a.index - b.index);
 }
 
 /**

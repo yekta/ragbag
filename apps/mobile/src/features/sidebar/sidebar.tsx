@@ -224,7 +224,7 @@ function Filters({
     () =>
       tags
         .filter((t) => (tagCounts.get(t.id) ?? 0) > 0)
-        .toSorted(
+        .sort(
           (a, b) =>
             (tagCounts.get(b.id) ?? 0) - (tagCounts.get(a.id) ?? 0) || a.name.localeCompare(b.name),
         )

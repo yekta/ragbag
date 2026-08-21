@@ -277,5 +277,5 @@ export function typeChoices(
       enabled: false,
     });
   }
-  return choices.toSorted(byTitle);
+  return choices.sort(byTitle);
 }

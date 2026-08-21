@@ -98,7 +98,7 @@ function draftFrom(type: TTypeRow | null): TDraft {
     titleTemplate: type.titleTemplate ?? "",
     sidebar: type.sidebar,
     fields: [...type.fields]
-      .toSorted((a, b) => a.position - b.position)
+      .sort((a, b) => a.position - b.position)
       .map((field) => ({
         uid: field.id,
         name: field.name,

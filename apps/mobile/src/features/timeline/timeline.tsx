@@ -46,7 +46,7 @@ function useRows(messages: TMessages): TRow[] {
   return useMemo(() => {
     // Messages arrive newest-first from the shared query; the chat renders
     // oldest-first.
-    let filtered = messages.toReversed();
+    let filtered = [...messages].reverse();
     if (view === "favorites") filtered = filtered.filter((m) => m.favorite);
     if (tagId) filtered = filtered.filter((m) => m.tags.some((t) => t.tagId === tagId));
 
