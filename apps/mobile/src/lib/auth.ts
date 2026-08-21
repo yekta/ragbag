@@ -1,4 +1,4 @@
-import { expoClient } from "@better-auth/expo/client";
+import { expoClient, getCookie, storageAdapter } from "@better-auth/expo/client";
 import { anonymousClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
@@ -19,6 +19,9 @@ import { API_BASE, APP_SCHEME } from "@/lib/api";
 // apps/server/src/session.ts turns `Authorization: Bearer <cookie>` back into a
 // Cookie header for exactly this case.
 
+const AUTH_STORAGE_PREFIX = "ragbag";
+const authStorage = storageAdapter(SecureStore);
+
 export const authClient = createAuthClient({
   baseURL: API_BASE,
   plugins: [
@@ -26,7 +29,7 @@ export const authClient = createAuthClient({
       // Must match app.config.ts and the server's trustedOrigins, or the OAuth
       // round trip has nowhere to land.
       scheme: APP_SCHEME,
-      storagePrefix: "ragbag",
+      storagePrefix: AUTH_STORAGE_PREFIX,
       // The keychain, not AsyncStorage: this string is a live session.
       storage: SecureStore,
     }),
@@ -41,11 +44,16 @@ export const authClient = createAuthClient({
  *
  * This is what Zero's `auth` option is given and what every hand-written fetch
  * to the API sends. Deliberately not reactive: `getCookie` reads the keychain
- * cache synchronously, so callers re-read it when the session changes rather
- * than subscribing to it.
+ * store synchronously, so callers re-read it when the session changes rather
+ * than subscribing to it. Better Auth 1.7 made its convenience `getCookie()`
+ * asynchronous, but Zero, expo-image, and the upload queue all require their
+ * credential synchronously. Its exported storage adapter and cookie parser
+ * read the exact same chunk-aware representation without maintaining a second
+ * copy of the session.
  */
 export function sessionCookie(): string | undefined {
-  return authClient.getCookie() || undefined;
+  const stored = authStorage.getItem(`${AUTH_STORAGE_PREFIX}_cookie`);
+  return getCookie(stored ?? "{}") || undefined;
 }
 
 /** Headers that authenticate a hand-written call to the API. */
@@ -57,19 +65,37 @@ export function authHeaders(): Record<string, string> {
 /**
  * Google is the only real sign-in method (plan §9).
  *
- * `callbackURL` is the app's own scheme rather than a URL: the Expo plugin
- * opens the round trip in an in-app browser and closes it when the system
- * hands that scheme back. better-auth resolves with `{data, error}` instead of
- * throwing, so an unhandled failure here would be completely silent; the
- * message is handed back for the screen to show.
+ * Relative callback paths are intentional: the Expo plugin turns them into
+ * URLs for the runtime that actually opened the browser (`ragbag://` in an
+ * installed build, the development URL in a dev client). Both success and
+ * failure must come back through that scheme or iOS leaves the auth session
+ * open on the web app.
+ *
+ * better-auth resolves with `{data, error}` instead of throwing, so an
+ * immediate failure is handed back for the screen to show. Redirect failures
+ * return through `/sign-in?error=...` and are translated below.
  */
 export async function signInWithGoogle(): Promise<string | undefined> {
   const { error } = await authClient.signIn.social({
     provider: "google",
-    callbackURL: `${APP_SCHEME}://`,
+    callbackURL: "/",
+    errorCallbackURL: "/sign-in",
   });
   if (!error) return undefined;
   return error.message ?? error.statusText ?? `Sign-in failed (${error.status}).`;
+}
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  access_denied: "Sign-in was cancelled.",
+  state_mismatch: "That sign-in attempt expired before it finished. Try again.",
+  please_restart_the_process: "That sign-in attempt expired before it finished. Try again.",
+};
+
+/** A useful message for an OAuth failure returned through the native deep link. */
+export function oauthRedirectError(code: string | string[] | undefined): string | undefined {
+  const value = Array.isArray(code) ? code[0] : code;
+  if (!value) return undefined;
+  return OAUTH_ERROR_MESSAGES[value] ?? `Sign-in failed (${value.replace(/_/g, " ")}).`;
 }
 
 /** The dev-only anonymous sign-in, offered only when /api/meta says it exists. */

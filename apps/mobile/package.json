@@ -15,7 +15,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@better-auth/expo": "1.6.30",
+    "@better-auth/expo": "catalog:",
     "@expo-google-fonts/schibsted-grotesk": "^0.4.2",
     "@expo-google-fonts/spline-sans-mono": "^0.4.2",
     "@expo/ui": "~57.0.12",

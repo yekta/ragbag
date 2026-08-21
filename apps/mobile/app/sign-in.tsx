@@ -1,9 +1,10 @@
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useTransition } from "react";
 import { View } from "react-native";
 import { Button } from "@/components/button";
 import { Logo } from "@/components/logo";
 import { Muted, Text, Title } from "@/components/text";
-import { signInAnonymously, signInWithGoogle } from "@/lib/auth";
+import { oauthRedirectError, signInAnonymously, signInWithGoogle } from "@/lib/auth";
 import { dropLocalData } from "@/lib/identity";
 import { useMeta } from "@/lib/meta";
 
@@ -19,7 +20,15 @@ import { useMeta } from "@/lib/meta";
 
 export default function SignInScreen() {
   const meta = useMeta();
-  const [error, setError] = useState<string | undefined>();
+  const params = useLocalSearchParams<{ error?: string | string[] }>();
+  const [error, setError] = useState<string | undefined>(() => oauthRedirectError(params.error));
+
+  // The route may already be mounted when the in-app browser hands an OAuth
+  // failure back, so the initial state alone is not enough.
+  useEffect(() => {
+    const returned = oauthRedirectError(params.error);
+    if (returned) setError(returned);
+  }, [params.error]);
 
   // One transition per button, because each is its own action and only the one
   // that was pressed should be busy. A transition rather than a boolean of our

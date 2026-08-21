@@ -105,9 +105,11 @@ export const auth = betterAuth({
         },
       }
     : {},
-  // `expo()` is what makes a phone a first-class client: it lets the OAuth
-  // round trip land on the app's own scheme, and it returns the session as a
-  // `Set-Cookie` the app can store and replay itself, because a native shell
+  // `expo()` is what makes a phone a first-class client. Its release must stay
+  // aligned with better-auth and the mobile Expo client because all three
+  // participate in the same signed OAuth state and callback handshake. It
+  // lets the OAuth round trip land on the app's own scheme, and returns the
+  // session as a `Set-Cookie` the app can store and replay, because a native shell
   // has no cookie jar the way a browser does. The replay arrives as
   // `Authorization: Bearer <cookie>`, which src/session.ts translates back.
   plugins: [expo(), ...(env.DEV_LOGIN ? [anonymous()] : [])],
