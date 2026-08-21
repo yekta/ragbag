@@ -7,6 +7,7 @@ import { db } from "./db/client.js";
 import { account, session, user, verification } from "./db/schema.js";
 import { seedEntityTypes } from "./entity-types.js";
 import { env } from "./env.js";
+import { nativeOAuthHook } from "./mobile-oauth.js";
 
 // Google OAuth is the only sign-in method (plan §9). The anonymous plugin is
 // a dev/test-only escape hatch (env-gated, rejected in production by env.ts)
@@ -49,6 +50,15 @@ export const auth = betterAuth({
         },
       },
     },
+  },
+  // Never allow a native sign-in to carry a browser callback inside its signed
+  // OAuth state. The Expo client supplies `expo-origin` independently of the
+  // callback body, so it remains a reliable native-client marker even when a
+  // development runtime derives the wrong callback URL. This is the final
+  // authority: mobile success, first-user success, and failure all return to
+  // the installed app and close ASWebAuthenticationSession.
+  hooks: {
+    before: nativeOAuthHook(env.MOBILE_SCHEME),
   },
   // Where a failed auth round trip lands the browser. Without this, better-auth
   // falls back to `Location: /?error=...`, a *relative* redirect, resolved

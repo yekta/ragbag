@@ -65,11 +65,12 @@ export function authHeaders(): Record<string, string> {
 /**
  * Google is the only real sign-in method (plan §9).
  *
- * Relative callback paths are intentional: the Expo plugin turns them into
- * URLs for the runtime that actually opened the browser (`ragbag://` in an
- * installed build, the development URL in a dev client). Both success and
- * failure must come back through that scheme or iOS leaves the auth session
- * open on the web app.
+ * These are deliberately absolute native URLs. In a development client,
+ * `Linking.createURL()` can describe the currently loaded Metro/update runtime
+ * instead of the app scheme. That value is exactly what Better Auth stores in
+ * signed OAuth state, so deriving it at runtime can complete login in the web
+ * app and leave iOS's auth session open. The server independently pins native
+ * requests to these same URLs before creating the state.
  *
  * better-auth resolves with `{data, error}` instead of throwing, so an
  * immediate failure is handed back for the screen to show. Redirect failures
@@ -78,8 +79,8 @@ export function authHeaders(): Record<string, string> {
 export async function signInWithGoogle(): Promise<string | undefined> {
   const { error } = await authClient.signIn.social({
     provider: "google",
-    callbackURL: "/",
-    errorCallbackURL: "/sign-in",
+    callbackURL: `${APP_SCHEME}:///`,
+    errorCallbackURL: `${APP_SCHEME}:///sign-in`,
   });
   if (!error) return undefined;
   return error.message ?? error.statusText ?? `Sign-in failed (${error.status}).`;
