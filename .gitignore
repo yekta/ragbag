@@ -44,7 +44,15 @@ web-build/
 .metro-health-check*
 metro-cache/
 
-# iOS (if prebuilt / bare workflow)
+# Native projects, generated rather than authored. apps/mobile uses Expo's
+# continuous native generation: `expo prebuild` writes these from app.config.ts
+# and `--clean` throws them away and writes them again, so a committed copy is
+# a copy that goes stale and then silently wins over the config. The whole
+# directory goes, not just its build output.
+apps/mobile/ios/
+apps/mobile/android/
+
+# The same, for anything prebuilt outside that app.
 ios/Pods/
 ios/build/
 ios/DerivedData/
@@ -54,8 +62,6 @@ ios/.xcode.env.local
 *.mode1v3
 *.mode2v3
 *.perspectivev3
-
-# Android (if prebuilt / bare workflow)
 android/app/build/
 android/build/
 android/.gradle/
