@@ -55,6 +55,7 @@ const fontsFrom = (pkg: string, family: string, weights: readonly string[]) =>
 const config: ExpoConfig = {
   name: "Ragbag",
   slug: "ragbag",
+  owner: "yektagg",
   scheme,
   version: "0.1.0",
   orientation: "default",
@@ -108,12 +109,13 @@ const config: ExpoConfig = {
     apiUrl,
     zeroCacheUrl,
     scheme,
-    // EAS writes this itself into a static app.json. It cannot write into a
-    // dynamic config, so `eas build` stops on the first run and asks for it by
-    // hand; putting it in the repo-root .env keeps it out of the config and
-    // means a second person cloning this does not inherit someone else's
-    // project. `eas init` prints the id.
-    ...(repoEnv.EAS_PROJECT_ID ? { eas: { projectId: repoEnv.EAS_PROJECT_ID } } : {}),
+    // Committed, the way `eas init` would have written it into a static
+    // app.json. It identifies the project on EAS and is not a secret; every
+    // default Expo project carries its own in the repo. `eas init` cannot
+    // write into a dynamic config, so it prints the id and stops, which is
+    // what this line answers. EAS_PROJECT_ID overrides it, for a fork that
+    // wants to build under its own account.
+    eas: { projectId: repoEnv.EAS_PROJECT_ID ?? "9f98d032-4639-483f-93bd-37cd282967eb" },
   },
 };
 

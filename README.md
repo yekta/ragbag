@@ -161,9 +161,10 @@ phone can install. `preview` is the same thing with the JS baked in, for handing
 just wants to use it. Note that `eas.json` is JSON with a strict schema: the `"//key"` comment
 convention this repo uses in `package.json` is rejected there.
 
-`eas build` needs an Expo project id, and because `app.config.ts` is a dynamic config EAS
-cannot write one in for you. `eas init` prints it; it goes in the repo-root `.env` as
-`EAS_PROJECT_ID`, which the config reads.
+`eas init` cannot write the project id into a dynamic config, so it prints the id and exits
+with an error after creating the project. The id is committed in `app.config.ts` already, which
+is what `eas init` would have written into a static `app.json`; `EAS_PROJECT_ID` in the
+repo-root `.env` overrides it for a fork building under another account.
 
 Getting it onto an iPhone needs one of two things, and there is no third: an Apple Developer
 Program membership, which lets EAS do ad hoc provisioning from any machine, or a Mac, where a
