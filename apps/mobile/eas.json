@@ -1,0 +1,20 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "//development": "The build you install once and then never rebuild unless a native dependency changes. It contains expo-dev-client rather than a bundle, so it loads JS from Metro over the network and every code change is a reload. `internal` distribution means it installs by link or QR instead of going through a store; on Android that needs an APK, because an AAB is a store upload format and not something a phone can install.",
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
+    },
+    "//preview": "A self-contained build with the JS baked in: no Metro, no laptop. What to hand someone who just wants to use it.",
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": { "production": {} }
+}
