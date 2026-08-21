@@ -104,7 +104,17 @@ const config: ExpoConfig = {
     ["expo-splash-screen", { backgroundColor: "#fafafa", dark: { backgroundColor: "#0f0f0f" } }],
   ],
   experiments: { typedRoutes: true },
-  extra: { apiUrl, zeroCacheUrl, scheme },
+  extra: {
+    apiUrl,
+    zeroCacheUrl,
+    scheme,
+    // EAS writes this itself into a static app.json. It cannot write into a
+    // dynamic config, so `eas build` stops on the first run and asks for it by
+    // hand; putting it in the repo-root .env keeps it out of the config and
+    // means a second person cloning this does not inherit someone else's
+    // project. `eas init` prints the id.
+    ...(repoEnv.EAS_PROJECT_ID ? { eas: { projectId: repoEnv.EAS_PROJECT_ID } } : {}),
+  },
 };
 
 export default config;
