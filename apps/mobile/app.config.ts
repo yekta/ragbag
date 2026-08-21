@@ -40,6 +40,17 @@ const repoEnv = { ...loadRepoEnv(), ...process.env };
  */
 const apiUrl = repoEnv.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
 const zeroCacheUrl = repoEnv.EXPO_PUBLIC_ZERO_CACHE_URL ?? "http://localhost:4848";
+// Google has two public client identifiers for native sign-in: the iOS client
+// identifies this bundle, while the Web client is the audience Better Auth
+// verifies on the server. Client IDs are public configuration, not secrets.
+const googleIosClientId =
+  repoEnv.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+  "254690380295-166e4hi7c41b7s1imlu4tqt5jmrejqbd.apps.googleusercontent.com";
+const googleWebClientId =
+  repoEnv.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+  repoEnv.GOOGLE_CLIENT_ID ||
+  "254690380295-tuadi37tj2jpg9p6emurag2kfa5h1b96.apps.googleusercontent.com";
+const googleIosUrlScheme = googleIosClientId.split(".").toReversed().join(".");
 
 /**
  * The custom scheme, which is load-bearing rather than cosmetic: better-auth
@@ -77,6 +88,7 @@ const config: ExpoConfig = {
     "expo-secure-store",
     "expo-sqlite",
     "expo-web-browser",
+    ["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }],
     [
       "expo-font",
       {
@@ -109,6 +121,8 @@ const config: ExpoConfig = {
     apiUrl,
     zeroCacheUrl,
     scheme,
+    googleIosClientId,
+    googleWebClientId,
     // Committed, the way `eas init` would have written it into a static
     // app.json. It identifies the project on EAS and is not a secret; every
     // default Expo project carries its own in the repo. `eas init` cannot

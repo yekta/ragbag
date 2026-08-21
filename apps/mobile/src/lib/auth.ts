@@ -1,8 +1,13 @@
 import { expoClient, getCookie, storageAdapter } from "@better-auth/expo/client";
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
 import { anonymousClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
-import { API_BASE, APP_SCHEME } from "@/lib/api";
+import { API_BASE, APP_SCHEME, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "@/lib/api";
 
 // Sign-in, on a device that has no cookie jar.
 //
@@ -21,6 +26,13 @@ import { API_BASE, APP_SCHEME } from "@/lib/api";
 
 const AUTH_STORAGE_PREFIX = "ragbag";
 const authStorage = storageAdapter(SecureStore);
+
+if (GOOGLE_IOS_CLIENT_ID && GOOGLE_WEB_CLIENT_ID) {
+  GoogleSignin.configure({
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+  });
+}
 
 export const authClient = createAuthClient({
   baseURL: API_BASE,
@@ -65,25 +77,36 @@ export function authHeaders(): Record<string, string> {
 /**
  * Google is the only real sign-in method (plan §9).
  *
- * These are deliberately absolute native URLs. In a development client,
- * `Linking.createURL()` can describe the currently loaded Metro/update runtime
- * instead of the app scheme. That value is exactly what Better Auth stores in
- * signed OAuth state, so deriving it at runtime can complete login in the web
- * app and leave iOS's auth session open. The server independently pins native
- * requests to these same URLs before creating the state.
+ * The native Google SDK returns an ID token and Better Auth verifies it on the
+ * server. This intentionally avoids the browser callback and Better Auth's
+ * `/expo-authorization-proxy` state-cookie handoff, which is unreliable on
+ * Expo/iOS and can strand a successful Google interaction in the web app.
  *
- * better-auth resolves with `{data, error}` instead of throwing, so an
- * immediate failure is handed back for the screen to show. Redirect failures
- * return through `/sign-in?error=...` and are translated below.
+ * Better Auth resolves with `{data, error}` instead of throwing, so an
+ * immediate failure is handed back for the screen to show.
  */
 export async function signInWithGoogle(): Promise<string | undefined> {
-  const { error } = await authClient.signIn.social({
-    provider: "google",
-    callbackURL: `${APP_SCHEME}:///`,
-    errorCallbackURL: `${APP_SCHEME}:///sign-in`,
-  });
-  if (!error) return undefined;
-  return error.message ?? error.statusText ?? `Sign-in failed (${error.status}).`;
+  if (!GOOGLE_IOS_CLIENT_ID || !GOOGLE_WEB_CLIENT_ID) {
+    return "Google Sign-In is missing its iOS or Web client ID.";
+  }
+
+  try {
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    if (isCancelledResponse(response)) return undefined;
+    if (!isSuccessResponse(response) || !response.data.idToken) {
+      return "Google did not return an identity token.";
+    }
+
+    const { error } = await authClient.signIn.social({
+      provider: "google",
+      idToken: { token: response.data.idToken },
+    });
+    if (!error) return undefined;
+    return error.message ?? error.statusText ?? `Sign-in failed (${error.status}).`;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Google Sign-In failed.";
+  }
 }
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {

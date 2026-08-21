@@ -12,13 +12,21 @@ import Constants from "expo-constants";
 // .env at its root for the server, the web app and this (app.config.ts lifts
 // the two public values out of it).
 
-type TExtra = { apiUrl?: string; zeroCacheUrl?: string; scheme?: string };
+type TExtra = {
+  apiUrl?: string;
+  zeroCacheUrl?: string;
+  scheme?: string;
+  googleIosClientId?: string;
+  googleWebClientId?: string;
+};
 
 const extra = (Constants.expoConfig?.extra ?? {}) as TExtra;
 
 export const API_BASE = extra.apiUrl ?? "http://localhost:3001";
 export const ZERO_CACHE_URL = extra.zeroCacheUrl ?? "http://localhost:4848";
 export const APP_SCHEME = extra.scheme ?? "ragbag";
+export const GOOGLE_IOS_CLIENT_ID = extra.googleIosClientId;
+export const GOOGLE_WEB_CLIENT_ID = extra.googleWebClientId;
 
 /** Absolute URL for an API path (`/api/...`). */
 export function apiUrl(path: string): string {
