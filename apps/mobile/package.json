@@ -7,6 +7,8 @@
     "//start": "Metro, deliberately NOT named `dev`: `pnpm dev` at the root fans out to every package with a dev script, and a bundler that only a phone or simulator can talk to has no business starting alongside the API and Vite. The root `dev:mobile` runs this on purpose.",
     "start": "expo start --clear",
     "start:lan": "expo start --dev-client --lan --clear",
+    "//start:tunnel": "When the phone cannot reach Metro on the LAN: a VPN on the machine, the phone on cellular, a firewall, or a Metro that picked the wrong interface out of several. Routes through ngrok instead, so the network topology stops mattering. Slower to reload; use start:lan when it works.",
+    "start:tunnel": "expo start --dev-client --tunnel --clear",
     "ios": "expo run:ios",
     "android": "expo run:android",
     "prebuild": "expo prebuild --clean",

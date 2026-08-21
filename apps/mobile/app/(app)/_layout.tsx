@@ -1,5 +1,6 @@
 import { WorkspaceProvider } from "@/features/workspace/workspace-provider";
 import { WorkspaceShell } from "@/features/sidebar/workspace-shell";
+import { useIdentity } from "@/features/session/identity-provider";
 
 // Everything behind the identity gate.
 //
@@ -12,6 +13,14 @@ import { WorkspaceShell } from "@/features/sidebar/workspace-shell";
 // content column, so this file declares no screens of its own.
 
 export default function AppLayout() {
+  const { identity } = useIdentity();
+
+  // The root gate redirects in an effect so its Slot stays mounted, but that
+  // means this layout can render once before the stored identity has loaded,
+  // and once more while sign-out is redirecting. Do not construct any of the
+  // per-user workspace resources during either gap.
+  if (!identity) return null;
+
   return (
     <WorkspaceProvider>
       <WorkspaceShell />
