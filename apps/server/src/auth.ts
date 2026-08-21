@@ -1,3 +1,4 @@
+import { expo } from "@better-auth/expo";
 import { log } from "@ragbag/shared";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -20,7 +21,17 @@ export const auth = betterAuth({
     provider: "pg",
     schema: { user, session, account, verification },
   }),
-  trustedOrigins: [env.WEB_ORIGIN],
+  // The web origin, plus wherever a native shell sends the OAuth round trip
+  // back to. `ragbag://` is the installed app (apps/mobile/app.config.ts);
+  // `exp://` is the Expo dev client, which serves the app from the packager's
+  // address, so the exact origin is not knowable ahead of time. The dev-client
+  // entries are gated on NODE_ENV because a production server that trusts
+  // `exp://**` trusts an origin anyone can mint.
+  trustedOrigins: [
+    env.WEB_ORIGIN,
+    `${env.MOBILE_SCHEME}://`,
+    ...(env.NODE_ENV === "production" ? [] : ["exp://", "exp://**"]),
+  ],
   // A new account starts with the catalog's eight kinds of thing, which is what
   // makes an archive useful from its first message (plan §6). Seeding is not a
   // precondition for signing up: if this fails, the account is still fine and
@@ -94,5 +105,10 @@ export const auth = betterAuth({
         },
       }
     : {},
-  plugins: env.DEV_LOGIN ? [anonymous()] : [],
+  // `expo()` is what makes a phone a first-class client: it lets the OAuth
+  // round trip land on the app's own scheme, and it returns the session as a
+  // `Set-Cookie` the app can store and replay itself, because a native shell
+  // has no cookie jar the way a browser does. The replay arrives as
+  // `Authorization: Bearer <cookie>`, which src/session.ts translates back.
+  plugins: [expo(), ...(env.DEV_LOGIN ? [anonymous()] : [])],
 });

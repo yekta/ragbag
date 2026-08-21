@@ -14,23 +14,27 @@ Search is local only, and it is complete: the whole archive lives on every devic
 answers in two sections, the messages that matched and the things that matched.
 
 **Stack:** TypeScript pnpm monorepo · React web (also the Electron renderer, later) · Expo
-mobile (later) · Node/Hono API · Postgres · [Zero](https://zero.rocicorp.dev) for local-first
-sync · Cloudflare R2 (S3 API) for blobs · OpenAI for the AI stages · better-auth (Google).
+mobile (iOS + Android) · Node/Hono API · Postgres · [Zero](https://zero.rocicorp.dev) for
+local-first sync · Cloudflare R2 (S3 API) for blobs · OpenAI for the AI stages · better-auth
+(Google).
 
 ## Layout
 
 ```
 apps/
   web/            React 19 + Vite + TanStack Router + Tailwind v4
+  mobile/         Expo SDK 57 + expo-router + uniwind (Tailwind v4 for React Native)
   server/         Hono API: auth, Zero /query + /mutate, blob presigning, media, ingestion
 packages/
   contracts/      Zero schema, shared synced queries + custom mutators, zod API payloads
   shared/         Pure utilities (ids, urls, mime, time, logging) and the entity types
   client-runtime/ Per-platform Zero glue: store setup, blob upload queue + cache,
-                  local search index
+                  local search index, and the Zero row shapes both apps render from
 ```
 
-Internal packages export raw `.ts`: no build step for packages.
+Internal packages export raw `.ts`: no build step for packages. `@ragbag/client-runtime`
+exports its shared core from the package root and the browser wiring from
+`@ragbag/client-runtime/web`; the Expo app supplies its own (`apps/mobile/src/lib/blobs`).
 
 ## Kinds of thing
 
@@ -39,12 +43,11 @@ account is seeded with the eight in the catalog (`packages/shared/src/entities/c
 `link`, `tracking`, `address`, `phone`, `email`, `invoice`, `iban`, `book`. From then on they
 are yours: rename them, re-word what the model is told to look for, add fields, add kinds of
 your own, switch off the ones you do not want read for, delete the ones you do not want at
-all. That is the settings drawer in the app (`?settings=true`), where they sit in one list with
-a switch each, so a switched-off type is in the same place as one you never switched on. It is
-ordinary mutations over rows every client already syncs: no migration, no deploy, no restart.
-The next synthesis job reads the table, so the model is asked for a new kind immediately, and
-the web app syncs the same rows for its card, its sidebar row, its URL and its Details
-labels.
+all. That is the settings screen in either app, where they sit in one list with a switch each,
+so a switched-off type is in the same place as one you never switched on. It is ordinary
+mutations over rows every client already syncs: no migration, no deploy, no restart. The next
+synthesis job reads the table, so the model is asked for a new kind immediately, and both apps
+sync the same rows for its card, its sidebar row, its route and its details labels.
 
 A type is a **definition** and, for a few kinds, some **behaviour**:
 
@@ -115,6 +118,7 @@ pnpm dev                      # turbo: API server (:3001) + web (:5173)
                               #   into a backend that hasn't booted yet
 pnpm --filter web exec vite   # UI-only work: skip the wait, no backend needed
 pnpm dev:zero-cache           # zero-cache (:4848), in a second terminal
+pnpm dev:mobile               # Metro, on its own (see below)
 pnpm dev:stop                 # stop everything and free the ports
 ```
 
@@ -129,6 +133,43 @@ publication zero-cache replicates). The web dev server proxies `/api` to the API
 server so auth cookies stay first-party. Sign-in is Google OAuth (set
 `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`); with `DEV_LOGIN=true` a dev-only
 anonymous sign-in button appears so sync can be exercised without credentials.
+
+### The Expo app
+
+`apps/mobile` is not part of `pnpm dev`: its script is called `start` rather than `dev` so
+turbo's fan-out skips it, because a bundler only a device or simulator can talk to has no
+business booting alongside the API and Vite. `pnpm dev:mobile` runs it on purpose.
+
+It needs a development build rather than Expo Go (native modules), and it talks to the API
+directly rather than through a proxy, so `EXPO_PUBLIC_API_URL` and
+`EXPO_PUBLIC_ZERO_CACHE_URL` in the repo-root `.env` have to be the LAN address of the
+machine running them: `localhost` on a phone means the phone. A simulator shares the host's
+loopback, so the defaults work there unchanged.
+
+```sh
+pnpm --filter mobile run ios       # prebuild + run on a simulator or device
+pnpm --filter mobile run android
+pnpm --filter mobile exec expo export --platform ios   # bundles without a device: the check CI wants
+```
+
+Sign-in is the same better-auth Google flow, through `@better-auth/expo`: the OAuth round
+trip lands on the app's own scheme, and the session comes back as a cookie the app stores in
+the keychain and replays as `Authorization: Bearer <cookie>`. The server has translated that
+header back into a Cookie since before this app existed (`apps/server/src/session.ts`), and
+`MOBILE_SCHEME` is what puts the scheme in better-auth's `trustedOrigins`.
+
+The sidebar is each platform's own: a real `UISplitViewController` on iOS
+(`expo-router/unstable-split-view`, with `primaryBackgroundStyle: "sidebar"`, so iOS 26 gives
+it the Liquid Glass material and UIKit picks overlay-vs-tile from the size class), and a
+Material 3 drawer on Android. Only the container differs; what the sidebar _shows_ is one
+file. Zero's local store is SQLite through `expo-sqlite` rather than IndexedDB, which is the
+one thing its React Native docs say has to change.
+
+Three subsystems the web app hand-builds are platform primitives here, and the mobile code is
+correspondingly smaller: uploads use `expo-file-system`'s `UploadTask` (progress, cancellation
+and background transfer, instead of an XHR with a stall watchdog), pictures use `expo-image`
+(disk cache and thumbhash placeholders, instead of a service worker and an object-URL cache),
+and the timeline uses `@legendapp/list` (measured rows, instead of a hand-written height model).
 
 **Blobs** go straight to R2/S3 via presigned URLs. With no bucket configured,
 the server falls back to local-disk storage (`LOCAL_BLOB_DIR`, default

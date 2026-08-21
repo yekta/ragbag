@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { BlobQueue } from "./blob-queue.js";
+import { MemoryBlobStore } from "./blob-store.js";
+import { fetchUploader } from "./blob-upload.js";
+import { subtleDigest } from "./web/digest.js";
 
-// Node has no IndexedDB, so these tests exercise the memory-backend path:
-// which is also exactly what a browser with a wedged IndexedDB falls back to.
-// The upload transport is the fetch fallback (no XMLHttpRequest in Node);
-// state-machine behavior is identical either way.
+// The state machine, against the memory store and the plain fetch transport.
+//
+// Those are the seams the queue is built around (blob-store.ts,
+// blob-upload.ts), so wiring them explicitly is not a compromise for the sake
+// of Node: it is the same thing a browser falls back to when IndexedDB is
+// wedged, and the same shape the Expo app hands over. What is under test here
+// is waiting → inflight → done, the backoff, the classified errors, the
+// dedupe and the cancellation rules, none of which are per platform.
 
 type THandlers = {
   presign?: (body: Record<string, unknown>) => Response | Promise<Response>;
@@ -25,7 +32,14 @@ function makeQueue(handlers: THandlers) {
     if (!handlers.put) throw new TypeError("fetch failed");
     return handlers.put();
   }) as typeof fetch;
-  const queue = new BlobQueue({ userID: "test-user", apiBase: "http://api.test", fetchImpl });
+  const queue = new BlobQueue({
+    userID: "test-user",
+    apiBase: "http://api.test",
+    fetchImpl,
+    store: new MemoryBlobStore(),
+    upload: fetchUploader(fetchImpl),
+    digest: subtleDigest,
+  });
   return { queue, seen };
 }
 
@@ -55,7 +69,8 @@ describe("BlobQueue", () => {
     const captured = await queue.capture(file("hello"), "photo.png");
     expect(captured.face).toBe("image");
     expect(captured.reused).toBe(false);
-    // No IndexedDB here: the queue must say so rather than pretend.
+    // A memory store does not survive a restart, and the queue must say so
+    // rather than pretend: this is what the composer warns about.
     expect(queue.state.ephemeral).toBe(true);
 
     await waitFor(() => queue.state.blobs[captured.blobId]?.stage === "done");

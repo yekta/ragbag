@@ -1,4 +1,4 @@
-import { getIp } from "better-auth/api";
+import { getIP } from "better-auth/api";
 import { Hono } from "hono";
 import { auth } from "../auth.js";
 import { bucketCorsStatus, storage } from "../blobs/storage.js";
@@ -30,7 +30,7 @@ let storageProbe: { at: number; body: Record<string, unknown> } | null = null;
 export const debugRoutes = new Hono()
   .get("/ip", (c) => {
     return c.json({
-      resolvedIp: getIp(c.req.raw, auth.options),
+      resolvedIp: getIP(c.req.raw, auth.options),
       headers: Object.fromEntries(IP_HEADERS.map((h) => [h, c.req.header(h) ?? null])),
     });
   })

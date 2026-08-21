@@ -125,7 +125,13 @@ curl -si -X OPTIONS "$R2_ENDPOINT/$R2_BUCKET/any-key" \
 CORS check concluded: if the roundtrip passes while browser uploads fail, CORS is the culprit.
 
 **Google Cloud console:** authorized redirect URI is `https://api.ragbag.app/api/auth/callback/google`,
-the API host, not the app host.
+the API host, not the app host. The Expo app needs no second entry there: it opens that same
+URL, and `@better-auth/expo` hands the result back to the app's own scheme afterwards.
+
+**`MOBILE_SCHEME`** has to match `scheme` in `apps/mobile/app.config.ts` (`ragbag` by default).
+better-auth refuses a callback to a scheme that is not in `trustedOrigins`, and that list is
+built from this variable (`apps/server/src/auth.ts`). A mismatch shows up as a sign-in that
+opens the browser, completes at Google, and never comes back.
 
 ---
 

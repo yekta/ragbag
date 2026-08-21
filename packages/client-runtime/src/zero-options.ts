@@ -3,7 +3,6 @@ import { mutators, schema, type TAuthData, type TSchema } from "@ragbag/contract
 
 // Thin per-platform glue (plan §3): Zero owns the store, optimistic
 // mutations, and sync. This package only wires platform details together.
-// The blob upload queue and lazy blob cache land here in M3.
 
 export type TRagbagZeroConfig = {
   /** zero-cache URL, e.g. http://localhost:4848 */
@@ -16,7 +15,15 @@ export type TRagbagZeroConfig = {
    * (Electron/Expo) pass their stored session token here.
    */
   auth?: string | undefined;
-  kvStore: "idb" | "mem";
+  /**
+   * Where the local store lives. `"idb"` on web, `"mem"` for a headless
+   * client (the sync proof), and a provider object on native: Expo has no
+   * IndexedDB, so the shell passes `expoSQLiteStoreProvider()` from
+   * `@rocicorp/zero/expo-sqlite`. Typed as Zero's own union rather than the
+   * two web strings, so a shell can hand over a provider without this file
+   * having to import a platform package to name its type.
+   */
+  kvStore: ZeroOptions<TSchema>["kvStore"];
 };
 
 /** Options for `new Zero(...)` / `<ZeroProvider {...opts}>`, shared by all shells. */

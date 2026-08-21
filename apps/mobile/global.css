@@ -1,0 +1,188 @@
+@import "tailwindcss";
+@import "uniwind";
+
+/* The shared packages carry no class names, but app code lives under src/ and
+   the routes live under app/, and Tailwind scans from this file's directory
+   outwards. Both are below it, so nothing extra is needed today; this is the
+   line to add a @source to if a package ever ships a styled component. */
+
+/* One design system, two shells.
+ *
+ * Every --color-* below is the value apps/web/src/index.css resolves for the
+ * same name, carried across mechanically rather than re-picked by eye: the
+ * web file states them as raw tokens (--background) and maps them to Tailwind
+ * names in an `@theme inline` block, and uniwind wants the mapped names
+ * directly, so the mapping was followed once and the results pasted here.
+ * oklch survives the trip: uniwind converts colours to sRGB at build time
+ * (culori), so React Native never sees a colour space it cannot parse.
+ *
+ * The reasoning behind individual values (why there are two hover rungs, why
+ * the border sits where it does) is written where the values are picked, in
+ * the web file. It is not repeated here, because a copy of an argument is a
+ * copy that goes stale.
+ *
+ * What is NOT carried across: the hover rungs are still here and still used,
+ * because uniwind maps `active:` to press, and the press states this app
+ * insists on need somewhere to travel to.
+ */
+@theme {
+  --font-sans: "SchibstedGrotesk_400Regular";
+  --font-mono: "SplineSansMono_400Regular";
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+}
+
+@layer theme {
+  :root {
+    @variant light {
+      --color-background: oklch(0.98511 0 0);
+      --color-background-hover: oklch(0.927 0 0);
+      --color-hover: oklch(0.92 0 0);
+      --color-foreground: oklch(0.205 0 0);
+      --color-foreground-hover: oklch(0.32 0 0);
+      --color-card: oklch(1 0 0);
+      --color-card-foreground: oklch(0.205 0 0);
+      --color-popover: oklch(1 0 0);
+      --color-popover-foreground: oklch(0.205 0 0);
+      --color-panel: oklch(0.97 0 0);
+      --color-panel-hover: oklch(0.925 0 0);
+      --color-primary: oklch(0.511 0.262 276.966);
+      --color-primary-foreground: oklch(1 0 0);
+      --color-primary-hover: oklch(0.457 0.24 277.023);
+      --color-secondary: oklch(0.97 0 0);
+      --color-secondary-foreground: oklch(0.205 0 0);
+      --color-secondary-hover: oklch(0.922 0 0);
+      --color-muted: oklch(0.97 0 0);
+      --color-muted-foreground: oklch(0.54 0 0);
+      --color-accent: oklch(0.921 0.032 272.314);
+      --color-accent-foreground: oklch(0.205 0 0);
+      --color-destructive: oklch(0.577 0.245 27.325);
+      --color-destructive-hover: oklch(0.505 0.213 27.518);
+      --color-overlay: oklch(0.145 0 0);
+      --color-destructive-soft: oklch(0.955 0.021 27);
+      --color-destructive-soft-hover: oklch(0.902 0.046 27);
+      --color-warning: oklch(0.955 0.035 92);
+      --color-warning-foreground: oklch(0.415 0.075 78);
+      --color-success: oklch(0.95 0.035 160);
+      --color-success-foreground: oklch(0.505 0.09 158);
+      --color-border: oklch(0.902 0 0);
+      --color-input: oklch(0.902 0 0);
+      --color-switch-thumb: oklch(1 0 0);
+      --color-ring: oklch(0.585 0.233 277.117);
+      --color-sidebar: oklch(1 0 0);
+      --color-sidebar-foreground: oklch(0.205 0 0);
+      --color-sidebar-primary: oklch(0.511 0.262 276.966);
+      --color-sidebar-primary-foreground: oklch(1 0 0);
+      --color-sidebar-accent: oklch(0.921 0.032 272.314);
+      --color-sidebar-accent-foreground: oklch(0.205 0 0);
+      --color-sidebar-accent-hover: oklch(0.878 0.042 272.314);
+      --color-sidebar-border: oklch(0.902 0 0);
+      --color-sidebar-ring: oklch(0.585 0.233 277.117);
+      --color-kind-note: oklch(0.56 0.085 95);
+      --color-kind-note-soft: oklch(0.962 0.03 95);
+      --color-kind-todo: oklch(0.535 0.085 160);
+      --color-kind-todo-soft: oklch(0.962 0.03 160);
+      --color-kind-todo-hover: oklch(0.485 0.082 160);
+      --color-kind-address: oklch(0.56 0.095 20);
+      --color-kind-address-soft: oklch(0.962 0.017 20);
+      --color-kind-link: oklch(0.545 0.08 235);
+      --color-kind-link-soft: oklch(0.962 0.02 235);
+      --color-kind-image: oklch(0.555 0.085 300);
+      --color-kind-image-soft: oklch(0.962 0.02 300);
+      --color-kind-pdf: oklch(0.545 0.115 30);
+      --color-kind-pdf-soft: oklch(0.962 0.018 30);
+      --color-kind-file: oklch(0.52 0.03 200);
+      --color-kind-file-soft: oklch(0.962 0.012 200);
+      --color-ai: oklch(0.511 0.262 276.966);
+      --color-ai-soft: oklch(0.962 0.02 277);
+      --color-chart-1: oklch(0.615 0.13 277);
+      --color-chart-2: oklch(0.575 0.075 212);
+      --color-chart-3: oklch(0.65 0.075 132);
+      --color-chart-4: oklch(0.66 0.09 84);
+      --color-chart-5: oklch(0.56 0.08 296);
+      /* Mobile-only, because the surfaces they describe do not exist on web.
+         The scrim is what an Android drawer dims the timeline with (Material's
+         own is black at 32%); the glass tint is what an iOS GlassView is
+         warmed with, and it is deliberately near-nothing: the material is
+         supposed to be the timeline showing through, not a colour. */
+      --color-scrim: rgba(0, 0, 0, 0.32);
+      --color-glass-tint: rgba(255, 255, 255, 0.16);
+    }
+
+    @variant dark {
+      --color-background: oklch(0.14479 0 0);
+      --color-background-hover: oklch(0.225 0 0);
+      --color-hover: oklch(0.232 0 0);
+      --color-foreground: oklch(0.97 0 0);
+      --color-foreground-hover: oklch(0.885 0 0);
+      --color-card: oklch(0.182 0 0);
+      --color-card-foreground: oklch(0.97 0 0);
+      --color-popover: oklch(0.182 0 0);
+      --color-popover-foreground: oklch(0.97 0 0);
+      --color-panel: oklch(0.225 0 0);
+      --color-panel-hover: oklch(0.268 0 0);
+      --color-primary: oklch(0.673 0.182 276.935);
+      --color-primary-foreground: oklch(0.205 0.03 277);
+      --color-primary-hover: oklch(0.785 0.115 274.713);
+      --color-secondary: oklch(0.269 0 0);
+      --color-secondary-foreground: oklch(0.97 0 0);
+      --color-secondary-hover: oklch(0.315 0 0);
+      --color-muted: oklch(0.269 0 0);
+      --color-muted-foreground: oklch(0.708 0 0);
+      --color-accent: oklch(0.28 0.045 277);
+      --color-accent-foreground: oklch(0.97 0 0);
+      --color-destructive: oklch(0.665 0.165 27);
+      --color-destructive-hover: oklch(0.615 0.17 27);
+      --color-overlay: oklch(0.145 0 0);
+      --color-destructive-soft: oklch(0.265 0.042 27);
+      --color-destructive-soft-hover: oklch(0.318 0.053 27);
+      --color-warning: oklch(0.29 0.045 80);
+      --color-warning-foreground: oklch(0.855 0.085 92);
+      --color-success: oklch(0.29 0.045 160);
+      --color-success-foreground: oklch(0.81 0.095 158);
+      --color-border: oklch(0.25 0 0);
+      --color-input: oklch(0.333 0 0);
+      --color-switch-thumb: oklch(0.97 0 0);
+      --color-ring: oklch(0.673 0.182 276.935);
+      --color-sidebar: oklch(0.182 0 0);
+      --color-sidebar-foreground: oklch(0.97 0 0);
+      --color-sidebar-primary: oklch(0.673 0.182 276.935);
+      --color-sidebar-primary-foreground: oklch(0.205 0.03 277);
+      --color-sidebar-accent: oklch(0.28 0.045 277);
+      --color-sidebar-accent-foreground: oklch(0.97 0 0);
+      --color-sidebar-accent-hover: oklch(0.328 0.05 277);
+      --color-sidebar-border: oklch(0.25 0 0);
+      --color-sidebar-ring: oklch(0.673 0.182 276.935);
+      --color-kind-note: oklch(0.79 0.09 95);
+      --color-kind-note-soft: oklch(0.312 0.038 95);
+      --color-kind-todo: oklch(0.78 0.09 160);
+      --color-kind-todo-soft: oklch(0.312 0.038 160);
+      --color-kind-todo-hover: oklch(0.83 0.08 160);
+      --color-kind-address: oklch(0.76 0.095 20);
+      --color-kind-address-soft: oklch(0.312 0.04 20);
+      --color-kind-link: oklch(0.76 0.08 235);
+      --color-kind-link-soft: oklch(0.312 0.034 235);
+      --color-kind-image: oklch(0.77 0.085 300);
+      --color-kind-image-soft: oklch(0.312 0.036 300);
+      --color-kind-pdf: oklch(0.74 0.11 30);
+      --color-kind-pdf-soft: oklch(0.312 0.04 30);
+      --color-kind-file: oklch(0.76 0.03 200);
+      --color-kind-file-soft: oklch(0.312 0.013 200);
+      --color-ai: oklch(0.673 0.182 276.935);
+      --color-ai-soft: oklch(0.28 0.045 277);
+      --color-chart-1: oklch(0.72 0.13 277);
+      --color-chart-2: oklch(0.7 0.08 212);
+      --color-chart-3: oklch(0.75 0.075 132);
+      --color-chart-4: oklch(0.76 0.09 84);
+      --color-chart-5: oklch(0.68 0.08 296);
+      --color-scrim: rgba(0, 0, 0, 0.48);
+      --color-glass-tint: rgba(255, 255, 255, 0.06);
+    }
+  }
+}

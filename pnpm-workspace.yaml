@@ -3,6 +3,22 @@ packages:
   - apps/*
   - packages/*
 
+# One React in the tree, not just one in the catalog.
+#
+# The catalog governs what a workspace package asks for; it does not govern what
+# pnpm picks to satisfy somebody else's OPTIONAL peer. @rocicorp/zero takes
+# react as one, so packages/contracts (which has no react of its own) was
+# resolved against a react nothing here asks for any more, giving it a second
+# Zero instance. The apps then imported `queries` from one Zero and `useQuery`
+# from another, and the two are structurally different types.
+#
+# An override rather than a lockfile clean-out, because the shape of the problem
+# outlives any one lockfile: it comes back the next time a package with an
+# optional react peer is added.
+overrides:
+  react: 19.2.3
+  react-dom: 19.2.3
+
 allowBuilds:
   "@rocicorp/zero-sqlite3": true
   ffmpeg-static: true
@@ -13,8 +29,16 @@ allowBuilds:
 # Single place to pin versions shared across packages (`"dep": "catalog:"`).
 catalog:
   # runtime: clients
-  react: ^19.2.8
-  react-dom: ^19.2.8
+  #
+  # Exact, and it is Expo's number rather than ours. Expo pins React and React
+  # Native together as a pair, so apps/mobile cannot float; and a second React
+  # version in the workspace is not free even though the two apps never meet at
+  # runtime, because pnpm resolves optional peers per version and @rocicorp/zero
+  # takes React as one. Two Reacts meant two Zero instances, which made
+  # `queries` from @ragbag/contracts structurally incompatible with `useQuery`
+  # in the app importing it. One version, one Zero.
+  react: 19.2.3
+  react-dom: 19.2.3
   "@tanstack/react-router": ^1.170.25
   "@tanstack/react-virtual": ^3.14.9
   zustand: ^5.0.14
@@ -24,7 +48,7 @@ catalog:
   # runtime: server
   hono: ^4.13.1
   "@hono/node-server": ^2.1.0
-  better-auth: ^1.6.27
+  better-auth: ^1.6.30
   drizzle-orm: ^0.45.2
   postgres: ^3.4.9
   "@aws-sdk/client-s3": ^3.1108.0
@@ -98,3 +122,4 @@ minimumReleaseAgeExclude:
   - "@better-auth/prisma-adapter@1.6.27"
   - "@better-auth/telemetry@1.6.27"
   - better-auth@1.6.27
+  - "@legendapp/list@3.3.8"

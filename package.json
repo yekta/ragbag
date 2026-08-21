@@ -11,6 +11,8 @@
     "//dev:zero-cache": "zero-cache reads its own env, so .env is sourced here rather than by our code. ZERO_UPSTREAM_DB defaults to DATABASE_URL: it is the same database, and writing the password twice is how the two drift apart. `:=` inside `set -a` exports the assignment, which is why it sits before `set +a`.",
     "dev:zero-cache": "sh -c 'set -a; [ -f .env ] && . ./.env; : \"${ZERO_UPSTREAM_DB:=$DATABASE_URL}\"; set +a; cd apps/server && exec pnpm exec zero-cache-dev'",
     "dev:stop": "sh scripts/dev-stop.sh",
+    "//dev:mobile": "Metro, on purpose and on its own. Not part of `pnpm dev`: apps/mobile deliberately names its script `start` so turbo's dev fan-out skips it, because a bundler only a device can talk to has no business booting with the API and Vite.",
+    "dev:mobile": "pnpm --filter mobile run start",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

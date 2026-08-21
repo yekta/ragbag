@@ -1,14 +1,15 @@
 import { faceForMime, newId } from "@ragbag/shared";
 import type { TAttachmentFace } from "@ragbag/shared";
-import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
+import { MemoryBlobStore, type TBlobStore, type TUploadRecord } from "./blob-store.js";
+import type { TBlobUploader } from "./blob-upload.js";
 
 // The persistent blob upload queue + lazy blob cache: Zero syncs rows, not
-// files. Capture stores the bytes in IndexedDB and returns a client-minted
-// blobId IMMEDIATELY: the message is created and syncs before any network
-// happens, offline included. A background flush presigns, PUTs the
-// bytes to the object store, and survives app restarts (the constructor
-// resumes whatever is still pending). Downloaded blobs land in a bounded LRU
-// cache so other devices only fetch originals once.
+// files. Capture stores the bytes locally and returns a client-minted blobId
+// IMMEDIATELY: the message is created and syncs before any network happens,
+// offline included. A background flush presigns, PUTs the bytes to the object
+// store, and survives app restarts (the constructor resumes whatever is still
+// pending). Downloaded blobs land in a bounded LRU cache so other devices only
+// fetch originals once.
 //
 // Everything here is observable: every blob's upload lifecycle (waiting →
 // inflight → done, with progress and a classified lastError) is published
@@ -16,11 +17,19 @@ import { idbDelete, idbGet, idbGetAll, idbPut, openDb } from "./idb.js";
 // sidebar can show what is actually happening. A queue that silently retried
 // on a 15-minute backoff looked exactly like a dead app; never again.
 //
-// Every stage is also bounded: IndexedDB opens time out (see idb.ts), record
-// writes fall back to an in-memory overlay when IndexedDB is wedged (uploads
-// still work, they just don't survive a reload, `state.ephemeral`), the
-// presign has a deadline, and the PUT has a stall watchdog. Nothing in this
-// file may hang forever.
+// Every stage is also bounded: record writes fall back to an in-memory overlay
+// when the store is wedged (uploads still work, they just do not survive a
+// relaunch, `state.ephemeral`), the presign has a deadline, and the PUT has a
+// stall watchdog inside whichever uploader is handed in. Nothing in this file
+// may hang forever.
+//
+// What is NOT here is anything platform-specific. Storage arrives as a
+// `TBlobStore`, the transport as a `TBlobUploader`, the hash as a `digest`
+// function, and "the world changed" as a `watchWake` subscription. Web hands
+// over IndexedDB, XMLHttpRequest and crypto.subtle; the Expo app hands over
+// SQLite, expo-file-system's UploadTask and expo-crypto. The state machine
+// below is the same one on both, which is the entire point: it is the part
+// that took production outages to get right.
 
 export type TCapturedBlob = {
   blobId: string;
@@ -41,7 +50,7 @@ export type TCapturedBlob = {
 export type TBlobUploadState = {
   /** waiting = queued or backing off; inflight = presign/PUT running now. */
   stage: "waiting" | "inflight" | "done";
-  /** 0..1 while the PUT reports progress, else null (indeterminate). */
+  /** 0..1 while the transfer reports progress, else null (indeterminate). */
   progress: number | null;
   attempts: number;
   /** Epoch ms of the next scheduled attempt; 0 = as soon as possible. */
@@ -56,44 +65,13 @@ export type TBlobQueueState = {
   /** Why the queue is parked, if it is. */
   blocked: "auth" | "storage" | null;
   /**
-   * IndexedDB is unavailable, so queued uploads live in memory only: they
-   * still upload normally but will be lost if the page reloads first.
+   * Local storage is unavailable, so queued uploads live in memory only: they
+   * still upload normally but will be lost if the app restarts first.
    */
   ephemeral: boolean;
   /** Per-blob upload lifecycle, keyed by blobId; drives all upload UI. */
   blobs: Record<string, TBlobUploadState>;
 };
-
-type TUploadRecord = {
-  blobId: string;
-  /** Set on send: the bytes now belong to a message and are not ours to drop. */
-  messageId?: string;
-  attachmentId?: string;
-  sha256: string;
-  mime: string;
-  size: number;
-  originalName?: string;
-  bytes: Blob;
-  attempts: number;
-  nextAttemptAt: number;
-  createdAt: number;
-  lastError?: string;
-};
-
-type TCacheRecord = {
-  blobId: string;
-  mime: string;
-  size: number;
-  bytes: Blob;
-  lastUsedAt: number;
-};
-
-const UPLOADS = "uploads";
-const CACHE = "cache";
-
-// Web/desktop cache bounds (plan §6: "desktop/web: more" than mobile).
-const MAX_CACHE_BYTES = 512 * 1024 * 1024;
-const MAX_CACHE_ENTRIES = 2_000;
 
 // 5s → 15s → 45s → 2¼m → 6¾m → 15m cap. The first retries are quick because
 // the common failure (flaky network, API redeploy) is short-lived and the
@@ -103,35 +81,38 @@ const BACKOFF_BASE_MS = 5_000;
 const MAX_BACKOFF_MS = 15 * 60 * 1000;
 
 const PRESIGN_TIMEOUT_MS = 15_000;
-/** Abort the PUT when no progress event arrives for this long. */
-const PUT_STALL_MS = 45_000;
-/** Hard ceiling on a single PUT, however slowly it trickles. */
-const PUT_TIMEOUT_MS = 20 * 60 * 1000;
-/** Deadline on individual IndexedDB operations before falling back. */
-const IDB_OP_TIMEOUT_MS = 4_000;
-
-const CORS_HINT =
-  "The storage bucket blocked the browser's upload; its CORS policy must allow this site (see DEPLOY.md)";
+/** Deadline on individual store operations before falling back to memory. */
+const STORE_OP_TIMEOUT_MS = 4_000;
 
 export type TBlobQueueOptions = {
-  /** Scopes the IndexedDB database, like Zero scopes its store. */
+  /** Scopes the store, like Zero scopes its own. */
   userID: string;
   /** Base URL of the API, "" when same-origin (web behind the dev proxy). */
   apiBase?: string;
   /** Extra headers for API calls; native shells pass their bearer token. */
   authHeaders?: () => Record<string, string>;
   fetchImpl?: typeof fetch;
+  /** Where records and cached bytes live. Defaults to memory only. */
+  store?: TBlobStore;
+  /** How bytes reach the presigned URL. */
+  upload: TBlobUploader;
+  /** SHA-256 of a blob, lowercase hex. */
+  digest: (blob: Blob) => Promise<string>;
+  /**
+   * Whether there is a connection. Used only to word a failure honestly:
+   * "offline, will resume" reads very differently from "couldn't reach the
+   * API", and a queue that says the wrong one sends people to check a server
+   * that is fine.
+   */
+  isOnline?: () => boolean;
+  /**
+   * Subscribe to every signal that the world changed: the network came back,
+   * the app came to the foreground, a new session landed. Each is a reason to
+   * abandon a backoff earned during an outage that has since ended, because
+   * waiting out fifteen minutes after the wifi returns just looks broken.
+   */
+  watchWake?: (retry: () => void) => () => void;
 };
-
-async function sha256Hex(blob: Blob): Promise<string> {
-  if (typeof crypto === "undefined" || !crypto.subtle) {
-    // crypto.subtle only exists in secure contexts; a plain-http deploy
-    // used to die here as an inscrutable TypeError.
-    throw new Error("Files need a secure (HTTPS) connection, and this page has none");
-  }
-  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -149,29 +130,24 @@ function withDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise
   });
 }
 
-function describeHttp(status: number): string {
-  if (status === 403) return "The storage bucket rejected the upload signature (HTTP 403)";
-  if (status === 413) return "The storage bucket says this file is too large (HTTP 413)";
-  return `The storage bucket refused the upload (HTTP ${status})`;
-}
-
-type TPutResult = { ok: true } | { ok: false; reason: string };
-
 export class BlobQueue {
   readonly #apiBase: string;
   readonly #authHeaders: (() => Record<string, string>) | undefined;
   readonly #fetch: typeof fetch;
-  /** Resolves null when IndexedDB is unusable; the queue runs from memory. */
-  readonly #idb: Promise<IDBDatabase | null>;
+  readonly #store: TBlobStore;
+  readonly #upload: TBlobUploader;
+  readonly #digest: (blob: Blob) => Promise<string>;
+  readonly #isOnline: () => boolean;
+  readonly #unwatch: (() => void) | undefined;
   /**
-   * In-memory overlay over the uploads store. Normally empty; holds records
-   * whenever IndexedDB is broken or a write to it times out. Consulted first
+   * In-memory overlay over the store. Normally empty; holds records whenever
+   * the store is broken or a write to it times out. Consulted first
    * everywhere, so a record's home never matters to the rest of the code.
    */
   readonly #mem = new Map<string, TUploadRecord>();
   readonly #listeners = new Set<() => void>();
-  /** Abort hooks for in-flight PUTs, keyed by blobId. */
-  readonly #aborts = new Map<string, () => void>();
+  /** Abort controllers for in-flight transfers, keyed by blobId. */
+  readonly #aborts = new Map<string, AbortController>();
   /** Blobs canceled mid-flight; their failure is cleanup, not a retry. */
   readonly #cancelled = new Set<string>();
   #state: TBlobQueueState = { pending: 0, blocked: null, ephemeral: false, blobs: {} };
@@ -182,30 +158,22 @@ export class BlobQueue {
     this.#apiBase = opts.apiBase ?? "";
     this.#authHeaders = opts.authHeaders;
     this.#fetch = opts.fetchImpl ?? fetch.bind(globalThis);
-    this.#idb = openDb(`ragbag-blobs-${opts.userID}`, 1, (db) => {
-      db.createObjectStore(UPLOADS, { keyPath: "blobId" });
-      db.createObjectStore(CACHE, { keyPath: "blobId" });
-    }).catch(() => {
-      this.#markEphemeral();
-      return null;
-    });
+    this.#store = opts.store ?? new MemoryBlobStore();
+    this.#upload = opts.upload;
+    this.#digest = opts.digest;
+    this.#isOnline = opts.isOnline ?? (() => true);
+    if (this.#store.ephemeral) this.#state = { ...this.#state, ephemeral: true };
 
-    // Resume anything a previous session left behind, and whenever the
-    // browser comes back online or the tab becomes visible again. All are
-    // signals that the world changed (new page load, network back, user
-    // looking), so clear any backoff first: waiting out a 15-minute delay
-    // earned during an outage that's since been fixed just looks broken.
+    // Resume anything a previous session left behind, now and whenever the
+    // platform says something changed.
     void this.retryNow();
-    if (typeof addEventListener === "function") {
-      addEventListener("online", () => {
-        void this.retryNow();
-      });
-    }
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && this.#state.pending > 0) void this.retryNow();
-      });
-    }
+    this.#unwatch = opts.watchWake?.(() => void this.retryNow());
+  }
+
+  /** Release the wake subscription. Only a test or a sign-out needs this. */
+  dispose(): void {
+    this.#unwatch?.();
+    clearTimeout(this.#flushTimer);
   }
 
   /** Drop all backoff and flush immediately. */
@@ -230,7 +198,7 @@ export class BlobQueue {
 
   /**
    * Abort and forget a queued upload: an attachment removed before sending.
-   * A record already linked to an item survives untouched (the item still
+   * A record already linked to a message survives untouched (the message still
    * needs its bytes); callers also pass `reused` captures through unharmed.
    */
   async cancel(blobId: string): Promise<void> {
@@ -238,7 +206,7 @@ export class BlobQueue {
     if (record?.messageId) return; // sent: the message needs its bytes
     const wasInflight = this.#aborts.has(blobId);
     this.#cancelled.add(blobId);
-    this.#aborts.get(blobId)?.(); // an in-flight attempt unwinds via #finishCancelled
+    this.#aborts.get(blobId)?.abort(); // an in-flight attempt unwinds via #finishCancelled
     if (record) await this.#deleteUpload(blobId);
     if (!wasInflight) {
       this.#cancelled.delete(blobId);
@@ -316,19 +284,16 @@ export class BlobQueue {
     this.flush(true);
   }
 
-  // --- record storage (IndexedDB with a memory fallback) ---
+  // --- record storage (the injected store, with a memory overlay) ---
 
   async #allUploads(): Promise<TUploadRecord[]> {
-    const db = await this.#idb;
-    let disk: TUploadRecord[] = [];
-    if (db) {
-      try {
-        disk = await withDeadline(idbGetAll<TUploadRecord>(db, UPLOADS), IDB_OP_TIMEOUT_MS, "read");
-      } catch {
-        this.#markEphemeral();
-      }
+    let stored: TUploadRecord[] = [];
+    try {
+      stored = await withDeadline(this.#store.allUploads(), STORE_OP_TIMEOUT_MS, "read");
+    } catch {
+      this.#markEphemeral();
     }
-    const merged = new Map(disk.map((r) => [r.blobId, r] as const));
+    const merged = new Map(stored.map((r) => [r.blobId, r] as const));
     for (const [id, record] of this.#mem) merged.set(id, record);
     return [...merged.values()];
   }
@@ -336,14 +301,8 @@ export class BlobQueue {
   async #getUpload(blobId: string): Promise<TUploadRecord | undefined> {
     const inMem = this.#mem.get(blobId);
     if (inMem) return inMem;
-    const db = await this.#idb;
-    if (!db) return undefined;
     try {
-      return await withDeadline(
-        idbGet<TUploadRecord>(db, UPLOADS, blobId),
-        IDB_OP_TIMEOUT_MS,
-        "read",
-      );
+      return await withDeadline(this.#store.getUpload(blobId), STORE_OP_TIMEOUT_MS, "read");
     } catch {
       return undefined;
     }
@@ -354,14 +313,11 @@ export class BlobQueue {
       this.#mem.set(record.blobId, record);
       return;
     }
-    const db = await this.#idb;
-    if (db) {
-      try {
-        await withDeadline(idbPut(db, UPLOADS, record), IDB_OP_TIMEOUT_MS, "write");
-        return;
-      } catch {
-        // fall through to memory
-      }
+    try {
+      await withDeadline(this.#store.putUpload(record), STORE_OP_TIMEOUT_MS, "write");
+      return;
+    } catch {
+      // fall through to memory
     }
     this.#mem.set(record.blobId, record);
     this.#markEphemeral();
@@ -369,13 +325,10 @@ export class BlobQueue {
 
   async #deleteUpload(blobId: string): Promise<void> {
     this.#mem.delete(blobId);
-    const db = await this.#idb;
-    if (db) {
-      try {
-        await withDeadline(idbDelete(db, UPLOADS, blobId), IDB_OP_TIMEOUT_MS, "delete");
-      } catch {
-        // the getAll deadline already degrades reads; nothing better to do
-      }
+    try {
+      await withDeadline(this.#store.deleteUpload(blobId), STORE_OP_TIMEOUT_MS, "delete");
+    } catch {
+      // the read deadline already degrades reads; nothing better to do
     }
   }
 
@@ -383,13 +336,13 @@ export class BlobQueue {
 
   /**
    * Hash + persist the bytes locally and return the blobId to put on the
-   * item. Pure local work: safe offline; the upload happens in the flush.
+   * message. Pure local work: safe offline; the upload happens in the flush.
    */
   async capture(file: Blob, originalName?: string): Promise<TCapturedBlob> {
-    const sha256 = await sha256Hex(file);
+    const sha256 = await this.#digest(file);
     const mime = file.type || "application/octet-stream";
 
-    // Same bytes already waiting to upload? Reuse the record so the item
+    // Same bytes already waiting to upload? Reuse the record so the message
     // points at the id the server will learn about.
     const existing = (await this.#allUploads()).find((u) => u.sha256 === sha256);
     if (existing) {
@@ -533,11 +486,10 @@ export class BlobQueue {
       if (err instanceof Error && err.name === "AbortError") {
         return fail("The API did not answer the upload request (timed out)");
       }
-      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       return fail(
-        offline
-          ? "Offline. The upload will resume when the connection returns"
-          : "Couldn't reach the API to start the upload",
+        this.#isOnline()
+          ? "Couldn't reach the API to start the upload"
+          : "Offline. The upload will resume when the connection returns",
       );
     }
     if (presign.status === 401) {
@@ -562,14 +514,26 @@ export class BlobQueue {
     const { uploadUrl } = (await presign.json()) as { uploadUrl: string | null };
 
     if (uploadUrl) {
-      const put = await this.#putBytes(uploadUrl, record);
+      const controller = new AbortController();
+      this.#aborts.set(blobId, controller);
+      let put;
+      try {
+        put = await this.#upload({
+          url: uploadUrl,
+          record,
+          onProgress: (progress) => this.#noteProgress(blobId, progress),
+          signal: controller.signal,
+        });
+      } finally {
+        this.#aborts.delete(blobId);
+      }
       if (!put.ok) return fail(put.reason);
     }
 
     if (this.#cancelled.has(blobId)) return this.#finishCancelled(blobId);
 
     // Uploaded (or already in the store): keep the bytes in the read cache
-    // under the id the item references, and retire the upload record.
+    // under the id the message references, and retire the upload record.
     await this.#cachePut({
       blobId,
       mime: record.mime,
@@ -597,85 +561,13 @@ export class BlobQueue {
     return "done";
   }
 
-  /**
-   * PUT the bytes to the presigned URL. XMLHttpRequest when the runtime has
-   * it (fetch cannot report upload progress) with a stall watchdog so a
-   * dead connection surfaces in under a minute instead of never. Non-browser
-   * runtimes (tests, workers) fall back to fetch without progress.
-   */
-  #putBytes(url: string, record: TUploadRecord): Promise<TPutResult> {
-    const blobId = record.blobId;
-    if (typeof XMLHttpRequest === "undefined") {
-      const controller = new AbortController();
-      this.#aborts.set(blobId, () => controller.abort());
-      return this.#fetch(url, {
-        method: "PUT",
-        body: record.bytes,
-        headers: { "content-type": record.mime },
-        signal: controller.signal,
-      })
-        .then<TPutResult>((res) =>
-          res.ok ? { ok: true } : { ok: false, reason: describeHttp(res.status) },
-        )
-        .catch(() => ({ ok: false, reason: CORS_HINT }) satisfies TPutResult)
-        .finally(() => this.#aborts.delete(blobId));
-    }
-
-    return new Promise<TPutResult>((resolve) => {
-      const xhr = new XMLHttpRequest();
-      let stalled = false;
-      let lastProgressAt = Date.now();
-      const stallTimer = setInterval(() => {
-        if (Date.now() - lastProgressAt > PUT_STALL_MS) {
-          stalled = true;
-          xhr.abort();
-        }
-      }, 5_000);
-      const finish = (result: TPutResult) => {
-        clearInterval(stallTimer);
-        this.#aborts.delete(blobId);
-        resolve(result);
-      };
-
-      xhr.open("PUT", url);
-      xhr.setRequestHeader("content-type", record.mime);
-      xhr.timeout = PUT_TIMEOUT_MS;
-      xhr.upload.addEventListener("progress", (e) => {
-        lastProgressAt = Date.now();
-        this.#noteProgress(blobId, e.lengthComputable ? e.loaded / e.total : null);
-      });
-      xhr.addEventListener("load", () =>
-        finish(
-          xhr.status >= 200 && xhr.status < 300
-            ? { ok: true }
-            : { ok: false, reason: describeHttp(xhr.status) },
-        ),
-      );
-      // A network-level failure on a presigned PUT is almost always the
-      // bucket rejecting the CORS preflight: say so instead of "error".
-      xhr.addEventListener("error", () => finish({ ok: false, reason: CORS_HINT }));
-      xhr.addEventListener("timeout", () => finish({ ok: false, reason: "The upload timed out" }));
-      xhr.addEventListener("abort", () =>
-        finish({
-          ok: false,
-          reason: stalled ? "The upload stalled: no data moved for 45s" : "Upload canceled",
-        }),
-      );
-      this.#aborts.set(blobId, () => xhr.abort());
-      xhr.send(record.bytes);
-    });
-  }
-
   // --- lazy blob cache (downloads) ---
 
-  async #cachePut(record: TCacheRecord): Promise<void> {
-    const db = await this.#idb;
-    if (!db) return; // no cache without IndexedDB: downloads just refetch
+  async #cachePut(record: Parameters<TBlobStore["cachePut"]>[0]): Promise<void> {
     try {
-      await withDeadline(idbPut(db, CACHE, record), IDB_OP_TIMEOUT_MS, "cache write");
-      await this.#evict(db);
+      await this.#store.cachePut(record);
     } catch {
-      // cache is best-effort
+      // cache is best-effort: a miss just refetches
     }
   }
 
@@ -683,22 +575,11 @@ export class BlobQueue {
   async getLocalBytes(blobId: string): Promise<{ bytes: Blob; mime: string } | null> {
     const pending = await this.#getUpload(blobId);
     if (pending) return { bytes: pending.bytes, mime: pending.mime };
-    const db = await this.#idb;
-    if (!db) return null;
     try {
-      const cached = await withDeadline(
-        idbGet<TCacheRecord>(db, CACHE, blobId),
-        IDB_OP_TIMEOUT_MS,
-        "cache read",
-      );
-      if (cached) {
-        void idbPut(db, CACHE, { ...cached, lastUsedAt: Date.now() }).catch(() => {});
-        return { bytes: cached.bytes, mime: cached.mime };
-      }
+      return await this.#store.cacheGet(blobId);
     } catch {
-      // fall through
+      return null;
     }
-    return null;
   }
 
   /**
@@ -729,29 +610,10 @@ export class BlobQueue {
     }
   }
 
-  /** LRU-evict the download cache; pending uploads are never touched. */
-  async #evict(db: IDBDatabase): Promise<void> {
-    const all = await idbGetAll<TCacheRecord>(db, CACHE);
-    let total = all.reduce((sum, r) => sum + r.size, 0);
-    let count = all.length;
-    for (const record of all.toSorted((a, b) => a.lastUsedAt - b.lastUsedAt)) {
-      if (total <= MAX_CACHE_BYTES && count <= MAX_CACHE_ENTRIES) break;
-      await idbDelete(db, CACHE, record.blobId);
-      total -= record.size;
-      count -= 1;
-    }
-  }
-
-  /** Drop everything (explicit sign-out on a shared machine). */
+  /** Drop everything (explicit sign-out on a shared device). */
   async clear(): Promise<void> {
     this.#mem.clear();
-    const db = await this.#idb;
-    if (db) {
-      for (const store of [UPLOADS, CACHE]) {
-        const tx = db.transaction(store, "readwrite");
-        tx.objectStore(store).clear();
-      }
-    }
+    await this.#store.clear().catch(() => {});
     this.#setState({ blobs: {} });
     await this.#refreshPending();
   }

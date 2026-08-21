@@ -1,0 +1,31 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    // expo/tsconfig.base owns the React Native half (jsx, customConditions,
+    // module: preserve, lib). These are tsconfig.base.json's rules, restated
+    // rather than inherited, because a two-parent `extends` makes which half
+    // wins a question nobody should have to answer while reading this file.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": { "@/*": ["./src/*"] },
+    // Node's globals reach one file, app.config.ts, which runs in Expo's CLI
+    // rather than on a device. Restricting `types` to keep them out of app
+    // code would also drop every other ambient package (expo-router's typed
+    // routes among them), which is the worse trade: Metro provides `process`
+    // anyway, so the surface this widens is one the runtime already has.
+    "types": ["node", "uniwind/types"]
+  },
+  "include": [
+    "app",
+    "src",
+    "*.ts",
+    "*.tsx",
+    "uniwind-types.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

@@ -1,5 +1,5 @@
-import { BlobQueue } from "@ragbag/client-runtime";
-import type { TBlobQueueState, TBlobUploadState } from "@ragbag/client-runtime";
+import type { BlobQueue, TBlobQueueState, TBlobUploadState } from "@ragbag/client-runtime";
+import { webBlobQueue } from "@ragbag/client-runtime/web";
 import {
   createContext,
   useContext,
@@ -11,15 +11,17 @@ import {
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
 
-// One BlobQueue per signed-in user (like Zero's per-user store). The queue
-// itself lives in client-runtime; this file is the React glue.
+// One BlobQueue per signed-in user (like Zero's per-user store). The queue's
+// state machine lives in client-runtime and is shared with the Expo app;
+// `webBlobQueue` is the browser wiring for it (IndexedDB, XMLHttpRequest, Web
+// Crypto). This file is the React glue over both.
 
 const queues = new Map<string, BlobQueue>();
 
 export function blobQueueFor(userID: string): BlobQueue {
   let queue = queues.get(userID);
   if (!queue) {
-    queue = new BlobQueue({ userID, apiBase: API_BASE });
+    queue = webBlobQueue({ userID, apiBase: API_BASE });
     queues.set(userID, queue);
   }
   return queue;

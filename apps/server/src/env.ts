@@ -37,6 +37,13 @@ const shape = {
   // won't work, those are separate sites.
   COOKIE_DOMAIN: z.string().optional(),
 
+  // The Expo app's custom URL scheme (apps/mobile/app.config.ts). better-auth
+  // sends the OAuth round trip back to `<scheme>://`, and refuses to unless
+  // that string is in `trustedOrigins`, so the two files have to agree. Kept
+  // as configuration rather than a constant because the scheme is per build
+  // variant the moment there is more than one.
+  MOBILE_SCHEME: z.string().default("ragbag"),
+
   // Google OAuth is the only sign-in method (§9). Optional so the server
   // can boot in dev without credentials.
   GOOGLE_CLIENT_ID: z.string().optional(),
