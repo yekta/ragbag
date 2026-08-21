@@ -10,12 +10,15 @@
     />
     <meta name="theme-color" content="#fafafa" />
     <title>Ragbag</title>
-    <!-- The .ico is the desktop tab, and browsers request /favicon.ico whether
-         or not it is declared; the PNG is the same mark at 256px, for the
-         retina slots the ico's single 128px frame can't fill. The touch icon is
-         a third file rather than another size of those two because iOS paints
-         the transparent parts of a home-screen icon black: it ships opaque, on
-         its own white plate, while the favicons stay cut out. -->
+    <!-- The SVG is the mark at any size and is what every current browser
+         picks when it is declared; the .ico stays because browsers request
+         /favicon.ico whether or not it is declared, and the PNG is the same
+         mark at 256px, for the retina slots the ico's single 128px frame can't
+         fill. The touch icon is a separate file rather than another size of
+         those because iOS paints the transparent parts of a home-screen icon
+         black: it ships opaque, on its own white plate, while the favicons stay
+         cut out. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="128x128" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="256x256" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
