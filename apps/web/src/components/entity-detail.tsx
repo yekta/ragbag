@@ -216,7 +216,7 @@ export function EntityDetail({ id }: { id: string }) {
                           an action on the message it sat on. */}
                     <Link
                       {...messageLink(mention.messageId)}
-                      className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"
+                      className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover active:bg-panel-hover"
                       onClick={close}
                     >
                       <span className="block truncate text-sm font-medium">

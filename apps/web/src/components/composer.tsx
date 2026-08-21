@@ -623,7 +623,12 @@ function AttachmentChip({
   const veil = `absolute inset-0 flex items-center justify-center ${
     failedReason ? "bg-destructive-soft/veil" : "bg-card/veil"
   }`;
-  const chip = `flex size-10 items-center justify-center rounded-full border bg-card ${
+  // Where the veil is a retry button (below), the pointer and the press land
+  // on the chip rather than on the veil: the chip is the opaque thing over the
+  // picture, so it is the one surface here with a rung to take, and deepening
+  // the wash instead would read as the photo going out rather than as a control
+  // answering. Inert on the span, which has no such ancestor to answer to.
+  const chip = `flex size-10 items-center justify-center rounded-full border bg-card transition group-hover/retry:bg-background-hover group-active/retry:bg-background-hover ${
     failedReason ? "border-destructive text-destructive" : "text-foreground"
   }`;
   // Retry-icon-or-alert is the failed pair; every other state supplies its own
@@ -684,7 +689,7 @@ function AttachmentChip({
         {(overlay || failedReason) &&
           (retry ? (
             // The whole tile stays the target, the chip is only what you read.
-            <button type="button" className={veil} title={title} onClick={retry}>
+            <button type="button" className={`${veil} group/retry`} title={title} onClick={retry}>
               <span className={chip}>{mark}</span>
             </button>
           ) : (

@@ -334,7 +334,7 @@ export function AttachmentDetail({ id }: { id: string }) {
                     <SectionHeading>Seen in 1 message</SectionHeading>
                     <Link
                       {...messageLink(attachment.messageId)}
-                      className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover"
+                      className="block rounded-lg border bg-panel p-3 transition hover:bg-panel-hover active:bg-panel-hover"
                       onClick={close}
                     >
                       <span className="block truncate text-sm font-medium">

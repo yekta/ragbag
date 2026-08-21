@@ -215,7 +215,13 @@ function ImageAlbum({ items, variant }: { items: TAttachment[]; variant: TAlbumV
         // shrink-to-fit container whose own width depends on the image inside
         // it, so until the bytes decode the picture is a few pixels wide and
         // the archive loses hundreds of pixels of height.
-        className={`relative block overflow-hidden rounded-md border ${box ? "" : "h-52 max-w-full"}`}
+        //
+        // A pointer dims the picture rather than filling behind it, and a press
+        // says it again: a tile has no fill of its own to step off, the photo
+        // covers every pixel of it, so the photo is what answers. The same pair
+        // every other control in the app carries (ui/button.tsx has the
+        // argument), said in the one language a picture has.
+        className={`relative block overflow-hidden rounded-md border transition hover:brightness-90 active:brightness-90 ${box ? "" : "h-52 max-w-full"}`}
       >
         <Tile attachment={only} variant="display" fit="contain" />
       </AttachmentLink>
@@ -231,7 +237,7 @@ function ImageAlbum({ items, variant }: { items: TAttachment[]; variant: TAlbumV
           key={item.id}
           attachment={item}
           variant={variant}
-          className="relative aspect-square overflow-hidden rounded-md border"
+          className="relative aspect-square overflow-hidden rounded-md border transition hover:brightness-90 active:brightness-90"
         >
           <Tile attachment={item} variant="thumb" fit="cover" />
           {/* A chip rather than a scrim over the picture: the palette has no
@@ -463,7 +469,7 @@ function FileRow({
     <AttachmentLink
       attachment={attachment}
       variant={variant}
-      className="relative flex items-center gap-3 rounded-md border bg-card p-3 transition hover:bg-background-hover"
+      className="relative flex items-center gap-3 rounded-md border bg-card p-3 transition hover:bg-background-hover active:bg-background-hover"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
         <Icon name={FACE_ICON[face]} className="size-4" />
@@ -533,7 +539,7 @@ export function UploadBadge({
       }}
       className={`absolute top-1.5 flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-medium ${
         side === "left" ? "left-1.5" : "right-1.5"
-      } ${failing ? "border-destructive bg-panel text-destructive" : "bg-panel text-muted-foreground"}`}
+      } ${failing ? "border-destructive bg-panel text-destructive transition hover:bg-destructive-soft active:bg-destructive-soft" : "bg-panel text-muted-foreground"}`}
     >
       {failing ? (
         <Icon name="alert" className="size-3" />

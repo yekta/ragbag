@@ -94,7 +94,10 @@ function AttachmentThings({ messages, face }: { messages: TMessages; face: strin
             key={attachment.id}
             {...attachmentLink(attachment.id)}
             title={attachment.generatedTitle ?? attachment.filename}
-            className="relative aspect-square overflow-hidden rounded-xl border"
+            // Pointer and press dim the picture, the way a tile in an album
+            // does: a photo covers its tile, so there is no fill under it to
+            // step off.
+            className="relative aspect-square overflow-hidden rounded-xl border transition hover:brightness-90 active:brightness-90"
           >
             <MediaImage
               blobId={attachment.blobId}
@@ -115,7 +118,7 @@ function AttachmentThings({ messages, face }: { messages: TMessages; face: strin
         <li key={attachment.id}>
           <Link
             {...attachmentLink(attachment.id)}
-            className="flex items-center gap-3 rounded-2xl border bg-background p-3.5 transition hover:bg-background-hover"
+            className="flex items-center gap-3 rounded-2xl border bg-background p-3.5 transition hover:bg-background-hover active:bg-background-hover"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <Icon name={FACE_ICON[faceForMime(attachment.mime)]} className="size-5" />

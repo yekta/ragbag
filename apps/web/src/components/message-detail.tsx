@@ -537,7 +537,7 @@ function AttachmentFindings({ attachment }: { attachment: TDetailAttachment }) {
           being pointed at rather than as a box drawn around the text. */}
       <Link
         {...attachmentLink(attachment.id)}
-        className="-mx-2 block rounded-lg px-2 py-1.5 transition hover:bg-panel-hover"
+        className="-mx-2 block rounded-lg px-2 py-1.5 transition hover:bg-panel-hover active:bg-panel-hover"
       >
         <span className="flex items-center gap-2">
           <AttachmentThumb attachment={attachment} />

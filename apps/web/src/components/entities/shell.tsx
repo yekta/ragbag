@@ -111,12 +111,19 @@ export function EntityShell({
   // land on the card rather than on something sitting in it. That includes the
   // 44px touch box a `Button` carries as a ::before, which is wider than the
   // button looks but is already where a click goes to the button, not here.
-  const hover = onOpen
-    ? "cursor-pointer hover:not-has-[a:hover,button:hover]:bg-background-hover"
+  //
+  // The press repeats that fill on the same rung, for the reason every variant
+  // in ui/button.tsx repeats its own: a phone has no pointer, so a fill that
+  // exists only under one is a control that never acknowledges a tap. The same
+  // rung, not a deeper one, and `:active` climbs to the ancestors of whatever
+  // was pressed exactly as `:hover` does, so it takes the guard twice over: a
+  // press on a copy button fills the button and leaves the card under it alone.
+  const interactive = onOpen
+    ? "cursor-pointer hover:not-has-[a:hover,button:hover]:bg-background-hover active:not-has-[a:active,button:active]:bg-background-hover"
     : "";
   return (
     <div
-      className={`flex gap-3 transition ${surface} ${hover}`}
+      className={`flex gap-3 transition ${surface} ${interactive}`}
       onClick={
         onOpen
           ? (e) => {
