@@ -147,10 +147,28 @@ machine running them: `localhost` on a phone means the phone. A simulator shares
 loopback, so the defaults work there unchanged.
 
 ```sh
-pnpm --filter mobile run ios       # prebuild + run on a simulator or device
+pnpm --filter mobile run ios       # prebuild + run on a simulator or device (needs a Mac)
 pnpm --filter mobile run android
 pnpm --filter mobile exec expo export --platform ios   # bundles without a device: the check CI wants
 ```
+
+Builds that do not need a Mac go through EAS (`apps/mobile/eas.json`). The `development`
+profile is the one you install once and then leave alone: it carries `expo-dev-client` instead
+of a bundle, so it loads JS from Metro and every code change is a reload rather than a rebuild.
+`distribution: "internal"` installs by link or QR rather than through a store, and on Android
+that forces `buildType: "apk"`, because an AAB is a store upload format and not something a
+phone can install. `preview` is the same thing with the JS baked in, for handing to someone who
+just wants to use it. Note that `eas.json` is JSON with a strict schema: the `"//key"` comment
+convention this repo uses in `package.json` is rejected there.
+
+`eas build` needs an Expo project id, and because `app.config.ts` is a dynamic config EAS
+cannot write one in for you. `eas init` prints it; it goes in the repo-root `.env` as
+`EAS_PROJECT_ID`, which the config reads.
+
+Getting it onto an iPhone needs one of two things, and there is no third: an Apple Developer
+Program membership, which lets EAS do ad hoc provisioning from any machine, or a Mac, where a
+free Apple ID sideloads to your own device with a 7-day expiry and a bundle identifier you
+control.
 
 Sign-in is the same better-auth Google flow, through `@better-auth/expo`: the OAuth round
 trip lands on the app's own scheme, and the session comes back as a cookie the app stores in
