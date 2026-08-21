@@ -87,6 +87,10 @@ export const account = pgTable(
     id: text("id").primaryKey(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
+    // Better Auth 1.7 keys an external identity by (issuer, accountId).
+    // This is not optional: omitting it makes the Drizzle adapter compile the
+    // issuer predicate as a blank SQL expression (`where ( = $1 ...)`).
+    issuer: text("issuer").notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -105,7 +109,10 @@ export const account = pgTable(
     password: text("password"),
     ...timestamps,
   },
-  (t) => [index("account_user_id_idx").on(t.userId)],
+  (t) => [
+    index("account_user_id_idx").on(t.userId),
+    uniqueIndex("account_issuer_account_id_uidx").on(t.issuer, t.accountId),
+  ],
 );
 
 export const verification = pgTable("verification", {
