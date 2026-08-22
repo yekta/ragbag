@@ -64,7 +64,7 @@ function useRows(messages: TMessages): TRow[] {
   }, [messages, view, tagId]);
 }
 
-export function Timeline({ messages }: { messages: TMessages }) {
+export function Timeline({ messages, inset }: { messages: TMessages; inset: number }) {
   const rows = useRows(messages);
   const filter = useFilter();
 
@@ -104,7 +104,10 @@ export function Timeline({ messages }: { messages: TMessages }) {
           </View>
         )
       }
-      contentContainerClassName="pt-3"
+      // The composer floats over the bottom of this list rather than sitting
+      // under it (features/composer/composer.tsx), so the last message needs
+      // the bar's own measured height of room to come to rest above.
+      contentContainerStyle={{ paddingTop: 12, paddingBottom: inset }}
       showsVerticalScrollIndicator={false}
       // The keyboard belongs to the composer below, and a scroll is a
       // deliberate move away from it.

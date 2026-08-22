@@ -2,9 +2,9 @@ import { queries } from "@ragbag/contracts";
 import { faceForMime } from "@ragbag/shared";
 import { useQuery } from "@rocicorp/zero/react";
 import { LegendList } from "@legendapp/list/react-native";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useMemo, useState, type ReactNode } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Keyboard, Pressable, TextInput, View } from "react-native";
 import { useCSSVariable } from "uniwind";
 import { FACE_ICON, Icon, iconNamed, type TIconName } from "@/components/icon";
 import { MediaImage } from "@/components/media-image";
@@ -37,6 +37,11 @@ import {
 // does not have: there is no keyboard to summon a palette with, and a modal
 // that covers the archive while the soft keyboard covers the other half of it
 // leaves about a third of the screen for results. A screen gets all of it.
+//
+// A result opens *over* the results rather than in place of them. It used to
+// replace this screen, which meant asking the navigator to swap a modal for a
+// form sheet after it had already presented one; and even where that worked, a
+// search you had to type again to see the second result was the wrong shape.
 
 const GROUP_LABEL: Record<TResultGroup, string> = {
   messages: "Messages",
@@ -84,14 +89,17 @@ export default function SearchScreen() {
         : result.message
           ? messageHref(result.message.id)
           : null;
-    if (href) router.replace(href);
+    if (!href) return;
+    // Before the push, not after: a sheet presented while the soft keyboard is
+    // still up comes in over a screen that is about to resize under it.
+    Keyboard.dismiss();
+    router.push(href);
   };
 
   const blank = query.trim() === "";
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: "Search" }} />
       <View className="border-b border-border px-3 pb-2 pt-1">
         <View className="h-11 flex-row items-center gap-2 rounded-lg bg-panel px-3">
           <Icon name="search" size={16} />

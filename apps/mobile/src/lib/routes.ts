@@ -1,5 +1,5 @@
 import type { TAttachmentFace, TEntityTypes } from "@ragbag/shared";
-import { useLocalSearchParams } from "expo-router";
+import { usePathname } from "expo-router";
 import type { Href } from "expo-router";
 import { useMemo } from "react";
 import { declaredSlugs } from "@/lib/thing-slugs";
@@ -124,24 +124,68 @@ export const messageHref = (id: string): Href => `/message/${id}` as Href;
 export const entityHref = (id: string): Href => `/entity/${id}` as Href;
 export const attachmentHref = (id: string): Href => `/attachment/${id}` as Href;
 export const photoHref = (id: string): Href => `/photo/${id}` as Href;
+export const searchHref = "/search" as Href;
 export const settingsHref = "/settings" as Href;
+
+/** Two filters are the same filter when they name the same view and tag. */
+export function sameFilter(a: TFilter, b: TFilter): boolean {
+  return a.view === b.view && a.tagId === b.tagId;
+}
+
+/**
+ * The filter a path is asking for, or `null` when the path is not a view of
+ * the archive at all.
+ *
+ * The exact inverse of `filterHref`, so the two cannot disagree about the
+ * vocabulary.
+ */
+export function parseFilter(pathname: string): TFilter | null {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length === 0) return EVERYTHING;
+  const view = isViewSlug(parts[0]!) ? parts[0]! : null;
+  const rest = view ? parts.slice(1) : parts;
+  if (rest.length === 0) return { view, tagId: null };
+  if (rest.length === 2 && rest[0] === "tags") return { view, tagId: rest[1]! };
+  // `/message/<id>`, `/settings`, `/search`: a surface over a view, not a view.
+  return null;
+}
+
+/** Is this path one of the archive's own views, rather than a surface over one? */
+export const isArchivePath = (pathname: string): boolean => parseFilter(pathname) !== null;
+
+/**
+ * The last view of the archive the app was on.
+ *
+ * Module scope rather than a ref per caller, and both halves of that are
+ * load-bearing. *Remembered*, because the surfaces that open over a view are
+ * routes here (see above) and the sidebar behind an open message sheet must
+ * still light the row you came from rather than none. *Shared*, because the
+ * sidebar, the screen and the empty state all answer this question and a
+ * component that happens to mount while a sheet is open would otherwise start
+ * from a different answer than its siblings.
+ */
+let lastFilter: TFilter = EVERYTHING;
 
 /**
  * What the route is asking for: one hook for the sidebar (which row is lit),
  * the timeline (which rows exist) and the views themselves.
  *
- * `useLocalSearchParams` rather than `useGlobalSearchParams`: the sidebar and
- * the list are inside the screen that owns these segments, and the global
- * variant keeps reporting the last matched route's params from a screen that
- * has been pushed over, which lights the wrong row behind an open sheet.
+ * Read off the path rather than out of `useLocalSearchParams`, and that is not
+ * a preference. The sidebar is the drawer's content: it is mounted beside the
+ * navigator rather than under any of its routes, so route params there are
+ * empty, and every tag row silently lost the view it was meant to combine with
+ * (`/links/tags/<id>` came out as `/tags/<id>`). The path is the one piece of
+ * state both sides of the drawer can read, and it is the same string
+ * `filterHref` produces.
  */
 export function useFilter(): TFilter {
-  const params = useLocalSearchParams<{ view?: string; tagId?: string }>();
+  const pathname = usePathname();
   return useMemo(() => {
-    const view = params.view;
-    return {
-      view: view && isViewSlug(view) ? view : null,
-      tagId: params.tagId ?? null,
-    };
-  }, [params.tagId, params.view]);
+    const parsed = parseFilter(pathname);
+    // Assigning inside a memo is safe here because it is a cache of a pure
+    // function of the path: re-running it with the same path re-derives the
+    // same answer.
+    if (parsed && !sameFilter(parsed, lastFilter)) lastFilter = parsed;
+    return lastFilter;
+  }, [pathname]);
 }

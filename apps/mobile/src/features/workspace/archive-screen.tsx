@@ -1,17 +1,18 @@
 import { queries } from "@ragbag/contracts";
 import { useQuery } from "@rocicorp/zero/react";
-import { Stack, useNavigation, useRouter } from "expo-router";
-import type { Href } from "expo-router";
-import { Platform, Pressable, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { useState } from "react";
+import { Pressable, View } from "react-native";
 import { Icon } from "@/components/icon";
 import { useEntityTypes } from "@/features/session/entity-types";
+import { useSidebar } from "@/features/sidebar/workspace-shell";
 import { Composer } from "@/features/composer/composer";
 import { ThingsView } from "@/features/things/things-view";
 import { Timeline } from "@/features/timeline/timeline";
 import { SyncBanner } from "@/features/workspace/sync-banner";
 import { WHOLE_ARCHIVE } from "@/features/workspace/workspace-provider";
 import { useMeta } from "@/lib/meta";
-import { attachmentFaceOf, entityKindOf, isChatView, useFilter } from "@/lib/routes";
+import { attachmentFaceOf, entityKindOf, isChatView, searchHref, useFilter } from "@/lib/routes";
 
 // One screen for every view of the archive.
 //
@@ -24,6 +25,13 @@ import { attachmentFaceOf, entityKindOf, isChatView, useFilter } from "@/lib/rou
 // or a list, because the thing IS the content (plan §8.2). The composer is
 // under all of them: whatever you are looking at, sending is the thing this
 // app is for.
+//
+// "Under" is now literal. The composer floats over the list rather than sitting
+// in a row beneath it, so the list has to be told how much of its own bottom is
+// covered: that is what `inset` carries. Measured rather than assumed, because
+// the bar grows with attachments and with however many lines have been typed,
+// and a constant would be wrong in exactly the states where being wrong hides a
+// message.
 
 export function ArchiveScreen() {
   const [messages] = useQuery(queries.messages(WHOLE_ARCHIVE));
@@ -32,6 +40,7 @@ export function ArchiveScreen() {
   const meta = useMeta();
   const types = useEntityTypes();
   const filter = useFilter();
+  const [composerHeight, setComposerHeight] = useState(0);
 
   const title = (() => {
     if (filter.view === "favorites") return "Favorites";
@@ -52,37 +61,41 @@ export function ArchiveScreen() {
         options={{
           headerShown: true,
           title,
-          // iOS puts UIKit's own sidebar toggle here, from the split view.
-          // Android has no such thing, so the drawer gets a button.
-          headerLeft: Platform.OS === "android" ? DrawerButton : undefined,
+          headerLeft: SidebarButton,
           headerRight: SearchButton,
         }}
       />
       <SyncBanner />
       {isChatView(filter.view) ? (
-        <Timeline messages={messages} />
+        <Timeline messages={messages} inset={composerHeight} />
       ) : (
-        <ThingsView messages={messages} entities={entities} />
+        <ThingsView messages={messages} entities={entities} inset={composerHeight} />
       )}
-      <Composer canAttach={meta?.blobs ?? true} />
+      <Composer canAttach={meta?.blobs ?? true} onHeight={setComposerHeight} />
     </View>
   );
 }
 
-function DrawerButton() {
-  // Typed loosely on purpose: `openDrawer` exists on the drawer navigation
-  // object, and this button only renders on the platform where the drawer is
-  // the host (features/sidebar/workspace-shell.android.tsx).
-  const navigation = useNavigation() as unknown as { openDrawer?: () => void };
+/**
+ * The control that reveals the sidebar.
+ *
+ * On both platforms now, and that is the change: iOS used to get UIKit's own
+ * display-mode button out of the split view it no longer has
+ * (features/sidebar/workspace-shell.tsx). The swipe from the left edge does the
+ * same thing, but a gesture with nothing on screen to suggest it is a feature
+ * only the person who wrote it knows about.
+ */
+function SidebarButton() {
+  const { setOpen } = useSidebar();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Open sidebar"
       hitSlop={8}
-      onPress={() => navigation.openDrawer?.()}
+      onPress={() => setOpen(true)}
       className="size-11 items-center justify-center rounded-full active:bg-hover"
     >
-      <Icon name="menu" size={22} />
+      <Icon name="sidebar" size={22} />
     </Pressable>
   );
 }
@@ -94,7 +107,7 @@ function SearchButton() {
       accessibilityRole="button"
       accessibilityLabel="Search"
       hitSlop={8}
-      onPress={() => router.push("/search" as Href)}
+      onPress={() => router.push(searchHref)}
       className="size-11 items-center justify-center rounded-full active:bg-hover"
     >
       <Icon name="search" size={22} />

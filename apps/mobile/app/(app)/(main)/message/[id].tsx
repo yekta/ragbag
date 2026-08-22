@@ -14,6 +14,8 @@ import { Section, SectionHeading, Seam } from "@/features/detail/section";
 import { attachmentHref, entityHref } from "@/lib/routes";
 import { dayLabel, formatBytes, timeLabel } from "@/lib/format";
 import { useMeta } from "@/lib/meta";
+import { runMutation } from "@/lib/mutate";
+import { toast } from "@/lib/toast";
 
 // One message, open.
 //
@@ -53,9 +55,16 @@ export default function MessageSheet() {
       {
         text: "Delete",
         style: "destructive",
+        // Through runMutation, and the dismissal waits on it: Zero resolves a
+        // failed mutation rather than rejecting it, so a bare `void mutate`
+        // followed by a `back()` closes the sheet on a delete that did not
+        // happen and leaves the message sitting in the chat behind it.
         onPress: () => {
-          void zero.mutate(mutators.message.delete({ id: message.id }));
-          router.back();
+          void runMutation(zero.mutate(mutators.message.delete({ id: message.id })))
+            .then(() => router.back())
+            .catch((err: unknown) =>
+              toast.error(err instanceof Error ? err.message : "Could not delete this"),
+            );
         },
       },
     ]);

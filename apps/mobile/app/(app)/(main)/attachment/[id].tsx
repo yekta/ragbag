@@ -54,13 +54,19 @@ export default function AttachmentSheet() {
     <>
       {/* The face names the surface, not the filename: "Image", "PDF",
           "Audio", "File". The name of this particular file is data, and it is
-          a row down in Details with the rest of what the file is. */}
+          a row down in Details with the rest of what the file is.
+
+          In the title rather than in `headerLeft`, for the same reason the
+          thing sheet gives: this page is pushed from a message, from search and
+          from the things grid, and the left-hand slot is the way back to
+          whichever of those it was. */}
       <Stack.Screen
         options={{
           title: FACE_LABEL[face],
-          headerLeft: () => (
-            <View className="flex-row items-center pl-1">
-              <Icon name={FACE_ICON[face]} size={18} />
+          headerTitle: () => (
+            <View className="flex-row items-center gap-1.5">
+              <Icon name={FACE_ICON[face]} size={16} />
+              <Text className="text-base font-semibold">{FACE_LABEL[face]}</Text>
             </View>
           ),
         }}

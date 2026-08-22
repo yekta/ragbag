@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { Button } from "@/components/button";
 import { Logo } from "@/components/logo";
 import { Muted, Text, Title } from "@/components/text";
+import { useIdentity } from "@/features/session/identity-provider";
 import { oauthRedirectError, signInAnonymously, signInWithGoogle } from "@/lib/auth";
 import { dropLocalData } from "@/lib/identity";
 import { useMeta } from "@/lib/meta";
@@ -20,6 +21,7 @@ import { useMeta } from "@/lib/meta";
 
 export default function SignInScreen() {
   const meta = useMeta();
+  const { remember } = useIdentity();
   const params = useLocalSearchParams<{ error?: string | string[] }>();
   const [error, setError] = useState<string | undefined>(() => oauthRedirectError(params.error));
 
@@ -65,7 +67,9 @@ export default function SignInScreen() {
               onPress={() =>
                 startSignIn(async () => {
                   setError(undefined);
-                  setError(await signInWithGoogle());
+                  const result = await signInWithGoogle();
+                  setError(result.error);
+                  if (result.identity) remember(result.identity);
                 })
               }
             >

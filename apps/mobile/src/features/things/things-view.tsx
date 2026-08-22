@@ -36,13 +36,22 @@ import {
 // image *is* the content. Same for addresses: a list of places with map
 // buttons is useful; a filtered chat where you hunt inside bubbles is not.
 
-export function ThingsView({ messages, entities }: { messages: TMessages; entities: TEntityRows }) {
+export function ThingsView({
+  messages,
+  entities,
+  inset,
+}: {
+  messages: TMessages;
+  entities: TEntityRows;
+  /** What the floating composer covers at the bottom of every list here. */
+  inset: number;
+}) {
   const filter = useFilter();
   const face = attachmentFaceOf(filter.view);
   const kind = entityKindOf(filter.view, useEntityTypes());
 
-  if (face) return <AttachmentThings messages={messages} face={face} />;
-  if (kind) return <EntityThings entities={entities} kind={kind} />;
+  if (face) return <AttachmentThings messages={messages} face={face} inset={inset} />;
+  if (kind) return <EntityThings entities={entities} kind={kind} inset={inset} />;
   return <EmptyScreen />;
 }
 
@@ -70,7 +79,15 @@ function useAttachments(messages: TMessages, face: string): TFound[] {
 /** Tiles across the grid. Three on a phone; the sidebar takes the rest. */
 const GRID_COLUMNS = 3;
 
-function AttachmentThings({ messages, face }: { messages: TMessages; face: string }) {
+function AttachmentThings({
+  messages,
+  face,
+  inset,
+}: {
+  messages: TMessages;
+  face: string;
+  inset: number;
+}) {
   const found = useAttachments(messages, face);
   const router = useRouter();
 
@@ -83,7 +100,7 @@ function AttachmentThings({ messages, face }: { messages: TMessages; face: strin
         numColumns={GRID_COLUMNS}
         keyExtractor={(item: TFound) => item.attachment.id}
         estimatedItemSize={128}
-        contentContainerClassName="p-2"
+        contentContainerStyle={{ padding: 8, paddingBottom: inset + 8 }}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }: { item: TFound }) => (
           <View className="p-0.5" style={{ width: `${100 / GRID_COLUMNS}%` }}>
@@ -108,7 +125,7 @@ function AttachmentThings({ messages, face }: { messages: TMessages; face: strin
       data={found}
       keyExtractor={(item: TFound) => item.attachment.id}
       estimatedItemSize={80}
-      contentContainerClassName="gap-1.5 p-3"
+      contentContainerStyle={{ gap: 6, padding: 12, paddingBottom: inset + 12 }}
       showsVerticalScrollIndicator={false}
       renderItem={({ item }: { item: TFound }) => (
         <Pressable
@@ -142,7 +159,15 @@ function AttachmentThings({ messages, face }: { messages: TMessages; face: strin
   );
 }
 
-function EntityThings({ entities, kind }: { entities: TEntityRows; kind: string }) {
+function EntityThings({
+  entities,
+  kind,
+  inset,
+}: {
+  entities: TEntityRows;
+  kind: string;
+  inset: number;
+}) {
   const router = useRouter();
 
   // Mentions to deleted messages are already excluded by the query, so an
@@ -164,7 +189,7 @@ function EntityThings({ entities, kind }: { entities: TEntityRows; kind: string 
         data={rows}
         keyExtractor={(entity: TEntityRow) => entity.id}
         estimatedItemSize={96}
-        contentContainerClassName="gap-1.5 p-3"
+        contentContainerStyle={{ gap: 6, padding: 12, paddingBottom: inset + 12 }}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }: { item: TEntityRow }) => (
           <EntityCard

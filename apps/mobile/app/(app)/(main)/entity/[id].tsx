@@ -69,13 +69,20 @@ export default function EntitySheet() {
       {/* The header names the surface: the kind's own icon and the kind's own
           label, the pair the sidebar's row for it already uses. Not the
           thing's title, which is the first line of the card below and would
-          otherwise be said twice. */}
+          otherwise be said twice.
+
+          The pair goes in the title and not in `headerLeft`, which is where it
+          used to be. That slot belongs to the navigator: this sheet is reached
+          from a message and from the things list as well as from a row of its
+          own, so an icon parked there was an icon sitting on the back chevron
+          of every one of those. */}
       <Stack.Screen
         options={{
           title: label,
-          headerLeft: () => (
-            <View className="flex-row items-center pl-1">
-              <Icon name={iconNamed(types.icon(entity.kind))} size={18} />
+          headerTitle: () => (
+            <View className="flex-row items-center gap-1.5">
+              <Icon name={iconNamed(types.icon(entity.kind))} size={16} />
+              <Text className="text-base font-semibold">{label}</Text>
             </View>
           ),
         }}

@@ -14,6 +14,13 @@ import { useCSSVariable } from "uniwind";
 // The photo viewer is a full-screen modal rather than a sheet: a picture opened
 // full screen is the one surface in this app that should have nothing else on
 // screen at all.
+//
+// Search is the one that is neither: an ordinary pushed screen. It was a modal,
+// which put it in a different presentation from every detail route, so landing
+// on a result meant swapping a modal for a form sheet in place and asking
+// react-native-screens to change a presentation it had already made. It pushes
+// now, the result pushes over it, and backing out of a result puts you back in
+// your results, which is where you were.
 
 export default function MainLayout() {
   const canvas = useCSSVariable("--color-background") as string;
@@ -31,10 +38,10 @@ export default function MainLayout() {
         headerBackButtonDisplayMode: "minimal",
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="[view]/index" options={{ headerShown: false }} />
-      <Stack.Screen name="[view]/tags/[tagId]" options={{ headerShown: false }} />
-      <Stack.Screen name="tags/[tagId]" options={{ headerShown: false }} />
+      {/* The four views of the archive are one screen (archive-screen.tsx) and
+          it sets its own title and controls, so nothing is declared for them
+          here: a `headerShown` toggled off here and back on there is a frame
+          with no navigation bar on every one of them. */}
 
       <Stack.Screen
         name="message/[id]"
@@ -66,7 +73,7 @@ export default function MainLayout() {
         name="settings"
         options={{ presentation: "formSheet", ...SHEET, headerShown: false }}
       />
-      <Stack.Screen name="search" options={{ presentation: "modal", title: "Search" }} />
+      <Stack.Screen name="search" options={{ title: "Search" }} />
     </Stack>
   );
 }

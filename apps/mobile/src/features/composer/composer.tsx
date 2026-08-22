@@ -3,12 +3,14 @@ import { MAX_ATTACHMENTS, MAX_BLOB_BYTES, mutators } from "@ragbag/contracts";
 import { faceForMime, newId, type TAttachmentFace } from "@ragbag/shared";
 import { MenuView, type MenuAction } from "@react-native-menu/menu";
 import { useZero } from "@rocicorp/zero/react";
+import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { Image as ExpoImage } from "expo-image";
 import { File } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useRef, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import type { LayoutChangeEvent } from "react-native";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCSSVariable } from "uniwind";
@@ -36,6 +38,14 @@ import { toast } from "@/lib/toast";
 // share sheet instead, which is a different feature and not this file's. What
 // there is instead is three real sources rather than one file input, so the
 // attach button opens a native menu: the photo library, the camera, and files.
+//
+// It floats: a rounded bar inset from three edges with the archive running
+// under it, rather than a strip walled off from the list by a hairline. That
+// costs one thing and buys one thing. The cost is that the list no longer knows
+// where its own bottom is, so this measures itself and hands the number up
+// (`onHeight`) for the list to pad by. What it buys is that the bar can be
+// glass and mean it: a material that refracts what is behind it is a lie when
+// what is behind it is a wall.
 
 const PLACEHOLDER = "Send anything: a thought, a link, a file…";
 
@@ -44,6 +54,23 @@ const CAPTURE_TIMEOUT_MS = 12_000;
 
 /** The tile's edge, fixed for every attachment in every state. */
 const TILE = 112;
+
+/**
+ * Whether the system has a glass material to give us.
+ *
+ * Asked once, and behind a guard. It is a runtime question rather than a
+ * platform one (iOS 26 has Liquid Glass, iOS 18 does not, Android answers no
+ * without touching anything native), and it reaches for a native module to ask,
+ * which a JS bundle loaded into an older binary than it was built against will
+ * not find.
+ */
+const LIQUID_GLASS = (() => {
+  try {
+    return isLiquidGlassAvailable();
+  } catch {
+    return false;
+  }
+})();
 
 type TDraftAttachment = {
   /** Chip identity from the moment of pick, before any blobId exists. */
@@ -85,7 +112,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
-export function Composer({ canAttach }: { canAttach: boolean }) {
+export function Composer({
+  canAttach,
+  onHeight,
+}: {
+  canAttach: boolean;
+  /** How much of the list this bar is standing on, once it has been laid out. */
+  onHeight: (height: number) => void;
+}) {
   const zero = useZero();
   const queue = useBlobQueue();
   const insets = useSafeAreaInsets();
@@ -308,105 +342,158 @@ export function Composer({ canAttach }: { canAttach: boolean }) {
     setDraft("");
   };
 
+  const measure = (event: LayoutChangeEvent) => onHeight(event.nativeEvent.layout.height);
+
   return (
     // The composer rides the keyboard rather than being pushed by a padded
     // scroll view: KeyboardStickyView follows the frame natively, so it tracks
     // the keyboard's own curve instead of jumping after it has settled.
-    <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+    //
+    // Absolute, so the archive runs under it. The list is told how much of its
+    // own bottom that costs rather than guessing (`onHeight`), and the bar is
+    // measured on its outer box so the number includes the inset it floats on.
+    // `box-none` on both boxes, or the bar's margins become an invisible strip
+    // that eats every tap meant for the message behind them.
+    <KeyboardStickyView
+      offset={{ closed: 0, opened: 0 }}
+      style={styles.dock}
+      pointerEvents="box-none"
+    >
       <View
-        className="border-t border-border bg-card px-3 pt-2"
+        onLayout={measure}
+        className="px-3 pt-2"
         style={{ paddingBottom: insets.bottom + 8 }}
+        pointerEvents="box-none"
       >
-        {attachments.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
-            className="grow-0"
-            contentContainerClassName="gap-2 pb-2 pr-3"
-          >
-            {attachments.map((a) => (
-              <AttachmentTile
-                key={a.localId}
-                attachment={a}
-                onRemove={() => removeAttachment(a.localId)}
-                onRetry={() => {
-                  setAttachments((prev) =>
-                    prev.map((x) =>
-                      x.localId === a.localId ? { ...x, status: "reading", error: undefined } : x,
-                    ),
-                  );
-                  captureOne(a.localId, a.file, a.name);
-                }}
-              />
-            ))}
-          </ScrollView>
-        ) : null}
+        <Glass>
+          {attachments.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="always"
+              className="grow-0"
+              contentContainerClassName="gap-2 p-2"
+            >
+              {attachments.map((a) => (
+                <AttachmentTile
+                  key={a.localId}
+                  attachment={a}
+                  onRemove={() => removeAttachment(a.localId)}
+                  onRetry={() => {
+                    setAttachments((prev) =>
+                      prev.map((x) =>
+                        x.localId === a.localId ? { ...x, status: "reading", error: undefined } : x,
+                      ),
+                    );
+                    captureOne(a.localId, a.file, a.name);
+                  }}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
 
-        <TextInput
-          multiline
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={PLACEHOLDER}
-          placeholderTextColor={placeholderInk}
-          // 16px minimum, always: anything smaller and iOS Safari-style zoom
-          // behaviour on focus applies to the whole screen.
-          className="max-h-40 px-2 py-2 text-base leading-relaxed"
-          style={{ color: ink }}
-          // Never autofocus: opening the app should show the archive, not the
-          // keyboard over it.
-          autoFocus={false}
-          // Enter inserts a newline and the send button sends, which is what
-          // every phone chat does: there is no shift on a soft keyboard.
-          submitBehavior="newline"
-          accessibilityLabel="Message"
-        />
+          <TextInput
+            multiline
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={PLACEHOLDER}
+            placeholderTextColor={placeholderInk}
+            // 16px minimum, always: anything smaller and iOS Safari-style zoom
+            // behaviour on focus applies to the whole screen.
+            className="max-h-40 px-4 pb-1 pt-3 text-base leading-relaxed"
+            style={{ color: ink }}
+            // Never autofocus: opening the app should show the archive, not the
+            // keyboard over it.
+            autoFocus={false}
+            // Enter inserts a newline and the send button sends, which is what
+            // every phone chat does: there is no shift on a soft keyboard.
+            submitBehavior="newline"
+            accessibilityLabel="Message"
+          />
 
-        <View className="flex-row items-center justify-between gap-2 pt-1">
-          <View className="flex-row items-center gap-1.5">
-            <AttachButton disabled={!canAttach || full} onPicked={addFiles} full={full} />
-            {/* The limit, said out loud, from the first file on. A cap nobody
-                can see is a cap that surprises you at ten. */}
-            {attachments.length > 0 ? (
-              <Text
-                className={`font-mono text-xs ${
-                  full ? "text-warning-foreground" : "text-muted-foreground"
+          <View className="flex-row items-center justify-between gap-2 p-2">
+            <View className="flex-row items-center gap-1.5">
+              <AttachButton disabled={!canAttach || full} onPicked={addFiles} full={full} />
+              {/* The limit, said out loud, from the first file on. A cap nobody
+                  can see is a cap that surprises you at ten. */}
+              {attachments.length > 0 ? (
+                <Text
+                  className={`font-mono text-xs ${
+                    full ? "text-warning-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {attachments.length}/{MAX_ATTACHMENTS}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* The mic is the right-hand control while there is nothing to send,
+                and send takes over the moment there is. */}
+            {hasContent ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  failed
+                    ? "Remove or retry the failed attachment first"
+                    : reading
+                      ? "Still reading an attachment"
+                      : "Send"
+                }
+                accessibilityState={{ disabled: !canSend }}
+                disabled={!canSend}
+                onPress={send}
+                className={`size-11 items-center justify-center rounded-full bg-primary active:bg-primary-hover ${
+                  canSend ? "" : "opacity-50"
                 }`}
               >
-                {attachments.length}/{MAX_ATTACHMENTS}
-              </Text>
-            ) : null}
+                <Icon name="send" size={20} />
+              </Pressable>
+            ) : (
+              <AudioRecorder onRecorded={addRecording} />
+            )}
           </View>
-
-          {/* The mic is the right-hand control while there is nothing to send,
-              and send takes over the moment there is. */}
-          {hasContent ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                failed
-                  ? "Remove or retry the failed attachment first"
-                  : reading
-                    ? "Still reading an attachment"
-                    : "Send"
-              }
-              accessibilityState={{ disabled: !canSend }}
-              disabled={!canSend}
-              onPress={send}
-              className={`size-11 items-center justify-center rounded-full bg-primary active:bg-primary-hover ${
-                canSend ? "" : "opacity-50"
-              }`}
-            >
-              <Icon name="send" size={20} />
-            </Pressable>
-          ) : (
-            <AudioRecorder onRecorded={addRecording} />
-          )}
-        </View>
+        </Glass>
       </View>
     </KeyboardStickyView>
   );
 }
+
+/**
+ * The bar's material.
+ *
+ * The system's own glass where the system has one, which since iOS 26 is a real
+ * Liquid Glass layer: it refracts and blurs the archive scrolling underneath
+ * rather than approximating it, and it re-tints itself against whatever passes
+ * under it, which nothing drawn in this app could do.
+ *
+ * Not `isInteractive`: that is the glass that lifts and brightens under a
+ * finger, which is right for a button and wrong for the box one sits in.
+ *
+ * The fallback is opaque on purpose rather than a translucent fill pretending
+ * to be glass: a flat wash of card colour at 80% over a photograph is not a
+ * material, it is a photograph you cannot read text on. An opaque card with a
+ * border is honest, and it is what the rest of the app is made of.
+ */
+function Glass({ children }: { children: ReactNode }) {
+  if (LIQUID_GLASS) {
+    return (
+      <GlassView glassEffectStyle="regular" style={styles.bar}>
+        {children}
+      </GlassView>
+    );
+  }
+  return (
+    <View className="overflow-hidden rounded-3xl border border-border bg-card">{children}</View>
+  );
+}
+
+const styles = StyleSheet.create({
+  dock: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  // The radius lives here rather than in a class because GlassView shapes its
+  // native layer from the style it is given, and a rounded box with a square
+  // glass layer inside it is a square bar with rounded corners drawn on it.
+  bar: { borderRadius: 24, overflow: "hidden" },
+});
 
 type TPickedFile = {
   file: File;

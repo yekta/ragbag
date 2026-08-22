@@ -1,4 +1,12 @@
-import { createContext, use, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { authClient } from "@/lib/auth";
 import { loadIdentity, saveIdentity, type TIdentity } from "@/lib/identity";
 import { useOnline } from "@/lib/network";
@@ -18,6 +26,8 @@ type TIdentityValue = {
   status: TSessionStatus;
   /** The stored identity has been read; before this, nothing may paint. */
   ready: boolean;
+  /** Accept a freshly authenticated user immediately; persistence follows. */
+  remember: (identity: TIdentity) => void;
   /** Forget this device's identity, for an explicit sign-out. */
   forget: () => void;
 };
@@ -26,6 +36,7 @@ const IdentityContext = createContext<TIdentityValue>({
   identity: null,
   status: "checking",
   ready: false,
+  remember: () => undefined,
   forget: () => undefined,
 });
 
@@ -38,6 +49,12 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
   const online = useOnline();
   const [stored, setStored] = useState<TIdentity | null>(null);
   const [ready, setReady] = useState(false);
+
+  const remember = useCallback((identity: TIdentity) => {
+    setStored(identity);
+    void saveIdentity(identity);
+  }, []);
+  const forget = useCallback(() => setStored(null), []);
 
   useEffect(() => {
     void loadIdentity().then((found) => {
@@ -55,9 +72,8 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
       userID: session.data.user.id,
       email: session.data.user.email || "you",
     };
-    void saveIdentity(identity);
-    setStored(identity);
-  }, [session.data]);
+    remember(identity);
+  }, [remember, session.data]);
 
   const value = useMemo<TIdentityValue>(() => {
     let identity: TIdentity | null;
@@ -78,8 +94,8 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
       identity = stored;
       status = "expired";
     }
-    return { identity, status, ready, forget: () => setStored(null) };
-  }, [online, ready, session.data, session.error, session.isPending, stored]);
+    return { identity, status, ready, remember, forget };
+  }, [forget, online, ready, remember, session.data, session.error, session.isPending, stored]);
 
   return <IdentityContext value={value}>{children}</IdentityContext>;
 }

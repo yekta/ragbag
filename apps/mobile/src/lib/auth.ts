@@ -7,6 +7,7 @@ import {
 import { anonymousClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
+import type { TIdentity } from "@/lib/identity";
 import { API_BASE, APP_SCHEME, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "@/lib/api";
 
 // Sign-in, on a device that has no cookie jar.
@@ -85,27 +86,52 @@ export function authHeaders(): Record<string, string> {
  * Better Auth resolves with `{data, error}` instead of throwing, so an
  * immediate failure is handed back for the screen to show.
  */
-export async function signInWithGoogle(): Promise<string | undefined> {
+export type TGoogleSignInResult = { identity?: TIdentity; error?: string };
+
+export async function signInWithGoogle(): Promise<TGoogleSignInResult> {
   if (!GOOGLE_IOS_CLIENT_ID || !GOOGLE_WEB_CLIENT_ID) {
-    return "Google Sign-In is missing its iOS or Web client ID.";
+    return { error: "Google Sign-In is missing its iOS or Web client ID." };
   }
 
   try {
     await GoogleSignin.hasPlayServices();
     const response = await GoogleSignin.signIn();
-    if (isCancelledResponse(response)) return undefined;
+    if (isCancelledResponse(response)) return {};
     if (!isSuccessResponse(response) || !response.data.idToken) {
-      return "Google did not return an identity token.";
+      return { error: "Google did not return an identity token." };
     }
 
-    const { error } = await authClient.signIn.social({
+    const { data, error } = await authClient.signIn.social({
       provider: "google",
       idToken: { token: response.data.idToken },
     });
-    if (!error) return undefined;
-    return error.message ?? error.statusText ?? `Sign-in failed (${error.status}).`;
+    if (error) {
+      return { error: error.message ?? error.statusText ?? `Sign-in failed (${error.status}).` };
+    }
+    if (!data || !("user" in data) || !data.user?.id) {
+      return { error: "Google sign-in succeeded, but the server returned no user." };
+    }
+
+    // The Expo plugin has finished persisting Set-Cookie before signIn.social
+    // resolves. Verify that handoff instead of treating a Google user alone as
+    // a usable app session: Zero and every API request need this same cookie.
+    const cookie = await authClient.getCookie();
+    if (!cookie) {
+      return { error: "Google sign-in succeeded, but the app could not store its session." };
+    }
+    const verified = await authClient.getSession();
+    if (verified.error || !verified.data?.user.id) {
+      return { error: verified.error?.message ?? "The new session could not be verified." };
+    }
+
+    return {
+      identity: {
+        userID: verified.data.user.id,
+        email: verified.data.user.email || "you",
+      },
+    };
   } catch (error) {
-    return error instanceof Error ? error.message : "Google Sign-In failed.";
+    return { error: error instanceof Error ? error.message : "Google Sign-In failed." };
   }
 }
 

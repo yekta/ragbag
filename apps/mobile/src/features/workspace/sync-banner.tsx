@@ -21,7 +21,7 @@ import { toast } from "@/lib/toast";
 // pointless sign-in. `offline` is nobody's and simply reports.
 
 export function SyncBanner() {
-  const { status } = useIdentity();
+  const { status, remember } = useIdentity();
   const sync = useSyncStatus(status === "expired");
   const meta = useMeta();
   const zero = useZero();
@@ -36,8 +36,9 @@ export function SyncBanner() {
           <BannerButton
             label="Sign in"
             onPress={() =>
-              void signInWithGoogle().then((error) => {
-                if (error) toast.error(error);
+              void signInWithGoogle().then((result) => {
+                if (result.error) toast.error(result.error);
+                if (result.identity) remember(result.identity);
               })
             }
           />

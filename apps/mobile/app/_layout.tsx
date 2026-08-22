@@ -19,11 +19,9 @@ import "../global.css";
 // fully offline, and a banner nudges when sync needs a sign-in. Only an
 // explicit sign-out clears the identity, and the local data with it.
 //
-// `<Slot/>` rather than `<Stack/>`, and that is load-bearing: the workspace
-// layout below this one hosts a UISplitViewController on iOS, and
-// react-native-screens refuses to mount one inside another navigator. Slot is
-// the one expo-router layout that is not one. Nothing is lost by it: there is
-// no transition worth animating between the sign-in screen and the archive.
+// `<Slot/>` rather than `<Stack/>`: there is no transition worth animating
+// between the sign-in screen and the archive, and a navigator here would put
+// its own header and its own back gesture over a shell that already owns both.
 
 // Before the first render, not in an effect: uniwind resolves every className
 // against the current theme, so a theme applied after mount is one frame of

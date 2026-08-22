@@ -4,8 +4,7 @@ import { mutators, queries } from "@ragbag/contracts";
 import type { TMetaResponse } from "@ragbag/contracts";
 import { faceForMime } from "@ragbag/shared";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { Link, usePathname } from "expo-router";
-import type { Href } from "expo-router";
+import { Link } from "expo-router";
 import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,10 +13,19 @@ import { Logo } from "@/components/logo";
 import { Text } from "@/components/text";
 import { useEntityTypes } from "@/features/session/entity-types";
 import { useIdentity } from "@/features/session/identity-provider";
+import { useSidebar } from "@/features/sidebar/workspace-shell";
 import { useBlobQueue, useBlobQueueState } from "@/lib/blobs/queue";
 import { useMeta } from "@/lib/meta";
 import { runMutation } from "@/lib/mutate";
-import { EVERYTHING, filterHref, settingsHref, useFilter, type TFilter } from "@/lib/routes";
+import {
+  EVERYTHING,
+  filterHref,
+  sameFilter,
+  searchHref,
+  settingsHref,
+  useFilter,
+  type TFilter,
+} from "@/lib/routes";
 import { useSyncStatus, type TSyncStatus } from "@/lib/sync-status";
 import { toast } from "@/lib/toast";
 import { WHOLE_ARCHIVE } from "@/features/workspace/workspace-provider";
@@ -25,17 +33,25 @@ import { WHOLE_ARCHIVE } from "@/features/workspace/workspace-provider";
 // What the sidebar holds: the chat and the things in it, over the
 // locally-synced archive, plus sync state and the account.
 //
-// This file is shared by both platforms. Where it is *hosted* is not: iOS puts
-// it in a UISplitViewController column and Android in a drawer
-// (./workspace-shell.ios.tsx and .android.tsx), which is the whole reason the
-// contents are separate from the container. Nothing below knows which one it
-// is inside.
+// This file is the sidebar's contents; ./workspace-shell.tsx is the drawer it
+// is revealed from. The split is worth keeping now that the container is one
+// file rather than two: nothing below knows how it got on screen, and the only
+// thing it asks the shell for is a way to close itself.
 //
 // Every filter row is a `<Link>` to the path that view lives at
 // (lib/routes.ts), not a button that sets a variable. Which row is lit is
-// answered by comparing the row's own target against the current path, so a
+// answered by comparing the row's own target against the current one, so a
 // row cannot be highlighted as a view it does not point at, and there is no
 // second copy of "where am I" to drift out of step with the route.
+//
+// Two things every row here has to do besides navigate, and both are the
+// drawer's doing. It closes: the sidebar is not a column that stays, it is a
+// surface you came out of to pick something. And a view of the archive
+// *replaces* the one under it rather than pushing over it, because these rows
+// are siblings and not a path down into anything: pushing meant a stack that
+// grew every time you changed your mind, under a header whose left-hand
+// control is the sidebar button rather than a back chevron, so nothing could
+// ever pop it again.
 
 const SYNC_DOT: Record<TSyncStatus["name"], [tone: string, label: string]> = {
   synced: ["bg-success-foreground", "Synced"],
@@ -75,6 +91,7 @@ function MenuCount({ children }: { children: ReactNode }) {
 }
 
 export function Sidebar() {
+  const { close } = useSidebar();
   const [messages] = useQuery(queries.messages(WHOLE_ARCHIVE));
   const [entities] = useQuery(queries.entities());
   const [tags] = useQuery(queries.tags());
@@ -113,7 +130,7 @@ export function Sidebar() {
             </Text>
             <SyncDot sync={sync} />
           </View>
-          <Link href={settingsHref} asChild>
+          <Link href={settingsHref} onPress={close} asChild>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Settings"
@@ -139,8 +156,9 @@ export function Sidebar() {
  * so this opens one.
  */
 function SearchRow() {
+  const { close } = useSidebar();
   return (
-    <Link href={"/search" as Href} asChild>
+    <Link href={searchHref} onPress={close} asChild>
       <Pressable
         accessibilityRole="search"
         className="mx-4 mb-2 h-11 flex-row items-center gap-2 rounded-lg border border-sidebar-border bg-background px-3 active:bg-background-hover"
@@ -235,13 +253,7 @@ function Filters({
   return (
     <>
       <View className="px-2 py-1">
-        <FilterRow
-          target={EVERYTHING}
-          exact
-          icon="inbox"
-          label="Messages"
-          count={messages.length}
-        />
+        <FilterRow target={EVERYTHING} icon="inbox" label="Messages" count={messages.length} />
         <FilterRow
           target={{ view: "favorites", tagId: filter.tagId }}
           icon="star"
@@ -297,32 +309,30 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 /**
  * One filter row.
  *
- * Lit by comparing this row's own destination against the path, which is the
- * same rule the web app gets from `<Link>`'s active state: the row that points
- * where you are is the row that is lit. `exact` for the archive itself,
- * because "/" is a prefix of every route in the app and a prefix test would
- * light Messages on every screen.
+ * Lit by comparing this row's own destination against the one the app is
+ * showing, which is the same rule the web app gets from `<Link>`'s active
+ * state: the row that points where you are is the row that is lit. A filter
+ * comparison rather than a string one, because `/` is a prefix of every path in
+ * the app and a prefix test lights Messages on every screen, while an exact
+ * test lights nothing at all while a sheet is open over the view.
  */
 function FilterRow({
   target,
   icon,
   label,
   count,
-  exact = false,
 }: {
   target: TFilter;
   icon: TIconName;
   label: string;
   count: number;
-  exact?: boolean;
 }) {
-  const href = filterHref(target);
-  const pathname = usePathname();
-  const path = String(href);
-  const active = exact ? pathname === path : pathname === path || pathname.startsWith(`${path}/`);
+  const { close } = useSidebar();
+  const current = useFilter();
+  const active = sameFilter(target, current);
 
   return (
-    <Link href={href} asChild>
+    <Link href={filterHref(target)} replace onPress={close} asChild>
       <Pressable
         accessibilityRole="link"
         accessibilityState={{ selected: active }}
